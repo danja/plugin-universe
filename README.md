@@ -16,9 +16,15 @@ The catalogue is **CC0**. User-authored prose is CC BY-SA.
 
 ## Status
 
-Phase 0 (foundations) is complete: configuration, vocabularies, the SPARQL
-store layer with per-graph licensing, the persisted vector index, and the
-embedding pipeline, with tests against live services.
+Phase 0 (foundations) is complete. Phase 1 (harvest and search) is largely
+complete: harvesters for the seed repositories, the normaliser, the ingest
+pipeline, hybrid retrieval, and a read-only API and search UI.
+
+The catalogue currently holds **86 plugins** harvested from
+[downspout](https://github.com/danja/downspout) (50, VST3) and
+[flues](https://github.com/danja/flues) (36, LV2), with their parameters
+described as `lv2:port`. Hybrid retrieval scores MRR 0.893 on the fixture
+corpus against 0.844 for vector similarity alone.
 
 ## Requirements
 
@@ -42,6 +48,27 @@ Create the dataset if your store does not already have one:
 curl -X POST http://localhost:3030/\$/datasets \
      --data 'dbName=plugin-universe&dbType=tdb2'
 ```
+
+## Use
+
+```sh
+node bin/ingest.js              # harvest the seed sources and build the index
+node bin/search.js "warm analogue bus compressor"
+node bin/search.js "reverb" --format LV2
+node bin/search.js --facets
+node bin/serve.js               # search UI and JSON API on :4100
+```
+
+The API is read-only and CORS-open, because a catalogue nobody can call from a
+browser is not much of an open dataset:
+
+| Endpoint | Returns |
+|---|---|
+| `GET /` | server-rendered search page |
+| `GET /search?q=&format=&category=` | hybrid search results as JSON |
+| `GET /facets` | facet values and counts |
+| `GET /plugin/<slug>` | one plugin — HTML, or Turtle/JSON-LD by `Accept` or `.ttl`/`.jsonld` |
+| `GET /health` | corpus and index size |
 
 ## Tests
 

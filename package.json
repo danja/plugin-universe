@@ -14,7 +14,11 @@
     "test:all": "vitest run",
     "test:watch": "vitest",
     "store:up": "docker compose up -d fuseki",
-    "store:down": "docker compose down"
+    "store:down": "docker compose down",
+    "ingest": "node bin/ingest.js",
+    "search": "node bin/search.js",
+    "serve": "node bin/serve.js",
+    "test:harvest": "vitest run --config vitest.core.config.js tests/harvest"
   },
   "dependencies": {
     "@rdfjs/namespace": "^2.0.0",

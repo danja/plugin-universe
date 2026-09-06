@@ -89,7 +89,27 @@ settled. Nothing user-visible.
 
 ---
 
-## Phase 1 — Harvest and search
+## Phase 1 — Harvest and search — **IN PROGRESS**
+
+Done: the harvester interface and the downspout and LV2 harvesters; the
+normaliser; per-source graphs with licence flags; the serialiser onto
+`lv2:port`; the ingest pipeline with IRI-collision detection; the embedding
+pipeline; hybrid retrieval with an IDF-weighted lexical signal; the read API
+with content negotiation and a server-rendered search UI.
+
+Corpus: **86 plugins** (50 downspout VST3, 36 flues LV2), 8,135 triples.
+Retrieval on the fixture corpus: **MRR 0.893** hybrid against 0.844
+vector-only; recall@1 87% against 80%. 144 tests pass, 43 against live
+Fuseki and Ollama.
+
+Still to do: the open-audio-stack registry harvester, the DOAP/GitHub harvester,
+SHACL shapes (deferred from Phase 0), and the AUFX-O alignment graph.
+
+One calibration worth carrying forward: `minSimilarity` in
+`config/preferences.js` is tied to the embedding model, not chosen on
+intuition. nomic-embed-text:v1.5 compresses cosine into roughly 0.45-0.70, so
+the original 0.35 floor excluded nothing and every query returned a full page
+of noise. Re-measure it if the model changes.
 
 **Goal.** A public, read-only search over a real corpus. The system does something useful.
 

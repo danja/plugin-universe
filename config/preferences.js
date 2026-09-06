@@ -22,8 +22,16 @@ export const RETRIEVAL_CONFIG = {
   vectorWeight: 0.7,
 
   // Minimum cosine similarity for a vector hit to be considered at all.
-  // Below this the match is noise rather than a weak result.
-  minSimilarity: 0.35,
+  //
+  // This number is calibrated to the embedding model, not chosen on intuition,
+  // and must be re-measured if the model changes. nomic-embed-text:v1.5 does
+  // not use the full cosine range: measured against the 86-plugin catalogue,
+  // pure nonsense ("zzzzqqqxyzzy") scores 0.53-0.54, a real query for something
+  // the catalogue does not contain scores 0.51-0.54, a genuine topical match
+  // scores 0.60-0.64, and an exact name match scores 0.67. An 0.35 floor
+  // therefore excluded nothing at all and let every query return a full page of
+  // noise. 0.58 sits in the gap between "nothing relevant" and "relevant".
+  minSimilarity: 0.58,
 
   // Candidates pulled from the ANN index before fusion and filtering.
   candidateLimit: 200,

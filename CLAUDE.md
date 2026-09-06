@@ -18,6 +18,11 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
 
 ## Layout
 
+- `src/harvest/` — `Harvester` (the interface), `DownspoutHarvester`, `Lv2Harvester`,
+  `Normaliser` (where vocabulary defects are fixed), `PluginSerialiser`, `IngestPipeline`
+- `src/search/` — `SearchService` (hybrid retrieval), `LexicalIndex` (IDF-weighted lexical signal)
+- `src/api/` — `server.js` (read-only JSON + HTML, content negotiation), `render.js`
+- `bin/` — `ingest.js`, `search.js`, `serve.js`
 - `src/rdf/` — `NamespaceManager` (the single prefix registry), `URIMinter`
 - `src/store/` — `SPARQLClient`, `SPARQLHelper` (term formatting), `QueryService`
   (file-based query loading), `GraphRegistry` (named graphs, provenance, licence flags)
@@ -38,6 +43,14 @@ Read those before making structural changes.
   Do not SELECT rows out of SPARQL and compute cosine similarity in JavaScript.
 - **Embeddings are stored out of band**, keyed by plugin IRI. The graph records the model, dimension
   and generation time; the vectors live in the index, never as JSON string literals in RDF.
+- **A harvester declares its licence and provenance, and never guesses either.** Adding a source
+  means adding a row to the terms review in `docs/resources.md` §4 first.
+- **Minting must be unique as well as idempotent.** Identity is bundle name and class ID where the
+  format provides them, and the plugin's own canonical IRI where it does not (LV2). `IngestPipeline`
+  refuses to write when two records mint the same IRI — a silent merge of two plugins is expensive
+  to discover later.
+- **Skip build trees when harvesting a repository.** A repo typically holds the same bundle in
+  source, build, staging and release copies.
 - **Discovery beats curation for technical facts.** When a scan and a curated profile disagree about
   a bundle name or a parameter range, the scan wins. Source precedence, highest first: profiler
   measurement, discovery scan, vendor submission, open registry, curated editorial, user

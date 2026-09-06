@@ -94,13 +94,26 @@ export class URIMinter {
    * A plugin's identity is its vendor, its bundle name and, where the format
    * provides one, its class ID. Anything else (version, download URL, category)
    * changes over a plugin's life and must stay out of the tuple.
+   *
+   * Where the format gives a plugin a canonical IRI of its own and there is no
+   * bundle to identify it by — LV2 is the case that matters — that IRI *is* the
+   * identity, and using it is both more correct and more unique. Without this,
+   * every LV2 plugin from one maintainer hashes to the same value, and any two
+   * sharing a display name collapse into one catalogue entry.
+   *
+   * Bundle name and class ID are preferred over the canonical IRI when present,
+   * so that the same VST3 harvested from two sources still deduplicates.
    */
-  mintPlugin ({ name, vendor, bundleName, classId }) {
+  mintPlugin ({ name, vendor, bundleName, classId, sourceIri }) {
     if (!name) throw new URIMintError('A plugin needs a name to mint an IRI')
-    const identity = [vendor, bundleName, classId].filter(Boolean)
+
+    const identity = (bundleName || classId)
+      ? [vendor, bundleName, classId].filter(Boolean)
+      : [sourceIri, vendor].filter(Boolean)
+
     if (identity.length === 0) {
       throw new URIMintError(
-        `Cannot mint an IRI for plugin "${name}": need at least one of vendor, bundleName, classId`
+        `Cannot mint an IRI for plugin "${name}": need a bundleName, a classId, or a canonical source IRI`
       )
     }
     return this.mint('plugin', name, identity)

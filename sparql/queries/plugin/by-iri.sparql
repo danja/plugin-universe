@@ -1,0 +1,16 @@
+# Full description of one plugin, including its ports and CC mappings.
+SELECT ?p ?o ?portSymbol ?portName ?portMin ?portMax ?portDefault ?portUnit
+WHERE {
+  { GRAPH ?g { ${plugin} ?p ?o } FILTER(!isBlank(?o)) }
+  UNION
+  {
+    GRAPH ?g {
+      ${plugin} lv2:port ?port .
+      ?port lv2:symbol ?portSymbol ; lv2:name ?portName .
+      OPTIONAL { ?port lv2:minimum ?portMin }
+      OPTIONAL { ?port lv2:maximum ?portMax }
+      OPTIONAL { ?port lv2:default ?portDefault }
+      OPTIONAL { ?port pu:unitLabel ?portUnit }
+    }
+  }
+}

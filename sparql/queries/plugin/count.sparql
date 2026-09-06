@@ -1,0 +1,2 @@
+SELECT (COUNT(DISTINCT ?plugin) AS ?count)
+WHERE { GRAPH ?g { ?plugin a trn:PluginProfile } }

@@ -1,0 +1,21 @@
+# Facet counts for the search UI: how many plugins carry each format, role and
+# category. Driven by the data rather than a hardcoded list, so a new source
+# adding a category makes it appear.
+SELECT ?facet ?value (COUNT(DISTINCT ?plugin) AS ?count)
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile .
+    {
+      ?plugin trn:format ?v . BIND("format" AS ?facet)
+    } UNION {
+      ?plugin trn:role ?v . BIND("role" AS ?facet)
+    } UNION {
+      ?plugin pu:category ?v . BIND("category" AS ?facet)
+    } UNION {
+      ?plugin trn:vendor ?vendorName . BIND("vendor" AS ?facet)
+    }
+    BIND(COALESCE(?vendorName, REPLACE(STR(?v), "^.*/", "")) AS ?value)
+  }
+}
+GROUP BY ?facet ?value
+ORDER BY ?facet DESC(?count) ?value

@@ -48,6 +48,30 @@ describe('URIMinter', () => {
     expect(() => minter.mintPlugin({ name: 'Orphan' })).toThrow(URIMintError)
   })
 
+  it('distinguishes plugins that share a name but have distinct canonical IRIs', () => {
+    // Six flues bundles share doap:name "Flues Synthesizers". Identity from
+    // vendor alone collapsed them into one catalogue entry; the LV2 plugin's
+    // own IRI is what tells them apart.
+    const a = minter.mintPlugin({
+      name: 'Flues Synthesizers', vendor: 'Danny Ayers',
+      sourceIri: 'https://danja.github.io/flues/plugins/ants'
+    })
+    const b = minter.mintPlugin({
+      name: 'Flues Synthesizers', vendor: 'Danny Ayers',
+      sourceIri: 'https://danja.github.io/flues/plugins/bassgen'
+    })
+    expect(a).not.toBe(b)
+  })
+
+  it('prefers bundle name over canonical IRI, so one VST3 from two sources dedupes', () => {
+    const fromProfile = minter.mintPlugin({
+      name: 'Drift', vendor: 'danja', bundleName: 'drift.vst3',
+      sourceIri: 'http://purl.org/stuff/transmissions/plugins/downspout/drift'
+    })
+    const fromScan = minter.mintPlugin({ name: 'Drift', vendor: 'danja', bundleName: 'drift.vst3' })
+    expect(fromProfile).toBe(fromScan)
+  })
+
   it('refuses an identity tuple with an empty part, since it would be unstable', () => {
     expect(() => minter.mint('plugin', 'x', ['a', ''])).toThrow(URIMintError)
   })

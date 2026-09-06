@@ -1,0 +1,25 @@
+# Everything the embedding pipeline needs to compose a plugin's retrieval text,
+# and everything the lexical signal matches against.
+#
+# GROUP_CONCAT keeps this to one row per plugin: the alternative is a join
+# explosion across roles, categories and 900-odd ports.
+SELECT ?plugin ?name ?vendor ?description
+       (GROUP_CONCAT(DISTINCT ?roleLabel; separator=", ") AS ?roles)
+       (GROUP_CONCAT(DISTINCT ?categoryLabel; separator=", ") AS ?categories)
+       (GROUP_CONCAT(DISTINCT ?formatLabel; separator=", ") AS ?formats)
+       (GROUP_CONCAT(DISTINCT ?portName; separator=", ") AS ?parameters)
+       (GROUP_CONCAT(DISTINCT ?caution; separator=" ") AS ?cautions)
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile ; rdfs:label ?name .
+    OPTIONAL { ?plugin trn:vendor ?vendor }
+    OPTIONAL { ?plugin rdfs:comment ?description }
+    OPTIONAL { ?plugin trn:caution ?caution }
+    OPTIONAL { ?plugin trn:role ?role      BIND(REPLACE(STR(?role), "^.*/", "") AS ?roleLabel) }
+    OPTIONAL { ?plugin trn:format ?format  BIND(REPLACE(STR(?format), "^.*/", "") AS ?formatLabel) }
+    OPTIONAL { ?plugin pu:category ?cat    BIND(REPLACE(STR(?cat), "^.*/", "") AS ?categoryLabel) }
+    OPTIONAL { ?plugin lv2:port ?port . ?port lv2:name ?portName }
+  }
+}
+GROUP BY ?plugin ?name ?vendor ?description
+ORDER BY ?name

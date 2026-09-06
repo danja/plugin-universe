@@ -1,0 +1,10 @@
+# The IRIs of plugins matching a facet filter. Applied as a filter on retrieval
+# candidates, never as a score: a user asking for LV2 plugins does not want a
+# VST3 ranked highly because it matched the words better.
+SELECT DISTINCT ?plugin
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile .
+    ${conditions}
+  }
+}
