@@ -1,0 +1,29 @@
+{
+  "name": "plugin-universe",
+  "version": "0.1.0",
+  "description": "An open, RDF-backed database of DAW plugins with semantic search",
+  "type": "module",
+  "license": "CC0-1.0",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run --config vitest.core.config.js",
+    "test:store": "vitest run --config vitest.store.config.js",
+    "test:all": "vitest run",
+    "test:watch": "vitest",
+    "store:up": "docker compose up -d fuseki",
+    "store:down": "docker compose down"
+  },
+  "dependencies": {
+    "@rdfjs/namespace": "^2.0.0",
+    "faiss-node": "^0.5.1",
+    "loglevel": "^1.9.1",
+    "rdf-ext": "^2.5.1",
+    "rdf-parse": "^4.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  }
+}

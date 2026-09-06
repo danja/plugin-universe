@@ -1,0 +1,4 @@
+# Remove a graph's registration, so re-registering updates rather than
+# accumulating. Run immediately before graph/register.
+DELETE { GRAPH ${metadataGraph} { ${graph} ?p ?o } }
+WHERE  { GRAPH ${metadataGraph} { ${graph} ?p ?o } }

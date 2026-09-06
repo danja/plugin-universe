@@ -1,0 +1,25 @@
+services:
+  fuseki:
+    image: secoresearch/fuseki:latest
+    container_name: plugin-universe-fuseki
+    ports:
+      - "${FUSEKI_PORT:-3030}:3030"
+    environment:
+      ADMIN_PASSWORD: ${SPARQL_PASSWORD:?SPARQL_PASSWORD must be set}
+      ENABLE_DATA_WRITE: "true"
+      ENABLE_UPDATE: "true"
+      ENABLE_UPLOAD: "true"
+      JVM_ARGS: -Xmx2g
+    volumes:
+      - fuseki-data:/fuseki/databases
+      - ./config/fuseki/assembler-tdb2.ttl:/fuseki/config/plugin-universe.ttl:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3030/$$/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  fuseki-data:

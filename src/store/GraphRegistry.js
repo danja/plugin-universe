@@ -1,0 +1,181 @@
+import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import { iri, literal, typedLiteral, dropGraphQuery } from './SPARQLHelper.js'
+import QueryService from './QueryService.js'
+import { SOURCE_PRECEDENCE } from '../../config/preferences.js'
+
+/**
+ * Named graphs, their provenance, and their licence.
+ *
+ * Every triple in this system lives in a graph that says where it came from and
+ * what may be done with it. That is the whole basis of the licensing design:
+ * assembling a CC0 dump is a query over the licence flag rather than an audit
+ * of individual statements, and re-harvesting a source is a DROP of one graph
+ * rather than a surgical delete.
+ *
+ * A graph created without a licence is a bug. There is no default, because a
+ * wrong guess here is a licensing error rather than a runtime error, and it
+ * would not surface until publication.
+ *
+ * See docs/architecture.md §3 and §8.
+ */
+
+/** Graph kinds, and the source-precedence class each belongs to. */
+export const GRAPH_KINDS = Object.freeze({
+  source: { prefix: 'graph:source', precedence: 'registry' },
+  vendor: { prefix: 'graph:vendor', precedence: 'vendor' },
+  user: { prefix: 'graph:user', precedence: 'user' },
+  profiler: { prefix: 'graph:profiler', precedence: 'measurement' },
+  discovery: { prefix: 'graph:discovery', precedence: 'discovery' },
+  curated: { prefix: 'graph:curated', precedence: 'curated' },
+  alignment: { prefix: 'graph:alignment', precedence: 'curated' },
+  system: { prefix: 'graph:system', precedence: 'curated' }
+})
+
+/**
+ * Licences a graph may carry, and whether its content may appear in the public
+ * CC0 dump.
+ *
+ * `redistributable` answers "may this leave the building at all". `cc0Dump`
+ * answers "may it go into the CC0 dataset without a notice". MIT and ISC data
+ * is redistributable but carries a notice, so it needs its own dump section.
+ */
+export const LICENCES = Object.freeze({
+  'CC0-1.0': { redistributable: true, cc0Dump: true, notice: false },
+  'CC-BY-SA-4.0': { redistributable: true, cc0Dump: false, notice: true },
+  MIT: { redistributable: true, cc0Dump: false, notice: true },
+  ISC: { redistributable: true, cc0Dump: false, notice: true },
+  'proprietary-linkout': { redistributable: false, cc0Dump: false, notice: true },
+  unknown: { redistributable: false, cc0Dump: false, notice: true }
+})
+
+export class GraphError extends Error {
+  constructor (message) {
+    super(message)
+    this.name = 'GraphError'
+  }
+}
+
+export class GraphRegistry {
+  constructor (client, { metadataGraph = `${NAMESPACES.pu}graphs`, queries = new QueryService() } = {}) {
+    if (!client) throw new GraphError('GraphRegistry needs a SPARQLClient')
+    this.client = client
+    this.metadataGraph = metadataGraph
+    this.queries = queries
+  }
+
+  /**
+   * Build a graph IRI. Kind and id are structural; the IRI is derived, never
+   * passed in, so a typo cannot create a stray graph.
+   */
+  static graphIri (kind, id) {
+    const spec = GRAPH_KINDS[kind]
+    if (!spec) {
+      throw new GraphError(`Unknown graph kind "${kind}". Known: ${Object.keys(GRAPH_KINDS).join(', ')}`)
+    }
+    if (!id || !/^[a-z0-9][a-z0-9-]*$/.test(id)) {
+      throw new GraphError(`Graph id must be lowercase alphanumeric with hyphens, got ${JSON.stringify(id)}`)
+    }
+    return `${spec.prefix}/${id}`
+  }
+
+  static precedenceOf (kind) {
+    const spec = GRAPH_KINDS[kind]
+    if (!spec) throw new GraphError(`Unknown graph kind "${kind}"`)
+    return SOURCE_PRECEDENCE[spec.precedence]
+  }
+
+  /**
+   * Register a graph and record its provenance. Called by a harvester before it
+   * writes anything.
+   *
+   * @param {object} spec
+   * @param {string} spec.kind - a key of GRAPH_KINDS
+   * @param {string} spec.id - stable identifier for the source, e.g. 'downspout'
+   * @param {string} spec.licence - a key of LICENCES. Required: there is no default.
+   * @param {string} spec.derivedFrom - IRI or URL the data came from
+   * @param {string} [spec.runId] - harvest run identifier
+   * @param {string} [spec.comment]
+   */
+  async register ({ kind, id, licence, derivedFrom, runId = null, comment = null }) {
+    if (!licence) {
+      throw new GraphError(
+        `Graph ${kind}/${id} was registered without a licence. Every graph must declare one — ` +
+        'the CC0 dump is assembled by querying this field, so an unset licence is a licensing bug, ' +
+        `not a missing default. Use "unknown" deliberately if that is the truth. Known: ${Object.keys(LICENCES).join(', ')}`
+      )
+    }
+    if (!(licence in LICENCES)) {
+      throw new GraphError(`Unknown licence "${licence}". Known: ${Object.keys(LICENCES).join(', ')}`)
+    }
+    if (!derivedFrom) {
+      throw new GraphError(`Graph ${kind}/${id} must record what it was derived from`)
+    }
+
+    const graph = GraphRegistry.graphIri(kind, id)
+    const now = new Date()
+    const terms = LICENCES[licence]
+
+    // Optional provenance, appended as extra predicate-object pairs so the
+    // template stays one shape whether or not they are present.
+    const optional = []
+    if (runId) optional.push(`pu:harvestRun ${literal(runId)}`)
+    if (comment) optional.push(`rdfs:comment ${literal(comment)}`)
+    optional.push(`dcterms:title ${literal(id)}`)
+
+    // Replace any previous registration, so a re-harvest updates rather than
+    // accumulates.
+    await this.client.update(this.queries.get('graph/deregister', {
+      metadataGraph: iri(this.metadataGraph),
+      graph: iri(graph)
+    }))
+    await this.client.update(this.queries.get('graph/register', {
+      metadataGraph: iri(this.metadataGraph),
+      graph: iri(graph),
+      kind: literal(kind),
+      identifier: literal(id),
+      licence: literal(licence),
+      redistributable: typedLiteral(terms.redistributable),
+      inCC0Dump: typedLiteral(terms.cc0Dump),
+      precedence: typedLiteral(GraphRegistry.precedenceOf(kind)),
+      derivedFrom: literal(derivedFrom),
+      generatedAtTime: typedLiteral(now),
+      optional: optional.join(' ;\n      ') + ' .'
+    }))
+
+    return graph
+  }
+
+  /** Every registered graph with its licence terms. */
+  async list () {
+    return this.client.select(this.queries.get('graph/list', {
+      metadataGraph: iri(this.metadataGraph)
+    }))
+  }
+
+  /**
+   * The graphs a CC0 dump may draw on. This is the query the whole licensing
+   * design exists to make possible — note that it is one query, not a review.
+   */
+  async cc0DumpGraphs () {
+    const rows = await this.client.select(this.queries.get('graph/cc0-dump-graphs', {
+      metadataGraph: iri(this.metadataGraph)
+    }))
+    return rows.map(row => row.graph)
+  }
+
+  /** Re-harvesting a source is a DROP of its graph, never a selective delete. */
+  async drop (kind, id) {
+    const graph = GraphRegistry.graphIri(kind, id)
+    await this.client.update(dropGraphQuery(graph))
+    return graph
+  }
+
+  async isRegistered (kind, id) {
+    return this.client.ask(this.queries.get('graph/is-registered', {
+      metadataGraph: iri(this.metadataGraph),
+      graph: iri(GraphRegistry.graphIri(kind, id))
+    }))
+  }
+}
+
+export default GraphRegistry

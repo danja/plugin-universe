@@ -1,0 +1,20 @@
+# Record a named graph's kind, licence and provenance.
+#
+# The licence fields are the basis of dump assembly: pu:inCC0Dump is what
+# graph/cc0-dump-graphs selects on. A graph without this record is invisible to
+# the dump and to conflict resolution, which is why registration happens before
+# a harvester writes anything.
+INSERT DATA {
+  GRAPH ${metadataGraph} {
+    ${graph} a pu:SourceGraph ;
+      pu:graphKind ${kind} ;
+      dcterms:identifier ${identifier} ;
+      dcterms:license ${licence} ;
+      pu:redistributable ${redistributable} ;
+      pu:inCC0Dump ${inCC0Dump} ;
+      pu:precedence ${precedence} ;
+      prov:wasDerivedFrom ${derivedFrom} ;
+      prov:generatedAtTime ${generatedAtTime} ;
+      ${optional}
+  }
+}

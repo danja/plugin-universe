@@ -1,0 +1,126 @@
+import { createHash } from 'crypto'
+import { NAMESPACES } from './NamespaceManager.js'
+
+/**
+ * IRI minting.
+ *
+ * IRIs live under http://purl.org/stuff/plugin-universe/ — a PURL that
+ * redirects to whatever host currently serves the site. Identity is therefore
+ * independent of the domain name, and a published IRI survives a change of
+ * hosting. Never mint an IRI under the serving domain.
+ *
+ * Minting is a content hash over the identifying tuple, so re-harvesting the
+ * same plugin produces the same IRI and ingest is idempotent for free.
+ *
+ * See docs/architecture.md §2.1.
+ */
+
+const TYPE_PATHS = Object.freeze({
+  plugin: 'plugin',
+  vendor: 'vendor',
+  person: 'person',
+  release: 'release',
+  measurement: 'measurement',
+  package: 'package'
+})
+
+/**
+ * Unit separator. Cannot occur in an identity part, so ['a', 'bc'] and
+ * ['ab', 'c'] cannot hash to the same value.
+ */
+const SEPARATOR = '\u001f'
+
+export class URIMintError extends Error {
+  constructor (message) {
+    super(message)
+    this.name = 'URIMintError'
+  }
+}
+
+/** Lowercase, ASCII, hyphen-separated. Empty input is an error, not a default. */
+export function slugify (text) {
+  if (typeof text !== 'string') {
+    throw new URIMintError(`Cannot slugify a ${typeof text}`)
+  }
+  const slug = text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  if (!slug) {
+    throw new URIMintError(`Slug is empty after normalising: ${JSON.stringify(text)}`)
+  }
+  return slug
+}
+
+export class URIMinter {
+  /**
+   * @param {string} [base] - defaults to the pu: namespace
+   */
+  constructor (base = NAMESPACES.pu) {
+    if (!base.endsWith('/')) throw new URIMintError(`Base IRI must end with "/": ${base}`)
+    this.base = base
+  }
+
+  /**
+   * Mint an IRI from a stable identifying tuple.
+   *
+   * @param {string} type - one of plugin, vendor, person, release, measurement, package
+   * @param {string} label - human-readable name, used for the readable part of the IRI
+   * @param {string[]} identity - the tuple that makes this thing this thing. Order matters
+   *   and must be stable across harvests, or the IRI is not idempotent.
+   */
+  mint (type, label, identity) {
+    const typePath = TYPE_PATHS[type]
+    if (!typePath) {
+      throw new URIMintError(`Unknown IRI type "${type}". Known: ${Object.keys(TYPE_PATHS).join(', ')}`)
+    }
+    if (!Array.isArray(identity) || identity.length === 0) {
+      throw new URIMintError(`Minting a ${type} IRI needs a non-empty identity tuple`)
+    }
+    if (identity.some(part => part === null || part === undefined || part === '')) {
+      throw new URIMintError(
+        `Identity tuple for ${type} "${label}" contains an empty part: ${JSON.stringify(identity)}. ` +
+        'An unstable tuple produces an unstable IRI; omit the field from the tuple instead.'
+      )
+    }
+    const canonical = identity.map(String).join(SEPARATOR)
+    const hash = createHash('sha256').update(canonical, 'utf8').digest('hex').slice(0, 8)
+    return `${this.base}${typePath}/${slugify(label)}-${hash}`
+  }
+
+  /**
+   * A plugin's identity is its vendor, its bundle name and, where the format
+   * provides one, its class ID. Anything else (version, download URL, category)
+   * changes over a plugin's life and must stay out of the tuple.
+   */
+  mintPlugin ({ name, vendor, bundleName, classId }) {
+    if (!name) throw new URIMintError('A plugin needs a name to mint an IRI')
+    const identity = [vendor, bundleName, classId].filter(Boolean)
+    if (identity.length === 0) {
+      throw new URIMintError(
+        `Cannot mint an IRI for plugin "${name}": need at least one of vendor, bundleName, classId`
+      )
+    }
+    return this.mint('plugin', name, identity)
+  }
+
+  mintVendor ({ name, homepage }) {
+    if (!name) throw new URIMintError('A vendor needs a name to mint an IRI')
+    return this.mint('vendor', name, [name, homepage].filter(Boolean))
+  }
+
+  /**
+   * A measurement is identified by what was measured, with what, on what, when.
+   * Two runs of the same tool on the same plugin are different measurements.
+   */
+  mintMeasurement ({ subject, tool, metric, platform, timestamp }) {
+    for (const [key, value] of Object.entries({ subject, tool, metric, platform, timestamp })) {
+      if (!value) throw new URIMintError(`A measurement IRI needs ${key}`)
+    }
+    return this.mint('measurement', metric, [subject, tool, metric, platform, timestamp])
+  }
+}
+
+export default URIMinter

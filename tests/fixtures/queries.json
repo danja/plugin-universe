@@ -1,0 +1,17 @@
+[
+  { "query": "warm analogue bus compressor for mix glue",            "expect": "urn:fixture:glue" },
+  { "query": "big lush reverb with long tails",                      "expect": "urn:fixture:cathedral" },
+  { "query": "generate MIDI CC automation locked to host tempo",     "expect": "urn:fixture:drift" },
+  { "query": "tape saturation with wow and flutter",                 "expect": "urn:fixture:tape" },
+  { "query": "surgical parametric equaliser many bands",             "expect": "urn:fixture:surgeon" },
+  { "query": "granular texture synthesis from samples",              "expect": "urn:fixture:granular" },
+  { "query": "monophonic bass synth with ladder filter",             "expect": "urn:fixture:bass" },
+  { "query": "drum sampler with round robin layers",                 "expect": "urn:fixture:drums" },
+  { "query": "tempo synced ping pong stereo delay",                  "expect": "urn:fixture:delay" },
+  { "query": "chromatic tuner for guitar",                           "expect": "urn:fixture:tuner" },
+  { "query": "brickwall limiter for mastering true peak",            "expect": "urn:fixture:limiter" },
+  { "query": "robot voice vocoder effect",                           "expect": "urn:fixture:vocoder" },
+  { "query": "something to squash my drum bus",                      "expect": "urn:fixture:glue" },
+  { "query": "make a sound wobble in time with the track",           "expect": "urn:fixture:drift" },
+  { "query": "add grit and analogue colour to a mix",                "expect": "urn:fixture:tape" }
+]

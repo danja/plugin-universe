@@ -1,0 +1,28 @@
+{
+  "baseUri": "http://purl.org/stuff/plugin-universe/",
+  "site": {
+    "domain": "plugin-universe.com",
+    "origin": "https://plugin-universe.com"
+  },
+  "storage": {
+    "type": "sparql",
+    "endpoint": {
+      "label": "local",
+      "urlBase": "${SPARQL_URL_BASE}",
+      "dataset": "${SPARQL_DATASET}",
+      "query": "${SPARQL_URL_BASE}/${SPARQL_DATASET}/query",
+      "update": "${SPARQL_URL_BASE}/${SPARQL_DATASET}/update",
+      "user": "${SPARQL_USER}",
+      "password": "${SPARQL_PASSWORD}"
+    }
+  },
+  "embedding": {
+    "provider": "ollama",
+    "baseUrl": "${OLLAMA_URL}",
+    "model": "nomic-embed-text:v1.5",
+    "dimension": 768
+  },
+  "index": {
+    "path": "data/plugin-universe.index"
+  }
+}

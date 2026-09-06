@@ -1,0 +1,101 @@
+@prefix pu:      <http://purl.org/stuff/plugin-universe/> .
+@prefix trn:     <http://purl.org/stuff/transmissions/> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov:    <http://www.w3.org/ns/prov#> .
+
+pu: a owl:Ontology ;
+    rdfs:label "Plugin Universe vocabulary" ;
+    rdfs:comment "Terms for the Plugin Universe catalogue that have no home in an existing vocabulary. Plugin description proper uses trn: for curated behaviour and lv2:/units: for parameters; this covers measurement, packaging and catalogue administration." ;
+    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> .
+
+## ── Catalogue administration ────────────────────────────────────────────────
+
+pu:SourceGraph a owl:Class ; rdfs:label "Source Graph" ;
+    rdfs:comment "A named graph holding data from one source, carrying its provenance and licence. Every triple in the catalogue lives in one of these." .
+
+pu:graphKind      a owl:DatatypeProperty ; rdfs:domain pu:SourceGraph ; rdfs:range xsd:string .
+pu:redistributable a owl:DatatypeProperty ; rdfs:domain pu:SourceGraph ; rdfs:range xsd:boolean ;
+    rdfs:comment "Whether this graph's content may be published at all." .
+pu:inCC0Dump      a owl:DatatypeProperty ; rdfs:domain pu:SourceGraph ; rdfs:range xsd:boolean ;
+    rdfs:comment "Whether this graph may appear in the CC0 dataset dump without an attached notice." .
+pu:precedence     a owl:DatatypeProperty ; rdfs:domain pu:SourceGraph ; rdfs:range xsd:integer ;
+    rdfs:comment "Source precedence for conflict resolution. Higher wins." .
+pu:harvestRun     a owl:DatatypeProperty ; rdfs:domain pu:SourceGraph ; rdfs:range xsd:string .
+
+## ── Packaging and distribution ──────────────────────────────────────────────
+## Modelled on the Open Audio Stack registry manifest.
+
+pu:Package a owl:Class ; rdfs:label "Package" ;
+    rdfs:comment "A distributable release of a plugin, preset, project or app." .
+
+pu:PackageFile a owl:Class ; rdfs:label "Package File" ;
+    rdfs:comment "One downloadable artefact of a package version." .
+
+pu:slug          a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "Registry identifier in organisation/package-name form." .
+pu:packageFile   a owl:ObjectProperty ; rdfs:domain pu:Package ; rdfs:range pu:PackageFile .
+pu:downloadUrl   a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:anyURI .
+pu:sha256        a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string .
+pu:fileSize      a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:integer .
+pu:containsFormat a owl:ObjectProperty ; rdfs:domain pu:PackageFile ; rdfs:range trn:PluginFormat .
+pu:architecture  a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string .
+pu:operatingSystem a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string .
+
+pu:verified a owl:DatatypeProperty ; rdfs:range xsd:boolean ;
+    rdfs:comment "The package slug's organisation matches the download URL's domain. Computed at harvest, never asserted by a submitter." .
+pu:attested a owl:DatatypeProperty ; rdfs:range xsd:boolean ;
+    rdfs:comment "A build artifact attestation exists for this file. Computed at harvest." .
+
+## ── Measurement ─────────────────────────────────────────────────────────────
+## Profiler output. A measurement is true of a plugin version on a machine at a
+## time, not of the plugin, so it is an observation rather than a property.
+
+pu:Measurement a owl:Class ; rdfs:label "Measurement" ;
+    rdfs:comment "One observation produced by a profiler run." .
+
+pu:Metric a owl:Class ; rdfs:label "Metric" .
+
+pu:CpuLoad          a pu:Metric ; rdfs:label "CPU load" ;
+    rdfs:comment "Fraction of one core consumed at the stated block size and sample rate." .
+pu:Latency          a pu:Metric ; rdfs:label "Reported latency" ; rdfs:comment "In samples." .
+pu:ScanTime         a pu:Metric ; rdfs:label "Scan time" ; rdfs:comment "Milliseconds to enumerate the plugin." .
+pu:ValidationResult a pu:Metric ; rdfs:label "Validation result" ;
+    rdfs:comment "Verdict from a format validator: pass, fail or crash." .
+pu:DenormalBehaviour a pu:Metric ; rdfs:label "Denormal behaviour" .
+pu:StateIntegrity   a pu:Metric ; rdfs:label "State save/restore integrity" .
+
+pu:subject    a owl:ObjectProperty ; rdfs:domain pu:Measurement ;
+    rdfs:comment "The plugin measured." .
+pu:metric     a owl:ObjectProperty ; rdfs:domain pu:Measurement ; rdfs:range pu:Metric .
+pu:value      a owl:DatatypeProperty ; rdfs:domain pu:Measurement .
+pu:tool       a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:string ;
+    rdfs:comment "Tool and version, e.g. 'pluginval 1.0.3'." .
+pu:platform   a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:string .
+pu:sampleRate a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:integer .
+pu:blockSize  a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:integer .
+pu:pluginVersion a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:string .
+
+## ── Embedding bookkeeping ───────────────────────────────────────────────────
+## The vectors themselves live in the index, not here. The graph records only
+## enough to know whether an embedding is current.
+
+pu:embeddingModel     a owl:DatatypeProperty ; rdfs:range xsd:string .
+pu:embeddingDimension a owl:DatatypeProperty ; rdfs:range xsd:integer .
+pu:embeddedAtTime     a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
+pu:composedTextHash   a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "Hash of the text that was embedded, so a stale embedding is detectable without re-embedding." .
+
+## ── Promotion ───────────────────────────────────────────────────────────────
+## Promotion records are ordinary graph resources, which is what makes a public
+## ad repository a query rather than a feature.
+
+pu:Promotion a owl:Class ; rdfs:label "Promotion" ;
+    rdfs:comment "A paid placement. Disclosed publicly: who paid, for what, and when." .
+
+pu:promotes    a owl:ObjectProperty ; rdfs:domain pu:Promotion .
+pu:paidBy      a owl:ObjectProperty ; rdfs:domain pu:Promotion .
+pu:startedAt   a owl:DatatypeProperty ; rdfs:domain pu:Promotion ; rdfs:range xsd:dateTime .
+pu:endsAt      a owl:DatatypeProperty ; rdfs:domain pu:Promotion ; rdfs:range xsd:dateTime .

@@ -1,0 +1,14 @@
+# The graphs a CC0 dump may draw on.
+#
+# This one query is what the whole per-graph licensing design exists to make
+# possible: assembling the public dataset is a selection, not an audit of
+# individual statements. Graphs under MIT, ISC or CC BY-SA are redistributable
+# but carry a notice, so they are published separately and excluded here.
+SELECT ?graph
+WHERE {
+  GRAPH ${metadataGraph} {
+    ?graph a pu:SourceGraph ;
+           pu:inCC0Dump true .
+  }
+}
+ORDER BY ?graph

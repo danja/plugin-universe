@@ -1,0 +1,13 @@
+# Every registered graph with its licence terms, most authoritative first.
+SELECT ?graph ?kind ?licence ?redistributable ?inCC0Dump ?precedence
+WHERE {
+  GRAPH ${metadataGraph} {
+    ?graph a pu:SourceGraph ;
+           pu:graphKind ?kind ;
+           dcterms:license ?licence ;
+           pu:redistributable ?redistributable ;
+           pu:inCC0Dump ?inCC0Dump ;
+           pu:precedence ?precedence .
+  }
+}
+ORDER BY DESC(?precedence) ?graph
