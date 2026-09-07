@@ -109,6 +109,17 @@ services:
       OLLAMA_URL: http://ollama:11434
       # Harvesting only. Absent is fine for serving.
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Sign-in. All three absent is a valid configuration — the site runs
+      # read-only and says so at startup. All three must be passed explicitly:
+      # a variable in .env that is not named here does not reach the container,
+      # which is how sign-in came to be silently disabled in production while
+      # working locally.
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      # Builds the OAuth callback URL; must match the GitHub OAuth App exactly.
+      # Defaults to site.origin in config/config.json.
+      SITE_ORIGIN: ${SITE_ORIGIN:-}
       PORT: "4100"
       # Measured, not guessed: serving the full 645-plugin catalogue the
       # container sits at 48 MB resident, and stays there through a 40-request
