@@ -90,6 +90,14 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
              border-radius:6px; overflow-x:auto; font-size:.82rem; line-height:1.5; }
 .prose pre code { background:none; padding:0; }
 .prose h1 + p, .prose h2 + p { margin-top:.4rem; }
+.correct { display:flex; flex-wrap:wrap; gap:.5rem; align-items:flex-end; margin:.6rem 0; }
+.correct label { display:flex; flex-direction:column; gap:.2rem; font-size:.8rem; color:var(--muted); }
+.correct input[type=text] { padding:.4rem .5rem; font-size:.9rem; border:1px solid var(--line);
+                            border-radius:6px; background:var(--bg); color:var(--fg); min-width:16rem; }
+.correct button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
+.err { color:#b3261e; font-size:.88rem; }
+.ok { color:var(--accent); font-size:.88rem; font-weight:600; }
+@media (prefers-color-scheme: dark) { .err { color:#f2b8b5; } }
 `
 
 /**
@@ -231,7 +239,7 @@ export function pluginJsonLd (doc) {
   return ld
 }
 
-export function renderPluginPage (doc, viewer = {}) {
+export function renderPluginPage (doc, viewer = {}, contribution = null) {
   const rows = [
     ['Vendor', doc.vendor],
     ['Formats', (doc.formats ?? []).join(', ')],
@@ -256,6 +264,7 @@ ${rows.map(([k, v]) => `<tr><th>${escape(k)}</th><td>${escape(v)}</td></tr>`).jo
 <tr><th>IRI</th><td><code>${escape(doc.iri)}</code></td></tr>
 </table>
 ${renderProvenance(doc)}
+${contribution ? renderCorrectionForm(doc, contribution) : ''}
 <p class="meta">Also available as
   <a href="${escape(doc.iri.replace(NAMESPACES.pu, '/'))}.ttl">Turtle</a>,
   <a href="${escape(doc.iri.replace(NAMESPACES.pu, '/'))}.jsonld">JSON-LD</a>.
@@ -319,6 +328,46 @@ export function categoryTurtle (slug, results) {
     lines.push(`${iri(result.iri)} pu:category ${iri(concept)} .`)
   }
   return lines.join('\n')
+}
+
+/**
+ * The suggest-a-correction form.
+ *
+ * Only for a signed-in viewer: an anonymous form would need its own spam
+ * defence and there would be nobody to attribute the contribution to. Someone
+ * signed out gets an invitation instead, carrying a return path so they come
+ * back to the plugin they were reading.
+ *
+ * The field list comes from CORRECTABLE, so the form and the validator cannot
+ * disagree about what may be changed.
+ */
+export function renderCorrectionForm (doc, { account, csrfToken, correctable, error, submitted }) {
+  const slug = doc.iri.split('/').pop()
+  if (!account) {
+    return `<div class="prov">
+  <h3>Something wrong?</h3>
+  <p><a href="/auth/login?return_to=${escape(`/plugin/${slug}`)}">Sign in</a> to suggest a correction.
+  Facts you contribute go into the public domain; see the <a href="/terms">contributor terms</a>.</p>
+</div>`
+  }
+
+  const options = Object.entries(correctable)
+    .map(([predicate, field]) => `<option value="${escape(predicate)}">${escape(field.label)}</option>`)
+    .join('')
+
+  return `<div class="prov">
+  <h3>Suggest a correction</h3>
+  ${error ? `<p class="err">${escape(error)}</p>` : ''}
+  ${submitted ? `<p class="ok">${escape(submitted)}</p>` : ''}
+  <form method="post" action="/plugin/${escape(slug)}/correct" class="correct">
+    <input type="hidden" name="csrf" value="${escape(csrfToken)}">
+    <label>Field <select name="predicate">${options}</select></label>
+    <label>Should be <input type="text" name="value" required maxlength="2000"></label>
+    <label>Why <input type="text" name="rationale" maxlength="1000" placeholder="optional"></label>
+    <button type="submit">Suggest</button>
+  </form>
+  <p class="tags">Contributed facts are CC0. See the <a href="/terms">contributor terms</a>.</p>
+</div>`
 }
 
 /**

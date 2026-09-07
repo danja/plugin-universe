@@ -122,6 +122,43 @@ export class Session {
     return attributes.join('; ')
   }
 
+  /**
+   * A CSRF token for a form, bound to the account that will submit it.
+   *
+   * Stateless, like the session: an HMAC over the account and an issue time, so
+   * there is no token store to keep and a token cannot be forged without the
+   * secret. Binding it to the account is what makes it a defence — an attacker
+   * can obtain a token for *their* account, and it will not validate against the
+   * victim's session.
+   *
+   * `SameSite=Lax` already stops a cross-site form post in any current browser.
+   * This is the second layer, for the browsers that do not and for the
+   * same-site-but-untrusted cases that will exist once there is user content on
+   * the page.
+   */
+  csrfToken (accountIri, issuedAt = Date.now()) {
+    if (!accountIri) throw new SessionError('A CSRF token needs an account')
+    const payload = `csrf|${accountIri}|${issuedAt}`
+    return `${issuedAt}.${this.#sign(payload)}`
+  }
+
+  /** True when the token was issued by us, for this account, recently. */
+  verifyCsrf (token, accountIri, now = Date.now()) {
+    if (typeof token !== 'string' || !accountIri) return false
+    const [issuedAt, signature] = token.split('.')
+    if (!issuedAt || !signature) return false
+    const issued = Number(issuedAt)
+    if (!Number.isFinite(issued)) return false
+    if (now - issued > this.maxAgeMs) return false
+    if (issued - now > 60_000) return false
+
+    const expected = this.#sign(`csrf|${accountIri}|${issuedAt}`)
+    const given = Buffer.from(signature)
+    const want = Buffer.from(expected)
+    if (given.length !== want.length) return false
+    return crypto.timingSafeEqual(given, want)
+  }
+
   /** The Set-Cookie header value that clears a session. */
   clearCookie ({ secure = true } = {}) {
     const attributes = [`${COOKIE_NAME}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0']

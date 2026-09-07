@@ -83,17 +83,22 @@ exercised, and the callback's rejections are tested, but nobody has actually sig
 `SITE_ORIGIN=http://localhost:4100 node bin/serve.js`, click the link, and check that an account
 appears in `<graph:system/accounts>` and the header shows the login.
 
+~~contributions~~, ~~the two graphs per contributor~~, ~~CSRF~~ — done. A signed-in reader can
+suggest a correction from the plugin page; it is validated, queued or applied by trust level,
+and an accepted one lands in `graph:user/<id>-facts` under CC0 without overwriting the harvested
+statement.
+
 Next, in order:
 
-* **contributions.** A typed correction — subject, predicate, proposed value, rationale —
-  validated against the SHACL shapes before it is written, landing in the contributor's CC0
-  graph. This is the first write of catalogue data by a person.
-* **the two graphs per contributor**, `graph:user/<id>-facts` and `-prose`, registered with
-  their respective licences at first contribution.
-* **the review queue** and the trust threshold that empties it.
-* **CSRF tokens** on the contribution forms. The OAuth flow has its state check; ordinary form
-  posts have nothing yet, and the moment there is a form that changes data they need one.
-* **wiki pages** with revisions as graph resources.
+* **the moderation queue UI.** `Corrections.pending()` exists and nothing displays it. Accept
+  and reject buttons, moderator-only, and the record of who decided.
+* **trust promotion.** `acceptedCount()` exists and nothing calls it; a contributor never
+  becomes trusted, so every correction queues forever. Five accepted is the threshold in
+  `config/preferences.js`.
+* **rate limiting.** `perAccountPerHour` is configured and unenforced.
+* **wiki pages** with revisions as graph resources — the CC BY-SA half, still untouched. The
+  `-prose` graph is registered and empty.
+* **a contributions page** per account, so a person can see what they proposed.
 
 ## Phase 3 — the plan
 

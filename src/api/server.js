@@ -11,6 +11,8 @@ import {
   renderCategoryPage, categoryTurtle, renderDocPage
 } from './render.js'
 import loadPage, { PAGES } from './pages.js'
+import { readForm, BodyError } from './body.js'
+import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 
 /**
  * The public read API.
@@ -94,7 +96,9 @@ export const VOCABULARIES = Object.freeze({
   shapes: 'vocabs/shapes.ttl'
 })
 
-export function createServer ({ search, config, projectRoot = process.cwd(), auth = null }) {
+export function createServer ({
+  search, config, projectRoot = process.cwd(), auth = null, corrections = null
+}) {
   if (!search) throw new Error('The API server needs a SearchService')
 
   // Fail at startup, not per request. A page whose source file is missing from
@@ -133,7 +137,8 @@ export function createServer ({ search, config, projectRoot = process.cwd(), aut
     // POST reaches the auth routes only. Everything else is still read-only,
     // and says so.
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
-    if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost) {
+    const isCorrectionPost = request.method === 'POST' && /^\/plugin\/[^/]+\/correct$/.test(url.pathname)
+    if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost && !isCorrectionPost) {
       return send(response, 405, { error: 'This API is read-only' })
     }
 
@@ -304,6 +309,60 @@ export function createServer ({ search, config, projectRoot = process.cwd(), aut
               renderCategoryPage(slug, outcome.results, outcome.total, viewer), 'text/html; charset=utf-8')
           }
 
+          // Suggesting a correction. The only route that writes catalogue data
+          // on behalf of a person, so every guard is here: signed in, not
+          // suspended, a CSRF token bound to that account, and a predicate from
+          // the whitelist. The value itself is checked by the validator.
+          const correcting = path.match(/^\/plugin\/([A-Za-z0-9-]+)\/correct$/)
+          if (correcting) {
+            if (!auth || !corrections) return send(response, 404, { error: 'Contributions are not enabled' })
+            const pluginIri = `${NAMESPACES.pu}plugin/${correcting[1]}`
+            const doc = search.documents.get(pluginIri)
+            if (!doc) return send(response, 404, { error: 'No such plugin' })
+
+            const account = viewer.account
+            if (!account) return send(response, 401, { error: 'Sign in to suggest a correction' })
+
+            let form
+            try {
+              form = await readForm(request)
+            } catch (error) {
+              return send(response, error.status ?? 400, { error: error.message })
+            }
+
+            if (!auth.session.verifyCsrf(form.get('csrf'), account.iri)) {
+              // Stale token, or a post that did not come from a page we served.
+              return send(response, 403, { error: 'That form has expired. Reload the page and try again.' })
+            }
+
+            const render = extra => sendText(response, extra.status ?? 200,
+              renderPluginPage(doc, viewer, {
+                account,
+                csrfToken: auth.session.csrfToken(account.iri),
+                correctable: CORRECTABLE,
+                ...extra
+              }), 'text/html; charset=utf-8')
+
+            try {
+              const result = await corrections.submit({
+                account,
+                subject: pluginIri,
+                predicate: form.get('predicate'),
+                value: form.get('value'),
+                rationale: form.get('rationale'),
+                currentValue: doc[CORRECTABLE[form.get('predicate')]?.docField] ?? null
+              })
+              return render({
+                submitted: result.status === 'accepted'
+                  ? 'Thank you — applied, and attributed to you.'
+                  : 'Thank you — queued for review.'
+              })
+            } catch (error) {
+              if (error instanceof CorrectionError) return render({ error: error.message, status: 400 })
+              throw error
+            }
+          }
+
           // /plugin/<slug>-<hash> resolves the catalogue IRI it denotes.
           const match = path.match(/^\/plugin\/([A-Za-z0-9-]+?)(\.ttl|\.jsonld|\.json)?$/)
           if (match) {
@@ -319,7 +378,14 @@ export function createServer ({ search, config, projectRoot = process.cwd(), aut
               case 'json':
                 return send(response, 200, { ...doc, licence: LICENCE })
               default:
-                return sendText(response, 200, renderPluginPage(doc, viewer), 'text/html; charset=utf-8')
+                return sendText(response, 200, renderPluginPage(doc, viewer,
+                  corrections
+                    ? {
+                        account: viewer.account,
+                        csrfToken: viewer.account ? auth.session.csrfToken(viewer.account.iri) : null,
+                        correctable: CORRECTABLE
+                      }
+                    : null), 'text/html; charset=utf-8')
             }
           }
           return send(response, 404, { error: 'No such endpoint', path })

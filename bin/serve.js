@@ -8,6 +8,7 @@ import SearchService from '../src/search/SearchService.js'
 import { createServer } from '../src/api/server.js'
 import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
+import Corrections from '../src/contrib/Corrections.js'
 
 logger.setLevel('info')
 
@@ -38,17 +39,21 @@ console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`
 const origin = process.env.SITE_ORIGIN ?? config.get('site.origin')
 const accounts = new Accounts(client)
 const auth = AuthRoutes.fromEnvironment({ accounts, origin })
+let corrections = null
 if (auth) {
   // Registered at startup, not at first sign-in: a graph holding personal data
   // that is not flagged as such is the one failure this design exists to
   // prevent, and it must not wait on somebody signing in.
   await accounts.ensureGraph()
+  corrections = new Corrections(client)
+  await corrections.ensureGraph()
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
+  console.log('Contributions enabled')
 } else {
-  console.log('Sign-in disabled (no GITHUB_CLIENT_ID/SECRET)')
+  console.log('Sign-in disabled (no GITHUB_CLIENT_ID/SECRET); the site is read-only')
 }
 
-const server = createServer({ search, config, projectRoot: Config.projectRoot, auth })
+const server = createServer({ search, config, projectRoot: Config.projectRoot, auth, corrections })
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)
   console.log('  GET /health           service status')
