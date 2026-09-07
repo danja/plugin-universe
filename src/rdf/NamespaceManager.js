@@ -33,6 +33,13 @@ export const NAMESPACES = Object.freeze({
   foaf: 'http://xmlns.com/foaf/0.1/',
   schema: 'https://schema.org/',
 
+  // Alignment targets. AUFX-O (QMUL) is the nearest prior art in RDF and sits
+  // over the Studio Ontology and the Music Ontology; it is an alignment target,
+  // never the primary vocabulary. See vocabs/alignment.ttl.
+  aufx: 'https://w3id.org/aufx/ontology/1.0#',
+  studio: 'http://purl.org/ontology/studio/main/',
+  mo: 'http://purl.org/ontology/mo/',
+
   // Description, provenance, licensing
   skos: 'http://www.w3.org/2004/02/skos/core#',
   dcterms: 'http://purl.org/dc/terms/',

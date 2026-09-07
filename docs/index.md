@@ -7,6 +7,10 @@
 * [Suggestions](suggestions.md) — recommendations on data, engineering, product, law and scope
 * [Resources](resources.md) — data sources, forums, specifications, ontologies, tooling, and the source terms review
 
+## Worklog
+
+* [2026-09-07 — The registry, the shapes, and two bugs the shapes found](entries/2026-09-07_claude_registry-shapes-alignment.md)
+
 ## Background
 
 * [Initial Plan](plan-draft.md) — the original sketch
@@ -23,7 +27,9 @@
 * Ingest: permissive sources only; KVR excluded ([source terms review](resources.md))
 * Domain: plugin-universe.com (serving only — IRIs are on purl.org and survive a move)
 
-Phase 0 is complete. See [the plan](plan.md) for what remains, and
-[MISTAKES.md](../MISTAKES.md) for what turned out to be wrong along the way.
+Phase 0 is complete and Phase 1 is nearly so — 645 plugins from three sources,
+SHACL-validated, hybrid search over them. See [the plan](plan.md) for what
+remains, and [MISTAKES.md](../MISTAKES.md) for what turned out to be wrong along
+the way.
 
 Repository conventions for AI assistants are in [CLAUDE.md](../CLAUDE.md).

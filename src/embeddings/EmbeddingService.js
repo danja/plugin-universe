@@ -23,6 +23,64 @@ export class EmbeddingError extends Error {
 }
 
 /**
+ * The local name of an IRI, or a plain word unchanged.
+ *
+ * Two shapes of plugin record reach composeText: the normalised harvest record,
+ * whose roles and formats are full IRIs, and the SPARQL text view, whose
+ * equivalents are already shortened by the query. Embedding a URL is worse than
+ * useless — every plugin shares the same prefix, so it is uniform noise that
+ * dilutes the words that discriminate.
+ */
+function localName (term) {
+  if (typeof term !== 'string') {
+    throw new EmbeddingError(`Expected an IRI or a label, got ${typeof term}`)
+  }
+  const cut = Math.max(term.lastIndexOf('/'), term.lastIndexOf('#'))
+  return cut === -1 ? term : term.slice(cut + 1)
+}
+
+/**
+ * A parameter's human-readable name, from either shape.
+ *
+ * The text view supplies strings; a harvest record supplies port objects. A
+ * third shape is an error rather than something to stringify: `String(port)`
+ * yields "[object Object]", which is exactly the defect this replaces.
+ */
+function parameterName (parameter) {
+  if (typeof parameter === 'string') return parameter
+  if (parameter && typeof parameter === 'object') {
+    const name = parameter.name ?? parameter.symbol
+    if (name) return String(name)
+  }
+  throw new EmbeddingError(
+    `A parameter must be a name or an object with a name or symbol, got ${JSON.stringify(parameter)}`
+  )
+}
+
+/**
+ * Reduce either record shape to the fields the text is composed from, so that
+ * the same plugin produces the same text whether it arrives from the harvester
+ * or from the store. It did not, before: the index was built from harvest
+ * records and so embedded raw IRIs and "[object Object]" for every parameter,
+ * while the lexical signal matched against the clean text view.
+ */
+export function textView (plugin) {
+  if (!plugin || !plugin.name) {
+    throw new EmbeddingError('Cannot compose text for a plugin with no name')
+  }
+  return {
+    name: plugin.name,
+    vendor: plugin.vendor ?? null,
+    roles: (plugin.roles ?? []).map(localName),
+    formats: (plugin.formats ?? []).map(localName),
+    categories: (plugin.categories ?? []).map(localName),
+    description: plugin.description ?? null,
+    tags: plugin.tags ?? [],
+    parameters: (plugin.parameters ?? []).map(parameterName)
+  }
+}
+
+/**
  * Build the text that represents a plugin for retrieval.
  *
  * Field order is fixed and the output is deterministic: the hash of this string
@@ -30,17 +88,15 @@ export class EmbeddingError extends Error {
  * between runs for unchanged data.
  */
 export function composeText (plugin) {
-  if (!plugin || !plugin.name) {
-    throw new EmbeddingError('Cannot compose text for a plugin with no name')
-  }
-  const parts = []
-  parts.push(plugin.name)
-  if (plugin.vendor) parts.push(`by ${plugin.vendor}`)
-  if (plugin.roles?.length) parts.push(plugin.roles.join(', '))
-  if (plugin.formats?.length) parts.push(plugin.formats.join(', '))
-  if (plugin.description) parts.push(plugin.description)
-  if (plugin.tags?.length) parts.push(plugin.tags.join(', '))
-  if (plugin.parameters?.length) parts.push(`Parameters: ${plugin.parameters.join(', ')}`)
+  const view = textView(plugin)
+  const parts = [view.name]
+  if (view.vendor) parts.push(`by ${view.vendor}`)
+  if (view.roles.length) parts.push(view.roles.join(', '))
+  if (view.categories.length) parts.push(view.categories.join(', '))
+  if (view.formats.length) parts.push(view.formats.join(', '))
+  if (view.description) parts.push(view.description)
+  if (view.tags.length) parts.push(view.tags.join(', '))
+  if (view.parameters.length) parts.push(`Parameters: ${view.parameters.join(', ')}`)
   return parts.join('. ')
 }
 

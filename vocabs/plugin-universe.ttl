@@ -5,6 +5,7 @@
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix prov:    <http://www.w3.org/ns/prov#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 
 pu: a owl:Ontology ;
     rdfs:label "Plugin Universe vocabulary" ;
@@ -25,6 +26,21 @@ pu:precedence     a owl:DatatypeProperty ; rdfs:domain pu:SourceGraph ; rdfs:ran
     rdfs:comment "Source precedence for conflict resolution. Higher wins." .
 pu:harvestRun     a owl:DatatypeProperty ; rdfs:domain pu:SourceGraph ; rdfs:range xsd:string .
 
+## ── Categories and tags ─────────────────────────────────────────────────────
+## Categories are a SKOS concept scheme rather than a class hierarchy: plugin
+## categories overlap, are contested, and differ between sources. Tags are the
+## uncontrolled form — a source's own keywords, kept verbatim so that a mapping
+## decided wrongly can be revisited without re-harvesting.
+
+pu:category a owl:ObjectProperty ; rdfs:range skos:Concept ;
+    rdfs:comment "A concept from the catalogue's category scheme. Source categories, LV2 plugin classes and user tags map in as skos:closeMatch." .
+
+pu:tag a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "A source's own keyword, unmapped and unmodified. Feeds retrieval; carries no semantics." .
+
+pu:unitLabel a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "A parameter's unit as the source wrote it, kept when it could not be mapped to a units: individual. Losing the label would be worse than failing to type it." .
+
 ## ── Packaging and distribution ──────────────────────────────────────────────
 ## Modelled on the Open Audio Stack registry manifest.
 
@@ -36,18 +52,30 @@ pu:PackageFile a owl:Class ; rdfs:label "Package File" ;
 
 pu:slug          a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "Registry identifier in organisation/package-name form." .
+pu:package       a owl:ObjectProperty ; rdfs:range pu:Package ;
+    rdfs:comment "A released package of this plugin." .
+pu:packageVersion a owl:DatatypeProperty ; rdfs:domain pu:Package ; rdfs:range xsd:string ;
+    rdfs:comment "Semantic version as the registry states it." .
 pu:packageFile   a owl:ObjectProperty ; rdfs:domain pu:Package ; rdfs:range pu:PackageFile .
 pu:downloadUrl   a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:anyURI .
 pu:sha256        a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string .
 pu:fileSize      a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:integer .
 pu:containsFormat a owl:ObjectProperty ; rdfs:domain pu:PackageFile ; rdfs:range trn:PluginFormat .
+pu:containsArtefact a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string ;
+    rdfs:comment "A payload kind the registry names that is not a plugin format — a raw binary or a standalone executable. Kept verbatim rather than guessed at: a bare 'dll' does not say which plugin API it implements." .
 pu:architecture  a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string .
 pu:operatingSystem a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string .
+pu:fileKind      a owl:DatatypeProperty ; rdfs:domain pu:PackageFile ; rdfs:range xsd:string ;
+    rdfs:comment "archive or installer." .
 
 pu:verified a owl:DatatypeProperty ; rdfs:range xsd:boolean ;
     rdfs:comment "The package slug's organisation matches the download URL's domain. Computed at harvest, never asserted by a submitter." .
 pu:attested a owl:DatatypeProperty ; rdfs:range xsd:boolean ;
     rdfs:comment "A build artifact attestation exists for this file. Computed at harvest." .
+pu:downloadCount a owl:DatatypeProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "Downloads reported by the source at harvest time. A snapshot, not a fact about the plugin." .
+pu:audioPreview a owl:DatatypeProperty ; rdfs:range xsd:anyURI .
+pu:donateUrl    a owl:DatatypeProperty ; rdfs:range xsd:anyURI .
 
 ## ── Measurement ─────────────────────────────────────────────────────────────
 ## Profiler output. A measurement is true of a plugin version on a machine at a

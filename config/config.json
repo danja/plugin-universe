@@ -24,5 +24,11 @@
   },
   "index": {
     "path": "data/plugin-universe.index"
+  },
+  "sources": {
+    "openAudioStack": {
+      "registryUrl": "https://open-audio-stack.github.io/open-audio-stack-registry/plugins/index.json",
+      "cachePath": "data/cache/open-audio-stack-plugins.json"
+    }
   }
 }

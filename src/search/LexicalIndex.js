@@ -48,6 +48,7 @@ export class LexicalIndex {
         ...tokenise(doc.description),
         ...(doc.roles ?? []).flatMap(tokenise),
         ...(doc.categories ?? []).flatMap(tokenise),
+        ...(doc.tags ?? []).flatMap(tokenise),
         ...(doc.parameters ?? []).flatMap(tokenise)
       ])
     }

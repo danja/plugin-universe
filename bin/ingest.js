@@ -5,6 +5,8 @@ import SPARQLClient from '../src/store/SPARQLClient.js'
 import IngestPipeline from '../src/harvest/IngestPipeline.js'
 import DownspoutHarvester from '../src/harvest/DownspoutHarvester.js'
 import Lv2Harvester from '../src/harvest/Lv2Harvester.js'
+import OpenAudioStackHarvester from '../src/harvest/OpenAudioStackHarvester.js'
+import ShapeValidator from '../src/store/ShapeValidator.js'
 import EmbeddingService from '../src/embeddings/EmbeddingService.js'
 import VectorIndex from '../src/vectors/VectorIndex.js'
 import { composeText, textHash } from '../src/embeddings/EmbeddingService.js'
@@ -16,7 +18,7 @@ import { composeText, textHash } from '../src/embeddings/EmbeddingService.js'
  * its licence and its provenance deliberately, which is the point (see
  * docs/resources.md §4).
  *
- * Usage: node bin/ingest.js [--skip-embeddings] [--source <id>]
+ * Usage: node bin/ingest.js [--skip-embeddings] [--skip-validation] [--source <id>]
  */
 
 logger.setLevel('info')
@@ -38,6 +40,10 @@ const harvesters = [
     licence: 'MIT',
     derivedFrom: 'https://github.com/danja/flues',
     vendor: 'Danny Ayers'
+  }),
+  new OpenAudioStackHarvester({
+    registryUrl: config.get('sources.openAudioStack.registryUrl'),
+    cachePath: config.get('sources.openAudioStack.cachePath')
   })
 ].filter(h => !onlySource || h.id === onlySource)
 
@@ -51,7 +57,12 @@ if (!(await client.isReachable())) {
   process.exit(1)
 }
 
-const pipeline = new IngestPipeline(client)
+// Shapes run before anything is written (docs/architecture.md §4). Skippable
+// for a fast re-run, but not by default: an ingest that writes malformed data
+// is cheap to do and expensive to notice.
+const validator = args.includes('--skip-validation') ? null : await ShapeValidator.load()
+
+const pipeline = new IngestPipeline(client, { validator })
 const reports = []
 const allCategories = new Set()
 
@@ -76,6 +87,18 @@ for (const harvester of harvesters) {
 const scheme = await pipeline.writeCategoryScheme(allCategories)
 console.log(`\ncategories  →  ${scheme.graph}  (${allCategories.size} concepts, ${scheme.tripleCount} triples)`)
 
+// The alignment to AUFX-O and schema.org. Assertions of this project about
+// other people's IRIs, so CC0 like the rest of the catalogue — it maps to those
+// vocabularies rather than reproducing them.
+const alignment = await pipeline.writeTurtleFile('vocabs/alignment.ttl', {
+  kind: 'alignment',
+  id: 'vocabularies',
+  licence: 'CC0-1.0',
+  derivedFrom: `${config.get('baseUri')}alignment`,
+  comment: 'skos:closeMatch mappings from trn:, lv2: and pu: to AUFX-O and schema.org'
+})
+console.log(`alignment   →  ${alignment.graph}  (${alignment.tripleCount} triples)`)
+
 if (skipEmbeddings) {
   console.log('\nSkipping embeddings (--skip-embeddings).')
   process.exit(0)
@@ -98,6 +121,11 @@ const index = await VectorIndex.open({
 const all = reports.flatMap(report => report.plugins)
 console.log(`\nEmbedding ${all.length} plugins with ${config.get('embedding.model')}...`)
 
+// Saved periodically as well as at the end. A full rebuild is three quarters
+// of an hour of CPU inference, and losing all of it to an interrupted run once
+// was enough.
+const CHECKPOINT_EVERY = 100
+
 let embedded = 0
 const started = Date.now()
 for (const { iri, plugin } of all) {
@@ -105,7 +133,12 @@ for (const { iri, plugin } of all) {
   const vector = await embeddings.embed(text)
   index.add(iri, vector)
   embedded += 1
-  if (embedded % 25 === 0) process.stdout.write(`  ${embedded}/${all.length}\r`)
+  if (embedded % 25 === 0) {
+    const rate = (Date.now() - started) / embedded
+    const remaining = ((all.length - embedded) * rate / 1000).toFixed(0)
+    process.stdout.write(`  ${embedded}/${all.length}  ~${remaining}s remaining   \r`)
+  }
+  if (embedded % CHECKPOINT_EVERY === 0) await index.save()
 }
 index.compact()
 await index.save()

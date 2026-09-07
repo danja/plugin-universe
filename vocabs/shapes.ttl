@@ -1,0 +1,292 @@
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix pu:      <http://purl.org/stuff/plugin-universe/> .
+@prefix trn:     <http://purl.org/stuff/transmissions/> .
+@prefix lv2:     <http://lv2plug.in/ns/lv2core#> .
+@prefix units:   <http://lv2plug.in/ns/extensions/units#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov:    <http://www.w3.org/ns/prov#> .
+
+## Validation shapes for the catalogue graph model.
+##
+## These describe what a harvester is allowed to write, and they exist because
+## the alternative is discovering a defect by noticing that a facet count does
+## not add up. Every constraint here corresponds to something that has gone
+## wrong, or that would be silently wrong if it did:
+##
+##  - a plugin with no label is unfindable and unrenderable
+##  - a format IRI that is not one of the known individuals is a typo that
+##    quietly creates an empty facet
+##  - a category IRI outside the concept scheme dangles
+##  - a port with a minimum above its maximum makes every range check nonsense
+##  - a graph without a licence flag cannot be included in, or excluded from,
+##    the CC0 dump — so it is invisible to the thing the whole design is for
+##
+## Run with `npm run validate`, and in the ingest tests.
+
+pu:shapes a owl:Ontology ;
+    rdfs:label "Plugin Universe validation shapes" ;
+    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> .
+
+## ── Plugins ─────────────────────────────────────────────────────────────────
+
+pu:PluginShape a sh:NodeShape ;
+    sh:targetClass trn:PluginProfile ;
+    rdfs:label "Plugin profile" ;
+
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "A plugin needs exactly one non-empty label: it is the name people search for." ;
+    ] ;
+    sh:property [
+        sh:path rdfs:comment ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "A plugin has at most one description. Two mean two sources were merged without precedence." ;
+    ] ;
+    sh:property [
+        sh:path trn:vendor ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path pu:slug ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[^/]+/[^/]+$" ;
+        sh:message "A registry slug is organisation/package-name." ;
+    ] ;
+    sh:property [
+        sh:path trn:format ;
+        sh:nodeKind sh:IRI ;
+        sh:in ( trn:VST3 trn:VST2 trn:CLAP trn:AudioUnit trn:AudioUnitV3
+                trn:LV2 trn:LADSPA trn:AAX trn:Standalone ) ;
+        sh:message "Formats are the trn:PluginFormat individuals. An unlisted IRI is a typo, and a typo here creates a facet that silently matches nothing." ;
+    ] ;
+    sh:property [
+        sh:path trn:role ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/transmissions/" ;
+        sh:message "Roles come from the trn: role taxonomy." ;
+    ] ;
+    sh:property [
+        sh:path pu:category ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/plugin-universe/category/[a-z0-9-]+$" ;
+        sh:message "A category must be a concept of pu:categories. Anything else dangles outside the scheme." ;
+    ] ;
+    sh:property [
+        sh:path pu:tag ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:pattern "^[^A-Z]*$" ;
+        sh:message "Tags are folded to lower case at normalisation, so that 'Reverb' and 'reverb' are one tag." ;
+    ] ;
+    sh:property [
+        sh:path owl:sameAs ;
+        sh:nodeKind sh:IRI ;
+        sh:message "sameAs asserts that two IRIs denote the same plugin. A document about the plugin is rdfs:seeAlso." ;
+    ] ;
+    sh:property [
+        sh:path pu:downloadCount ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+    ] .
+
+## ── Parameters ──────────────────────────────────────────────────────────────
+## Ports are blank nodes: a parameter has no identity outside its plugin.
+
+pu:PortShape a sh:NodeShape ;
+    sh:targetObjectsOf lv2:port ;
+    rdfs:label "Control port" ;
+
+    sh:property [
+        sh:path rdf:type ;
+        sh:minCount 1 ;
+        sh:message "A port must say what kind of port it is." ;
+    ] ;
+    sh:property [
+        sh:path lv2:symbol ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[a-zA-Z_][a-zA-Z0-9_]*$" ;
+        sh:message "An LV2 symbol is an identifier, not a label: it is how a CC mapping, a measurement or a preset refers to the parameter." ;
+    ] ;
+    sh:property [
+        sh:path lv2:name ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path lv2:minimum ;
+        sh:maxCount 1 ;
+        sh:lessThanOrEquals lv2:maximum ;
+        sh:message "A parameter's minimum cannot exceed its maximum." ;
+    ] ;
+    sh:property [
+        sh:path lv2:maximum ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path lv2:default ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path units:unit ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "A mapped unit is a units: individual. An unmapped one is kept as pu:unitLabel instead." ;
+    ] ;
+    sh:property [
+        sh:path lv2:scalePoint ;
+        sh:node pu:ScalePointShape ;
+    ] .
+
+pu:ScalePointShape a sh:NodeShape ;
+    rdfs:label "Scale point" ;
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path rdf:value ;
+        sh:maxCount 1 ;
+    ] .
+
+## ── Packaging ───────────────────────────────────────────────────────────────
+
+pu:PackageShape a sh:NodeShape ;
+    sh:targetClass pu:Package ;
+    rdfs:label "Package" ;
+
+    sh:property [
+        sh:path pu:packageVersion ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "A package is a released version; without the version it is not one." ;
+    ] ;
+    sh:property [
+        sh:path dcterms:issued ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path pu:packageFile ;
+        sh:node pu:PackageFileShape ;
+    ] .
+
+pu:PackageFileShape a sh:NodeShape ;
+    sh:targetClass pu:PackageFile ;
+    rdfs:label "Package file" ;
+
+    sh:property [
+        sh:path pu:downloadUrl ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^https?://" ;
+        sh:message "A file record with no download URL describes nothing anyone can fetch." ;
+    ] ;
+    sh:property [
+        sh:path pu:sha256 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[0-9a-f]{64}$" ;
+        sh:message "A SHA-256 is 64 lower-case hex digits. A malformed one is worse than none: it looks checkable." ;
+    ] ;
+    sh:property [
+        sh:path pu:fileSize ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 1 ;
+    ] ;
+    sh:property [
+        sh:path pu:fileKind ;
+        sh:maxCount 1 ;
+        sh:in ( "archive" "installer" ) ;
+    ] ;
+    sh:property [
+        sh:path pu:operatingSystem ;
+        sh:in ( "linux" "mac" "win" ) ;
+        sh:message "Operating systems follow the Open Audio Stack naming, which the packaging layer is modelled on." ;
+    ] ;
+    sh:property [
+        sh:path pu:architecture ;
+        sh:in ( "arm32" "arm64" "arm64ec" "x32" "x64" ) ;
+    ] ;
+    sh:property [
+        sh:path pu:containsFormat ;
+        sh:nodeKind sh:IRI ;
+        sh:in ( trn:VST3 trn:VST2 trn:CLAP trn:AudioUnit trn:AudioUnitV3
+                trn:LV2 trn:LADSPA trn:AAX trn:Standalone ) ;
+    ] .
+
+## ── Categories ──────────────────────────────────────────────────────────────
+
+pu:ConceptShape a sh:NodeShape ;
+    sh:targetClass skos:Concept ;
+    rdfs:label "Category concept" ;
+
+    sh:property [
+        sh:path skos:prefLabel ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path skos:inScheme ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path skos:broader ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/plugin-universe/category/[a-z0-9-]+$" ;
+    ] .
+
+## ── Graph registration ──────────────────────────────────────────────────────
+## The licensing design rests entirely on these fields being present and right.
+
+pu:SourceGraphShape a sh:NodeShape ;
+    sh:targetClass pu:SourceGraph ;
+    rdfs:label "Source graph registration" ;
+
+    sh:property [
+        sh:path dcterms:license ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:in ( "CC0-1.0" "CC-BY-SA-4.0" "MIT" "ISC" "proprietary-linkout" "unknown" ) ;
+        sh:message "Every graph declares a licence from the known set. There is no default: a wrong guess here is a licensing error that would not surface until publication." ;
+    ] ;
+    sh:property [
+        sh:path pu:redistributable ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+    ] ;
+    sh:property [
+        sh:path pu:inCC0Dump ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "Dump assembly is a query over this flag. A graph without it is invisible to the dump." ;
+    ] ;
+    sh:property [
+        sh:path pu:precedence ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+    ] ;
+    sh:property [
+        sh:path prov:wasDerivedFrom ;
+        sh:minCount 1 ;
+        sh:message "A graph must record where its content came from." ;
+    ] ;
+    sh:property [
+        sh:path prov:generatedAtTime ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+    ] .

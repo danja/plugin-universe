@@ -91,25 +91,38 @@ settled. Nothing user-visible.
 
 ## Phase 1 — Harvest and search — **IN PROGRESS**
 
-Done: the harvester interface and the downspout and LV2 harvesters; the
-normaliser; per-source graphs with licence flags; the serialiser onto
-`lv2:port`; the ingest pipeline with IRI-collision detection; the embedding
-pipeline; hybrid retrieval with an IDF-weighted lexical signal; the read API
-with content negotiation and a server-rendered search UI.
+Done: the harvester interface and the downspout, LV2 and Open Audio Stack
+harvesters; the normaliser; per-source graphs with licence flags; the serialiser
+onto `lv2:port`; the ingest pipeline with IRI-collision detection and SHACL
+validation; the embedding pipeline; hybrid retrieval with an IDF-weighted
+lexical signal; the read API with content negotiation and a server-rendered
+search UI; the SHACL shapes deferred from Phase 0; the AUFX-O and schema.org
+alignment graph.
 
-Corpus: **86 plugins** (50 downspout VST3, 36 flues LV2), 8,135 triples.
-Retrieval on the fixture corpus: **MRR 0.893** hybrid against 0.844
-vector-only; recall@1 87% against 80%. 144 tests pass, 43 against live
-Fuseki and Ollama.
+Corpus: **645 plugins** — 50 downspout VST3, 36 flues LV2, 559 from the Open
+Audio Stack registry — in 41,777 triples across five graphs. Every graph
+conforms to `vocabs/shapes.ttl`. Retrieval on the fixture corpus: **MRR 0.893**
+hybrid against 0.844 vector-only; recall@1 87% against 80%. 186 tests pass, 48
+against live Fuseki and Ollama.
 
-Still to do: the open-audio-stack registry harvester, the DOAP/GitHub harvester,
-SHACL shapes (deferred from Phase 0), and the AUFX-O alignment graph.
+Still to do: the DOAP/GitHub harvester.
 
-One calibration worth carrying forward: `minSimilarity` in
-`config/preferences.js` is tied to the embedding model, not chosen on
-intuition. nomic-embed-text:v1.5 compresses cosine into roughly 0.45-0.70, so
-the original 0.35 floor excluded nothing and every query returned a full page
-of noise. Re-measure it if the model changes.
+Three things worth carrying forward.
+
+*`minSimilarity` is tied to the embedding model, not chosen on intuition.*
+nomic-embed-text:v1.5 compresses cosine into roughly 0.45-0.70, so the original
+0.35 floor excluded nothing and every query returned a full page of noise.
+Re-measure it if the model changes.
+
+*The registry answered a question the seed corpus could not.* "Warm analogue bus
+compressor" was, until the registry landed, a demonstration of the noise floor —
+the catalogue contained no compressor at all. It now returns five, and the store
+test asserts that rather than asserting the absence.
+
+*A blank node label is scoped to one `INSERT DATA`.* Batching a serialised graph
+by triple count cut ports and package files in half at every boundary. Writes
+are grouped by plugin; see MISTAKES.md. This is the class of defect the shapes
+were written for and they found it on their first run.
 
 **Goal.** A public, read-only search over a real corpus. The system does something useful.
 

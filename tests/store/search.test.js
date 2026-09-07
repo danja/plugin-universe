@@ -30,9 +30,9 @@ beforeAll(async () => {
 }, 60000)
 
 describe('the ingested catalogue', () => {
-  it('holds both seed sources', () => {
-    // 50 downspout VST3 plugins and 36 flues LV2 bundles.
-    expect(corpusSize).toBeGreaterThanOrEqual(80)
+  it('holds every source', () => {
+    // 50 downspout VST3, 36 flues LV2, 559 from the Open Audio Stack registry.
+    expect(corpusSize).toBeGreaterThanOrEqual(640)
   })
 
   it('has no duplicate plugin IRIs', () => {
@@ -91,12 +91,21 @@ describe('hybrid search over the real catalogue', () => {
     // nomic-embed-text compresses cosine into roughly 0.45-0.70, so nonsense
     // still scores ~0.54 against everything. The threshold in preferences.js is
     // calibrated to that; without it every query returns a full page.
-    const { results } = await search.search('warm analogue bus compressor')
-    // The catalogue contains no compressor, so anything returned must at least
-    // have matched lexically rather than on weak similarity alone.
+    const { results } = await search.search('a plugin for absolutely nothing at all')
     for (const r of results) {
       expect(r.signals.lexical > 0 || r.signals.vector >= 0.58).toBe(true)
     }
+  }, 30000)
+
+  it('answers the compressor query the seed corpus could not', async () => {
+    // Until the registry harvester there was no compressor in the catalogue at
+    // all, so this query was a demonstration of the noise floor rather than of
+    // retrieval. It is now a real question with a real answer.
+    const { results } = await search.search('warm analogue bus compressor')
+    expect(results.length).toBeGreaterThan(0)
+    const top = results.slice(0, 5)
+    expect(top.some(r => r.categories.includes('compressor') || r.categories.includes('dynamics')))
+      .toBe(true)
   }, 30000)
 
   it('applies a facet filter as a filter, not a score', async () => {

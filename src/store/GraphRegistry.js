@@ -40,11 +40,43 @@ export const GRAPH_KINDS = Object.freeze({
  * is redistributable but carries a notice, so it needs its own dump section.
  */
 export const LICENCES = Object.freeze({
+  // Public-domain equivalent. These flow into the CC0 dump with nothing attached.
   'CC0-1.0': { redistributable: true, cc0Dump: true, notice: false },
-  'CC-BY-SA-4.0': { redistributable: true, cc0Dump: false, notice: true },
+  Unlicense: { redistributable: true, cc0Dump: true, notice: false },
+  '0BSD': { redistributable: true, cc0Dump: true, notice: false },
+
+  // Permissive, but the notice travels with the graph, so these need their own
+  // dump section rather than being folded into the CC0 one.
   MIT: { redistributable: true, cc0Dump: false, notice: true },
   ISC: { redistributable: true, cc0Dump: false, notice: true },
+  'BSD-2-Clause': { redistributable: true, cc0Dump: false, notice: true },
+  'BSD-3-Clause': { redistributable: true, cc0Dump: false, notice: true },
+  'Apache-2.0': { redistributable: true, cc0Dump: false, notice: true },
+  'BSL-1.0': { redistributable: true, cc0Dump: false, notice: true },
+  Zlib: { redistributable: true, cc0Dump: false, notice: true },
+  'MPL-2.0': { redistributable: true, cc0Dump: false, notice: true },
+
+  // Copyleft. A graph carries this flag when its content was extracted from
+  // material under that licence — which says nothing about the software's terms
+  // and everything about how carefully this project should redistribute what it
+  // read. Extracting factual metadata from a bundle is not redistributing the
+  // licensed work, but the conservative reading is the one that ships: these
+  // stay out of the CC0 dump and carry their notice.
+  'GPL-2.0': { redistributable: true, cc0Dump: false, notice: true },
+  'GPL-3.0': { redistributable: true, cc0Dump: false, notice: true },
+  'LGPL-2.1': { redistributable: true, cc0Dump: false, notice: true },
+  'LGPL-3.0': { redistributable: true, cc0Dump: false, notice: true },
+  'AGPL-3.0': { redistributable: true, cc0Dump: false, notice: true },
+
+  // Content licences, for user-authored prose and for aligned vocabularies.
+  'CC-BY-4.0': { redistributable: true, cc0Dump: false, notice: true },
+  'CC-BY-SA-4.0': { redistributable: true, cc0Dump: false, notice: true },
+
+  // Not ours to republish. Indexed as a name and a link, never as a copy.
   'proprietary-linkout': { redistributable: false, cc0Dump: false, notice: true },
+
+  // The honest answer when a source states no terms. Deliberately not
+  // redistributable: silence is not permission.
   unknown: { redistributable: false, cc0Dump: false, notice: true }
 })
 
@@ -163,10 +195,20 @@ export class GraphRegistry {
     return rows.map(row => row.graph)
   }
 
-  /** Re-harvesting a source is a DROP of its graph, never a selective delete. */
+  /**
+   * Re-harvesting a source is a DROP of its graph, never a selective delete.
+   *
+   * The registration goes with it. A graph that no longer exists must not stay
+   * in the registry: `list()` is what the dump and the validator iterate over,
+   * so a stale row means querying a graph that is not there.
+   */
   async drop (kind, id) {
     const graph = GraphRegistry.graphIri(kind, id)
     await this.client.update(dropGraphQuery(graph))
+    await this.client.update(this.queries.get('graph/deregister', {
+      metadataGraph: iri(this.metadataGraph),
+      graph: iri(graph)
+    }))
     return graph
   }
 

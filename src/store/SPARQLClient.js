@@ -101,6 +101,31 @@ export class SPARQLClient {
     return results.boolean === true
   }
 
+  /**
+   * CONSTRUCT, returned as Turtle.
+   *
+   * Separate from query() because a CONSTRUCT does not answer with SPARQL JSON:
+   * it answers with a graph, and the caller wants the triples. Used by shape
+   * validation and by dump assembly, both of which need the graph rather than
+   * rows to reassemble in JavaScript.
+   */
+  async construct (sparql) {
+    const response = await fetch(this.queryUrl, {
+      method: 'POST',
+      headers: this.#headers('application/sparql-query', 'text/turtle'),
+      body: sparql
+    })
+    if (!response.ok) {
+      const detail = await response.text()
+      logger.error('[SPARQL construct failed]', { url: this.queryUrl, status: response.status, detail })
+      throw new SPARQLError(`Construct failed: HTTP ${response.status} ${detail}`.trim(), {
+        status: response.status,
+        query: sparql
+      })
+    }
+    return response.text()
+  }
+
   /** True if the endpoint answers at all. Used by tests to fail loudly. */
   async isReachable () {
     try {

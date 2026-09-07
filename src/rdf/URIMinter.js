@@ -103,17 +103,29 @@ export class URIMinter {
    *
    * Bundle name and class ID are preferred over the canonical IRI when present,
    * so that the same VST3 harvested from two sources still deduplicates.
+   *
+   * A registry that supplies neither — the Open Audio Stack registry gives a
+   * globally unique `organisation/package` slug and nothing else stable — is
+   * identified by that slug alone. The vendor is deliberately not part of that
+   * tuple: the slug already contains the organisation, while the display name
+   * beside it is editorial and changes.
+   *
+   * The three branches are ranked, never mixed. A source that later starts
+   * supplying a lower-ranked identifier therefore cannot silently renumber IRIs
+   * already minted from a higher-ranked one.
    */
-  mintPlugin ({ name, vendor, bundleName, classId, sourceIri }) {
+  mintPlugin ({ name, vendor, bundleName, classId, sourceIri, registryId }) {
     if (!name) throw new URIMintError('A plugin needs a name to mint an IRI')
 
-    const identity = (bundleName || classId)
-      ? [vendor, bundleName, classId].filter(Boolean)
-      : [sourceIri, vendor].filter(Boolean)
+    let identity = []
+    if (bundleName || classId) identity = [vendor, bundleName, classId].filter(Boolean)
+    else if (sourceIri) identity = [sourceIri, vendor].filter(Boolean)
+    else if (registryId) identity = [registryId]
 
     if (identity.length === 0) {
       throw new URIMintError(
-        `Cannot mint an IRI for plugin "${name}": need a bundleName, a classId, or a canonical source IRI`
+        `Cannot mint an IRI for plugin "${name}": need a bundleName, a classId, ` +
+        'a canonical source IRI, or a registry id'
       )
     }
     return this.mint('plugin', name, identity)

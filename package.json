@@ -18,6 +18,7 @@
     "ingest": "node bin/ingest.js",
     "search": "node bin/search.js",
     "serve": "node bin/serve.js",
+    "validate": "node bin/validate.js",
     "test:harvest": "vitest run --config vitest.core.config.js tests/harvest"
   },
   "dependencies": {
@@ -25,7 +26,8 @@
     "faiss-node": "^0.5.1",
     "loglevel": "^1.9.1",
     "rdf-ext": "^2.5.1",
-    "rdf-parse": "^4.0.0"
+    "rdf-parse": "^4.0.0",
+    "rdf-validate-shacl": "^0.6.5"
   },
   "devDependencies": {
     "vitest": "^3.0.0"

@@ -86,6 +86,16 @@ kept in a separate graph so it can be revised without touching instance data. Do
 the primary vocabulary: it models effect *application within a production session*, which is a
 different problem from cataloguing effect *implementations*.
 
+Implemented as `vocabs/alignment.ttl`, written into `<graph:alignment/vocabularies>`. Every
+statement is `skos:closeMatch` rather than `owl:equivalentClass` or `owl:sameAs`, for two reasons
+that are worth keeping: `trn:PluginProfile` is used here as the plugin but named as a description
+of one, and asserting equivalence would propagate that ambiguity into other people's reasoners
+rather than containing it; and AUFX-O models plugin formats as *classes* (`aufx:VST`, `aufx:LV2`)
+where this catalogue models them as *individuals* of `trn:PluginFormat`, so there is no OWL-DL-safe
+identity to assert without punning for a mapping file's convenience. AUFX-O is CC BY-SA 4.0; the
+alignment graph is CC0 because it contains this project's assertions about their identifiers and
+does not reproduce their ontology.
+
 ### 2.1 Identity
 
 **IRIs are minted under `http://purl.org/stuff/plugin-universe/`.** The `purl.org/stuff/` space is
@@ -239,7 +249,8 @@ say where anything came from.
 <graph:user/{id}>                user contributions and edits
 <graph:profiler/{run}>           one graph per profiler run
 <graph:curated>                  editorial assertions
-<graph:alignment>                ontology mappings to AUFX-O, schema.org
+<graph:alignment/categories>     the SKOS category concept scheme
+<graph:alignment/vocabularies>   ontology mappings to AUFX-O, schema.org
 <graph:system>                   accounts, tiers, promotion records
 ```
 
@@ -294,6 +305,16 @@ IRIs are minted or preserved.
 **Validator** — SHACL shapes over the normalised output, run before anything is written. The
 transmission parser's existing rule ("every profile needs `rdfs:label` and one of `trn:bundleName`
 or `trn:vstClassId`") becomes a shape rather than a thrown exception.
+
+The shapes are `vocabs/shapes.ttl`, loaded by `src/store/ShapeValidator.js`. They run in two
+places, and both are needed because they catch different things. `IngestPipeline` validates the
+serialised triples before writing, so a defective harvester never reaches the store. `bin/validate.js`
+validates each named graph *after* writing, which is the only way to see defects introduced by the
+write itself — the first run of it found that batching an `INSERT DATA` by triple count was cutting
+blank nodes in half, because a blank node label is scoped to one request. Constraints are chosen for
+what would otherwise be invisible: a format IRI that is a typo creates a facet matching nothing; a
+category outside the concept scheme dangles; a malformed SHA-256 is worse than none, because it
+looks checkable.
 
 **Store** — Apache Jena Fuseki, TDB2, assembler configuration adapted from
 `/home/danny/github/semem/config/fuseki/assembler-tdb2.ttl`.

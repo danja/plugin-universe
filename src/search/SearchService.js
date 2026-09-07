@@ -78,6 +78,7 @@ export class SearchService {
       roles: row.roles ? row.roles.split(', ').filter(Boolean) : [],
       categories: row.categories ? row.categories.split(', ').filter(Boolean) : [],
       formats: row.formats ? row.formats.split(', ').filter(Boolean) : [],
+      tags: row.tags ? row.tags.split(', ').filter(Boolean) : [],
       parameters: row.parameters ? row.parameters.split(', ').filter(Boolean) : [],
       cautions: row.cautions || null
     }]))

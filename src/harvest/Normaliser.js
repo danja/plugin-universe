@@ -185,14 +185,26 @@ export function normalisePlugin (raw) {
     for (const category of ROLE_CATEGORY_MAP[role] ?? []) categories.add(category)
   }
 
+  // Tags are folded and de-duplicated but never mapped away: a tag the
+  // TAG_CATEGORY_MAP does not know still belongs to the plugin, and still
+  // carries retrieval signal.
+  const tags = [...new Set((raw.tags ?? []).map(tag => String(tag).trim().toLowerCase()).filter(Boolean))].sort()
+
   return {
     sourceIri: raw.sourceIri ?? null,
+    registryId: raw.registryId ?? null,
     name: raw.name,
     vendor: raw.vendor ?? null,
     bundleName: raw.bundleName ?? null,
     classId: raw.classId ?? null,
     description: raw.description ?? null,
     homepage: raw.homepage ?? null,
+    seeAlso: raw.seeAlso ?? null,
+    image: raw.image ?? null,
+    audioPreview: raw.audioPreview ?? null,
+    donateUrl: raw.donateUrl ?? null,
+    downloadCount: raw.downloadCount ?? null,
+    verified: raw.verified === true,
     project: raw.project ?? null,
     licence: raw.licence ?? null,
     maintainer: raw.maintainer ?? null,
@@ -206,6 +218,9 @@ export function normalisePlugin (raw) {
     cautions: raw.cautions ?? [],
     genres: raw.genres ?? [],
     categories: [...categories].sort(),
+    tags,
+    artefacts: [...new Set(raw.artefacts ?? [])].sort(),
+    packages: raw.packages ?? [],
     ccMappings: raw.ccMappings ?? [],
     parameters: (raw.parameters ?? []).map(p => normaliseParameter(p, { context })),
     lv2Classes: raw.lv2Classes ?? []

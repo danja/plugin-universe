@@ -7,6 +7,7 @@ SELECT ?plugin ?name ?vendor ?description
        (GROUP_CONCAT(DISTINCT ?roleLabel; separator=", ") AS ?roles)
        (GROUP_CONCAT(DISTINCT ?categoryLabel; separator=", ") AS ?categories)
        (GROUP_CONCAT(DISTINCT ?formatLabel; separator=", ") AS ?formats)
+       (GROUP_CONCAT(DISTINCT ?tag; separator=", ") AS ?tags)
        (GROUP_CONCAT(DISTINCT ?portName; separator=", ") AS ?parameters)
        (GROUP_CONCAT(DISTINCT ?caution; separator=" ") AS ?cautions)
 WHERE {
@@ -18,6 +19,7 @@ WHERE {
     OPTIONAL { ?plugin trn:role ?role      BIND(REPLACE(STR(?role), "^.*/", "") AS ?roleLabel) }
     OPTIONAL { ?plugin trn:format ?format  BIND(REPLACE(STR(?format), "^.*/", "") AS ?formatLabel) }
     OPTIONAL { ?plugin pu:category ?cat    BIND(REPLACE(STR(?cat), "^.*/", "") AS ?categoryLabel) }
+    OPTIONAL { ?plugin pu:tag ?tag }
     OPTIONAL { ?plugin lv2:port ?port . ?port lv2:name ?portName }
   }
 }

@@ -58,6 +58,16 @@ export function serialisePlugin (plugin, pluginIri) {
   add(foaf + 'homepage', plugin.homepage ? literal(plugin.homepage) : null)
   add(lv2 + 'project', plugin.project ? literal(plugin.project) : null)
   add(dcterms + 'license', plugin.licence ? literal(plugin.licence) : null)
+  add(pu + 'slug', plugin.registryId ? literal(plugin.registryId) : null)
+  // The registry entry is a document *about* the plugin, so it is seeAlso, not
+  // sameAs. Only a genuine upstream IRI for the plugin itself earns sameAs.
+  add(rdfs + 'seeAlso', plugin.seeAlso ? iri(plugin.seeAlso) : null)
+  add(foaf + 'depiction', plugin.image ? iri(plugin.image) : null)
+  add(pu + 'audioPreview', plugin.audioPreview ? iri(plugin.audioPreview) : null)
+  add(pu + 'donateUrl', plugin.donateUrl ? iri(plugin.donateUrl) : null)
+  add(pu + 'downloadCount',
+    typeof plugin.downloadCount === 'number' ? typedLiteral(plugin.downloadCount) : null)
+  if (plugin.verified) add(pu + 'verified', typedLiteral(true))
 
   // An upstream canonical IRI is preserved rather than replaced. LV2 plugins
   // have one by design and it is dereferenceable, so discarding it would lose
@@ -84,6 +94,11 @@ export function serialisePlugin (plugin, pluginIri) {
   for (const category of plugin.categories) {
     add(pu + 'category', iri(`${pu}category/${category}`))
   }
+  // Tags are the source's own keywords, kept unmapped alongside the categories
+  // they produced. They cost one triple each and they are what a later mapping
+  // decision gets to revisit without re-harvesting.
+  for (const tag of plugin.tags ?? []) add(pu + 'tag', literal(tag))
+  for (const artefact of plugin.artefacts ?? []) add(pu + 'containsArtefact', literal(artefact))
 
   for (const parameter of plugin.parameters) {
     const node = blank('p')
@@ -129,6 +144,53 @@ export function serialisePlugin (plugin, pluginIri) {
     emit(rdfs + 'comment', mapping.comment ? literal(mapping.comment) : null)
   }
 
+  triples.push(...serialisePackages(plugin, pluginIri))
+
+  return triples
+}
+
+/**
+ * Package and file triples, modelled on the Open Audio Stack manifest.
+ *
+ * These are what make the catalogue useful for something other than reading:
+ * a checksummed download URL per platform and architecture is the difference
+ * between "this plugin exists" and "here is the artefact and here is its
+ * SHA-256". Packages and files are blank nodes for the same reason ports are —
+ * neither has an identity outside the plugin that has it.
+ */
+export function serialisePackages (plugin, pluginIri) {
+  const s = iri(pluginIri)
+  const triples = []
+  for (const pkg of plugin.packages ?? []) {
+    const node = blank('pkg')
+    triples.push(`${s} ${iri(pu + 'package')} ${node} .`)
+    triples.push(`${node} ${iri(rdf + 'type')} ${iri(pu + 'Package')} .`)
+    const emit = (predicate, term) => {
+      if (term !== null) triples.push(`${node} ${iri(predicate)} ${term} .`)
+    }
+    emit(pu + 'packageVersion', pkg.version ? literal(pkg.version) : null)
+    emit(dcterms + 'issued', pkg.releasedAt ? literal(pkg.releasedAt) : null)
+    emit(rdfs + 'comment', pkg.changes ? literal(pkg.changes) : null)
+
+    for (const file of pkg.files ?? []) {
+      const fileNode = blank('file')
+      triples.push(`${node} ${iri(pu + 'packageFile')} ${fileNode} .`)
+      triples.push(`${fileNode} ${iri(rdf + 'type')} ${iri(pu + 'PackageFile')} .`)
+      const emitFile = (predicate, term) => {
+        if (term !== null) triples.push(`${fileNode} ${iri(predicate)} ${term} .`)
+      }
+      emitFile(pu + 'downloadUrl', file.url ? iri(file.url) : null)
+      emitFile(pu + 'sha256', file.sha256 ? literal(file.sha256) : null)
+      emitFile(pu + 'fileSize', typeof file.size === 'number' ? typedLiteral(file.size) : null)
+      emitFile(pu + 'fileKind', file.kind ? literal(file.kind) : null)
+      emitFile(pu + 'downloadCount', typeof file.downloads === 'number' ? typedLiteral(file.downloads) : null)
+      if (file.attested) emitFile(pu + 'attested', typedLiteral(true))
+      for (const format of file.formats ?? []) emitFile(pu + 'containsFormat', iri(format))
+      for (const artefact of file.artefacts ?? []) emitFile(pu + 'containsArtefact', literal(artefact))
+      for (const architecture of file.architectures ?? []) emitFile(pu + 'architecture', literal(architecture))
+      for (const system of file.systems ?? []) emitFile(pu + 'operatingSystem', literal(system))
+    }
+  }
   return triples
 }
 
@@ -146,17 +208,38 @@ export function serialiseCategoryScheme (categories) {
     reverb: 'effect',
     delay: 'effect',
     distortion: 'effect',
+    saturation: 'distortion',
     modulation: 'effect',
     eq: 'effect',
     filter: 'effect',
     spatial: 'effect',
     oscillator: 'instrument',
+    synth: 'instrument',
+    granular: 'synth',
+    sampler: 'instrument',
+    generator: 'instrument',
     drums: 'instrument',
     bass: 'instrument',
+    piano: 'instrument',
+    organ: 'instrument',
+    sequencer: 'midi',
+    amp: 'guitar',
     analysis: 'utility',
     mixing: 'utility'
   }
+  // Close the set over skos:broader before emitting. Without this a scheme can
+  // point at a concept it never declares, which is a dangling reference that
+  // only shows up when something tries to walk the hierarchy.
+  const closed = new Set(categories)
   for (const category of categories) {
+    let parent = broader[category]
+    while (parent && !closed.has(parent)) {
+      closed.add(parent)
+      parent = broader[parent]
+    }
+  }
+
+  for (const category of [...closed].sort()) {
     const concept = `${pu}category/${category}`
     triples.push(`${iri(concept)} ${iri(rdf + 'type')} ${iri(skos + 'Concept')} .`)
     triples.push(`${iri(concept)} ${iri(skos + 'inScheme')} ${iri(scheme)} .`)

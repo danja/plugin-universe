@@ -17,14 +17,21 @@ The catalogue is **CC0**. User-authored prose is CC BY-SA.
 ## Status
 
 Phase 0 (foundations) is complete. Phase 1 (harvest and search) is largely
-complete: harvesters for the seed repositories, the normaliser, the ingest
-pipeline, hybrid retrieval, and a read-only API and search UI.
+complete: harvesters, the normaliser, the ingest pipeline, SHACL validation,
+hybrid retrieval, and a read-only API and search UI. What remains is a
+DOAP/GitHub harvester.
 
-The catalogue currently holds **86 plugins** harvested from
-[downspout](https://github.com/danja/downspout) (50, VST3) and
-[flues](https://github.com/danja/flues) (36, LV2), with their parameters
-described as `lv2:port`. Hybrid retrieval scores MRR 0.893 on the fixture
-corpus against 0.844 for vector similarity alone.
+The catalogue holds **645 plugins** in three source graphs:
+
+| Source | Plugins | Licence | What it contributes |
+|---|---|---|---|
+| [downspout](https://github.com/danja/downspout) | 50 | CC0-1.0 | VST3, curated behaviour — roles, routing, cautions, CC mappings |
+| [flues](https://github.com/danja/flues) | 36 | MIT | LV2, machine-readable by design; ports map in untranslated |
+| [Open Audio Stack registry](https://github.com/open-audio-stack/open-audio-stack-registry) | 559 | CC0-1.0 | breadth, and the packaging layer: checksummed downloads per platform and architecture |
+
+Parameters are described with `lv2:port`, `units:` and `lv2:scalePoint`
+throughout, whatever the source format. Hybrid retrieval scores MRR 0.893 on the
+fixture corpus against 0.844 for vector similarity alone.
 
 ## Requirements
 
@@ -52,12 +59,17 @@ curl -X POST http://localhost:3030/\$/datasets \
 ## Use
 
 ```sh
-node bin/ingest.js              # harvest the seed sources and build the index
+node bin/ingest.js              # harvest every source and build the index
 node bin/search.js "warm analogue bus compressor"
 node bin/search.js "reverb" --format LV2
 node bin/search.js --facets
+node bin/validate.js            # SHACL, graph by graph
 node bin/serve.js               # search UI and JSON API on :4100
 ```
+
+Ingest validates against `vocabs/shapes.ttl` before it writes anything, and
+embedding the full catalogue takes about fifty minutes on CPU — `--skip-embeddings`
+and `--skip-validation` are there for a faster loop.
 
 The API is read-only and CORS-open, because a catalogue nobody can call from a
 browser is not much of an open dataset:
@@ -85,6 +97,10 @@ is not known to work.
 `tests/store/retrieval-quality.test.js` is the query regression suite. It prints
 recall@1 and recall@3 over a fixed corpus so a change in retrieval quality is a
 number rather than an impression.
+
+`tests/rdf/shapes.test.js` checks that the SHACL shapes actually reject the
+things they claim to; `tests/store/shapes.test.js` checks that every graph an
+ingest wrote conforms to them.
 
 ## Licence
 

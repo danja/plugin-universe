@@ -1,0 +1,111 @@
+{
+  "acme-audio/glue-comp": {
+    "slug": "acme-audio/glue-comp",
+    "version": "2.1.0",
+    "downloads": 4021,
+    "versions": {
+      "1.0.0": {
+        "name": "Glue Comp",
+        "author": "Acme Audio",
+        "description": "An older release that must not be described as the plugin.",
+        "license": "mit",
+        "type": "effect",
+        "tags": ["compressor"],
+        "url": "https://example.invalid/glue",
+        "image": "https://example.invalid/glue.jpg",
+        "date": "2024-01-01T00:00:00Z",
+        "changes": "First release.",
+        "files": [],
+        "verified": false
+      },
+      "2.1.0": {
+        "name": "Glue Comp",
+        "author": "Acme Audio",
+        "description": "A bus compressor for glueing a mix together.",
+        "license": "gpl-3.0",
+        "type": "effect",
+        "tags": ["Compressor", "Dynamics", "JUCE", "mix bus"],
+        "url": "https://example.invalid/glue",
+        "image": "https://example.invalid/glue.jpg",
+        "audio": "https://example.invalid/glue.mp3",
+        "donate": "https://example.invalid/donate",
+        "date": "2026-05-04T10:00:00Z",
+        "changes": "Sidechain filter added.",
+        "files": [
+          {
+            "systems": [{ "type": "linux" }],
+            "architectures": ["x64"],
+            "contains": ["vst3", "clap", "lv2", "so"],
+            "type": "archive",
+            "size": 4194304,
+            "sha256": "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa7777bbbb8888",
+            "url": "https://example.invalid/glue-linux-x64.zip",
+            "downloads": 900,
+            "attested": true
+          },
+          {
+            "systems": [{ "type": "win" }],
+            "architectures": ["x64"],
+            "contains": ["vst3", "exe"],
+            "type": "installer",
+            "size": 5242880,
+            "sha256": "1111aaaa2222bbbb3333cccc4444dddd5555eeee6666ffff7777aaaa8888bbbb",
+            "url": "https://example.invalid/glue-win.exe"
+          }
+        ],
+        "verified": true,
+        "downloads": 3200
+      }
+    }
+  },
+  "zed-instruments/wave-forge": {
+    "slug": "zed-instruments/wave-forge",
+    "version": "0.9.2",
+    "versions": {
+      "0.9.2": {
+        "name": "Wave Forge",
+        "author": "Zed Instruments",
+        "description": "A wavetable synthesiser with a granular oscillator section.",
+        "license": "some-bespoke-licence",
+        "type": "instrument",
+        "tags": ["synthesizer", "wavetable", "granular"],
+        "url": "https://example.invalid/waveforge",
+        "image": "https://example.invalid/waveforge.jpg",
+        "date": "2026-02-11T09:30:00Z",
+        "changes": "Beta.",
+        "files": [
+          {
+            "systems": [{ "type": "mac" }],
+            "architectures": ["arm64", "x64"],
+            "contains": ["component", "vst3"],
+            "type": "installer",
+            "size": 1048576,
+            "sha256": "9999aaaa8888bbbb7777cccc6666dddd5555eeee4444ffff3333aaaa2222bbbb",
+            "url": "https://example.invalid/waveforge.pkg"
+          }
+        ],
+        "verified": true
+      }
+    }
+  },
+  "broken/dangling-version": {
+    "slug": "broken/dangling-version",
+    "version": "3.0.0",
+    "versions": {
+      "2.0.0": {
+        "name": "Dangling",
+        "author": "Nobody",
+        "description": "The version field names a release this package does not contain.",
+        "license": "mit",
+        "type": "tool",
+        "tags": [],
+        "url": "https://example.invalid/dangling",
+        "image": "https://example.invalid/dangling.jpg",
+        "date": "2025-06-01T00:00:00Z",
+        "changes": "",
+        "files": [],
+        "verified": false
+      }
+    }
+  }
+}

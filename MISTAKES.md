@@ -3,6 +3,56 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
+## 2026-09-07 — Cut blank nodes in half at every batch boundary
+
+**What happened.** The first SHACL run over the store reported 24 violations:
+ports with no symbol and no name, ports with no type, scale points missing a
+label, package files with no download URL, packages with no version. The
+registry JSON has a URL on all 1700 of its files, so the data was not the
+problem.
+
+**Root cause.** `IngestPipeline` wrote in batches of 500 triples, cutting the
+list wherever the count landed. A blank node label in an `INSERT DATA` is scoped
+to that request: `_:p42` in one request and `_:p42` in the next are two
+different nodes. Every batch boundary that fell inside a plugin therefore split
+one of its ports or package files in two — one node holding the `lv2:port` link
+and the type, another holding the symbol, the range and the unit. Neither half
+was findable by a query expecting a whole one, and nothing complained.
+
+**What replaced it.** Writes are grouped by plugin and a group is never split
+across two requests; a group larger than the batch size is written whole.
+`tests/store/shapes.test.js` ingests a 300-port plugin — comfortably over the
+boundary — and asserts that no port arrives without its symbol.
+
+**Lesson.** This is the class of defect the shapes were written for, and it was
+found within a minute of running them for the first time. Chunking a serialised
+graph by triple count is only safe if there are no blank nodes in it; there
+almost always are.
+
+## 2026-09-07 — Embedded "[object Object]" for every parameter
+
+**What was wrong.** `composeText` joined `plugin.parameters` directly. At the
+ingest call site those are port *objects*, so every one of the 86 vectors in the
+index carried ten copies of `[object Object]`. The same function emitted roles
+and formats as full IRIs — `http://purl.org/stuff/transmissions/AudioEffect` —
+which is uniform noise shared by every plugin in the catalogue, diluting the
+words that actually discriminate. `plugin.tags` was read but never populated.
+
+**Why it was invisible.** Two record shapes reach the function: the harvest
+record and the SPARQL text view, whose query already shortens IRIs and returns
+port names as strings. The lexical signal was matching clean text while the
+vector index was built from the other shape. The index built, search ran, and
+the results were quietly worse.
+
+**What replaced it.** A `textView()` step reduces either shape to the same
+fields, shortening IRIs to local names and taking a port's name or symbol; a
+parameter it cannot name is an error rather than something to stringify.
+`tests/embeddings/composeText.test.js` pins both shapes to identical output.
+
+**Lesson.** A function that silently accepts two input shapes will eventually be
+given the wrong one. `String(anObject)` never throws, which is exactly why it
+should not be reachable.
+
 ## 2026-09-06 — Served Turtle that does not parse
 
 **What was wrong.** `pluginTurtle` wrote category IRIs as `pu:category/midi`.

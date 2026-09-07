@@ -19,13 +19,15 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
 ## Layout
 
 - `src/harvest/` — `Harvester` (the interface), `DownspoutHarvester`, `Lv2Harvester`,
-  `Normaliser` (where vocabulary defects are fixed), `PluginSerialiser`, `IngestPipeline`
+  `OpenAudioStackHarvester`, `HttpSource` (polite fetching), `Normaliser` (where vocabulary
+  defects are fixed), `PluginSerialiser`, `IngestPipeline`
 - `src/search/` — `SearchService` (hybrid retrieval), `LexicalIndex` (IDF-weighted lexical signal)
 - `src/api/` — `server.js` (read-only JSON + HTML, content negotiation), `render.js`
-- `bin/` — `ingest.js`, `search.js`, `serve.js`
+- `bin/` — `ingest.js`, `search.js`, `serve.js`, `validate.js`
 - `src/rdf/` — `NamespaceManager` (the single prefix registry), `URIMinter`
 - `src/store/` — `SPARQLClient`, `SPARQLHelper` (term formatting), `QueryService`
-  (file-based query loading), `GraphRegistry` (named graphs, provenance, licence flags)
+  (file-based query loading), `GraphRegistry` (named graphs, provenance, licence flags),
+  `ShapeValidator` (SHACL, over `vocabs/shapes.ttl`)
 - `src/vectors/` — `VectorOperations`, `VectorIndex` (persisted FAISS index)
 - `src/embeddings/` — `EmbeddingService` and the composed text view
 - `vocabs/` — the ontologies; `sparql/queries/` — every query, by name
@@ -51,6 +53,10 @@ Read those before making structural changes.
   to discover later.
 - **Skip build trees when harvesting a repository.** A repo typically holds the same bundle in
   source, build, staging and release copies.
+- **Never split a subject's triples across two `INSERT DATA` requests.** A blank node label is
+  scoped to one request, so batching a serialised graph by triple count cuts ports and package
+  files in half. `IngestPipeline` batches by group — one plugin, one concept — and writes an
+  oversized group whole.
 - **Discovery beats curation for technical facts.** When a scan and a curated profile disagree about
   a bundle name or a parameter range, the scan wins. Source precedence, highest first: profiler
   measurement, discovery scan, vendor submission, open registry, curated editorial, user
@@ -94,7 +100,10 @@ Read those before making structural changes.
   namespace IRI in a module.
 - New RDF terms go in `vocabs/` first; code follows the ontology, not the reverse.
 - Changes to the graph model require the SHACL shapes and the query regression suite to be updated in
-  the same commit.
+  the same commit. The shapes are `vocabs/shapes.ttl`; run them with `npm run validate`, which
+  validates every registered graph separately so a report names the source that needs fixing.
+  `tests/rdf/shapes.test.js` proves the shapes fire; `tests/store/shapes.test.js` proves the
+  pipeline satisfies them.
 
 ## Data Sources and Terms
 
@@ -142,6 +151,7 @@ proposed upstream to the transmission repo, not forked.
 | `doap:` / `foaf:` / `schema:` | — | projects, people, software listings |
 | `skos:` | — | the tag and category concept scheme |
 | `dcterms:` / `prov:` / `spdx:` | — | metadata, provenance, licences and checksums |
+| `aufx:` | `https://w3id.org/aufx/ontology/1.0#` | alignment target only — see `vocabs/alignment.ttl` |
 
 Plugin IRIs are minted under `http://purl.org/stuff/plugin-universe/`, by content hash over the
 identifying tuple so that re-harvesting is idempotent — `.../plugin/<slug>-<sha256[0:8]>`, and

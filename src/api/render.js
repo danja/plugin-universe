@@ -126,7 +126,7 @@ ${results.length
  * legible to search engines without them parsing the RDF.
  */
 export function pluginJsonLd (doc) {
-  const keywords = [...(doc.formats ?? []), ...(doc.categories ?? [])].join(', ')
+  const keywords = [...(doc.formats ?? []), ...(doc.categories ?? []), ...(doc.tags ?? [])].join(', ')
   const subCategory = doc.categories?.join(', ')
 
   // Keys are added only when there is something to say. An `author: undefined`
@@ -153,6 +153,7 @@ export function renderPluginPage (doc) {
     ['Formats', (doc.formats ?? []).join(', ')],
     ['Roles', (doc.roles ?? []).join(', ')],
     ['Categories', (doc.categories ?? []).join(', ')],
+    ['Tags', (doc.tags ?? []).join(', ')],
     ['Parameters', (doc.parameters ?? []).length ? `${doc.parameters.length}: ${doc.parameters.slice(0, 12).join(', ')}${doc.parameters.length > 12 ? '…' : ''}` : null],
     ['Caution', doc.cautions]
   ].filter(([, v]) => v)
@@ -195,6 +196,7 @@ export function pluginTurtle (doc) {
   for (const category of doc.categories ?? []) {
     lines.push(`    pu:category ${iri(`${NAMESPACES.pu}category/${category}`)} ;`)
   }
+  for (const tag of doc.tags ?? []) lines.push(`    pu:tag ${literal(tag)} ;`)
   lines.push('    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> .')
   return lines.join('\n')
 }

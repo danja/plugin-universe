@@ -43,7 +43,14 @@ export class Harvester {
 
   /**
    * Produce raw, source-shaped plugin records.
-   * @returns {Promise<object[]>}
+   *
+   * Either an array of records, or `{records, rejected}` when the source can
+   * present an individual entry that is unreadable while the rest are fine — a
+   * remote registry can change shape under one package without the other 558
+   * becoming suspect. Returning the rejects rather than throwing keeps the
+   * failure visible without letting one bad row block an ingest.
+   *
+   * @returns {Promise<object[]|{records: object[], rejected: Array<{name: string, reason: string}>}>}
    */
   async collect () {
     throw new HarvestError(`${this.constructor.name} does not implement collect()`)
@@ -57,14 +64,23 @@ export class Harvester {
    * @returns {Promise<{plugins: object[], rejected: Array<{name: string, reason: string}>}>}
    */
   async harvest () {
-    const raw = await this.collect()
+    const collected = await this.collect()
+    const raw = Array.isArray(collected) ? collected : collected.records
+    const rejected = Array.isArray(collected) ? [] : [...collected.rejected]
+    if (!Array.isArray(raw)) {
+      throw new HarvestError(
+        `${this.constructor.name}.collect() must return an array or {records, rejected}`
+      )
+    }
     const plugins = []
-    const rejected = []
     for (const record of raw) {
       try {
         plugins.push(normalisePlugin(record))
       } catch (error) {
-        rejected.push({ name: record.name ?? record.sourceIri ?? '(unidentified)', reason: error.message })
+        rejected.push({
+          name: record.name ?? record.registryId ?? record.sourceIri ?? '(unidentified)',
+          reason: error.message
+        })
       }
     }
     return { plugins, rejected }

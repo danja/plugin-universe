@@ -1,0 +1,116 @@
+@prefix pu:      <http://purl.org/stuff/plugin-universe/> .
+@prefix trn:     <http://purl.org/stuff/transmissions/> .
+@prefix lv2:     <http://lv2plug.in/ns/lv2core#> .
+@prefix aufx:    <https://w3id.org/aufx/ontology/1.0#> .
+@prefix studio:  <http://purl.org/ontology/studio/main/> .
+@prefix mo:      <http://purl.org/ontology/mo/> .
+@prefix schema:  <https://schema.org/> .
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+## Alignment to AUFX-O and schema.org.
+##
+## Two audiences, two vocabularies.
+##
+## **AUFX-O** — the Audio Effect Ontology (Wilmering, Fazekas and Sandler,
+## QMUL), which extends the Studio Ontology over the Music Ontology. It is the
+## nearest prior art in RDF for describing audio effects and their parameters,
+## and aligning to it is what lets music-information-retrieval work reach this
+## catalogue. It is an alignment target and not the primary vocabulary: AUFX-O
+## models effects in a production context — transforms, presets, signal chains —
+## where this catalogue models the software artefact and how to get it.
+##
+## **schema.org** — how a search engine reads the catalogue. Each plugin page
+## already carries schema.org JSON-LD; these statements say the same thing in
+## the graph, so that a consumer of the SPARQL endpoint and a consumer of the
+## HTML see one model rather than two.
+##
+## Every statement here is skos:closeMatch or rdfs:subPropertyOf rather than
+## owl:equivalentClass or owl:sameAs, and deliberately so:
+##
+##  - trn:PluginProfile is used in this catalogue as the plugin itself, but its
+##    name says it is a description of one. aufx:PlugIn is unambiguously the
+##    plugin. Asserting equivalence would propagate that ambiguity into anyone
+##    else's reasoner rather than keeping it here.
+##  - AUFX-O models plugin formats as *classes* (aufx:VST, aufx:LV2) while this
+##    catalogue models them as *individuals* of trn:PluginFormat. There is no
+##    OWL-DL-safe identity between an individual and a class, and punning to
+##    obtain one would be a modelling decision made for the convenience of a
+##    mapping file.
+##
+## AUFX-O itself is CC BY-SA 4.0. This file asserts relationships between its
+## IRIs and ours; it does not reproduce the ontology, which is why this graph is
+## CC0 while aufx.ttl is not. Nothing here should be taken as endorsed by its
+## authors.
+
+pu:alignment a owl:Ontology ;
+    rdfs:label "Plugin Universe alignment" ;
+    rdfs:comment "Mappings from the catalogue's vocabulary to AUFX-O and schema.org. Assertions of this project, not of the aligned vocabularies' authors." ;
+    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> ;
+    rdfs:seeAlso <https://w3id.org/aufx/ontology/1.0> , <https://schema.org/SoftwareApplication> .
+
+## ── The plugin ──────────────────────────────────────────────────────────────
+
+trn:PluginProfile
+    skos:closeMatch aufx:PlugIn , schema:SoftwareApplication ;
+    rdfs:comment "A catalogue entry for a plugin. Close, not equivalent: AUFX-O's PlugIn is the software as used in a production; schema.org's SoftwareApplication is the thing a search engine lists." .
+
+trn:vendor      skos:closeMatch aufx:publisher , schema:author .
+trn:bundleName  skos:closeMatch aufx:name .
+trn:role        skos:closeMatch schema:applicationSubCategory .
+
+## ── Formats ─────────────────────────────────────────────────────────────────
+## AUFX-O's plugin APIs are subclasses of aufx:PlugInAPI; ours are individuals.
+## closeMatch bridges the two without either side having to be re-modelled.
+
+trn:VST2      skos:closeMatch aufx:VST .
+trn:VST3      skos:closeMatch aufx:VST .
+trn:AudioUnit skos:closeMatch aufx:AudioUnit .
+trn:LV2       skos:closeMatch aufx:LV2 .
+trn:LADSPA    skos:closeMatch aufx:LADSPA .
+trn:AAX       skos:closeMatch aufx:AAX .
+
+## ── Roles ───────────────────────────────────────────────────────────────────
+## AUFX-O is an effect ontology; it has no instrument. Only the effect roles
+## have a counterpart, and saying so is more useful than inventing one.
+
+trn:AudioEffect skos:closeMatch aufx:Effect .
+
+## ── Parameters ──────────────────────────────────────────────────────────────
+## This catalogue describes parameters with lv2:port, which is why LV2 bundles
+## map in without translation. AUFX-O describes them with aufx:Parameter.
+
+lv2:ControlPort skos:closeMatch aufx:Parameter .
+lv2:port        skos:closeMatch aufx:has_parameter .
+lv2:name        skos:closeMatch aufx:name .
+lv2:minimum     skos:closeMatch aufx:minimum_value .
+lv2:maximum     skos:closeMatch aufx:maximum_value .
+lv2:default     skos:closeMatch aufx:default_value .
+
+## ── Packaging ───────────────────────────────────────────────────────────────
+## The packaging layer has no AUFX-O counterpart — AUFX-O does not model
+## distribution — so it aligns to schema.org alone.
+
+pu:Package        skos:closeMatch schema:SoftwareApplication , aufx:SoftwareImplementation .
+pu:packageVersion skos:closeMatch schema:softwareVersion .
+pu:downloadUrl    skos:closeMatch schema:downloadUrl .
+pu:fileSize       skos:closeMatch schema:fileSize .
+pu:operatingSystem skos:closeMatch schema:operatingSystem , aufx:operating_system .
+pu:architecture   skos:closeMatch schema:processorRequirements .
+pu:audioPreview   skos:closeMatch schema:audio .
+pu:donateUrl      skos:closeMatch schema:funding .
+
+## ── Categories and description ──────────────────────────────────────────────
+
+pu:category skos:closeMatch schema:applicationSubCategory .
+pu:tag      skos:closeMatch schema:keywords .
+
+## ── Provenance of this file ─────────────────────────────────────────────────
+
+<https://w3id.org/aufx/ontology/1.0>
+    rdfs:label "Audio Effect Ontology (AUFX-O)" ;
+    dcterms:license <http://creativecommons.org/licenses/by-sa/4.0/> ;
+    rdfs:comment "Wilmering, Fazekas and Sandler, Queen Mary University of London. Source: https://github.com/muddymudskipper/aufx-o" .
