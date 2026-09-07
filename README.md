@@ -13,6 +13,7 @@ The catalogue is **CC0**. User-authored prose is CC BY-SA.
 - [Suggestions](docs/suggestions.md) — recommendations and rationale
 - [Resources](docs/resources.md) — data sources, forums, specs, and the source terms review
 - [Deployment](docs/deployment.md) — the server runbook
+- [Profiling](docs/profiling.md) — the profiler and its sandbox
 - [Mistakes](MISTAKES.md) — things that turned out to be wrong
 
 ## Status
@@ -73,6 +74,7 @@ node bin/search.js "warm analogue bus compressor"
 node bin/search.js "reverb" --format LV2
 node bin/search.js --facets
 node bin/validate.js            # SHACL, graph by graph
+node bin/profile.js --path <built .lv2 bundles> --dry-run   # measure, see docs/profiling.md
 node bin/serve.js               # search UI and JSON API on :4100
 ```
 

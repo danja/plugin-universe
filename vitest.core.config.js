@@ -8,6 +8,7 @@ export default defineConfig({
       'tests/vectors/**/*.test.js',
       'tests/harvest/**/*.test.js',
       'tests/embeddings/**/*.test.js',
+      'tests/profiler/**/*.test.js',
       'tests/api/**/*.test.js',
       'tests/search/**/*.test.js'
     ],

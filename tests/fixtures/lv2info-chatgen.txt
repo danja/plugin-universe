@@ -1,0 +1,57 @@
+https://danja.github.io/flues/plugins/chatgen
+
+	Name:              ChatGen
+	Class:             Plugin
+	Has latency:       no
+	Bundle:            file:///plugin/chatgen.lv2/
+	Binary:            file:///plugin/chatgen.lv2/chatgen.so
+	UIs:
+		https://danja.github.io/flues/plugins/chatgen#ui
+			Class:  http://lv2plug.in/ns/extensions/ui#X11UI
+			Binary: file:///plugin/chatgen.lv2/chatgen_ui.so
+			Bundle: file:///plugin/chatgen.lv2/
+	Data URIs:         file:///plugin/chatgen.lv2/chatgen.ttl
+	                   file:///plugin/chatgen.lv2/manifest.ttl
+	Required Features: http://lv2plug.in/ns/ext/urid#map
+	Optional Features: http://lv2plug.in/ns/lv2core#hardRTCapable
+	Presets: 
+
+	Port 0:
+		Type:        http://lv2plug.in/ns/ext/atom#AtomPort
+		             http://lv2plug.in/ns/lv2core#InputPort
+		Symbol:      control
+		Name:        Control
+
+	Port 1:
+		Type:        http://lv2plug.in/ns/lv2core#OutputPort
+		             http://lv2plug.in/ns/ext/atom#AtomPort
+		Symbol:      midi_out
+		Name:        MIDI Output
+
+	Port 2:
+		Type:        http://lv2plug.in/ns/lv2core#ControlPort
+		             http://lv2plug.in/ns/lv2core#InputPort
+		Symbol:      play
+		Name:        Play
+		Minimum:     0.000000
+		Maximum:     1.000000
+		Default:     1.000000
+		Properties:  http://lv2plug.in/ns/lv2core#toggled
+
+
+	Port 3:
+		Type:        http://lv2plug.in/ns/lv2core#ControlPort
+		             http://lv2plug.in/ns/lv2core#InputPort
+		Symbol:      loop
+		Name:        Loop
+		Minimum:     0.000000
+		Maximum:     1.000000
+		Default:     1.000000
+		Properties:  http://lv2plug.in/ns/lv2core#toggled
+
+
+	Port 4:
+		Type:        http://lv2plug.in/ns/ext/atom#AtomPort
+		             http://lv2plug.in/ns/lv2core#OutputPort
+		Symbol:      text_out
+		Name:        Text Output

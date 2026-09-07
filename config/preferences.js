@@ -101,7 +101,14 @@ export const HARVEST_CONFIG = {
 export const PROFILER_CONFIG = {
   wallClockLimitMs: 120000,
   cpuLimitCores: 1,
-  memoryLimitMb: 2048,
+  // Enough for a plugin to instantiate and be scanned, and far too little to
+  // be a comfortable place to do anything else.
+  memoryLimitMb: 1024,
+  // A fork bomb hits this rather than the host's process table.
+  pidsLimit: 256,
+  // Unprivileged, and never root even inside the container. Matches the
+  // profiler image's own user.
+  uid: 1001,
   sampleRate: 48000,
   blockSize: 512,
   // Repeats per measurement; the published figure is the median.

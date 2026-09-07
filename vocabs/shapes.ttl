@@ -262,6 +262,47 @@ pu:PackageFileShape a sh:NodeShape ;
                 trn:LV2 trn:LADSPA trn:AAX trn:Standalone ) ;
     ] .
 
+## ── Measurements ────────────────────────────────────────────────────────────
+## An observation of a plugin on a machine at a time. Without the platform and
+## the timestamp it is a number rather than a fact, so both are required.
+
+pu:MeasurementShape a sh:NodeShape ;
+    sh:targetClass pu:Measurement ;
+    rdfs:label "Measurement" ;
+
+    sh:property [
+        sh:path pu:subject ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "A measurement is of something." ;
+    ] ;
+    sh:property [
+        sh:path pu:metric ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path pu:value ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path pu:tool ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Which tool, and which version of it. A reading whose tool is unknown cannot be compared with another." ;
+    ] ;
+    sh:property [
+        sh:path pu:platform ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "A CPU figure without the machine it was taken on is not a fact, it is a number." ;
+    ] ;
+    sh:property [
+        sh:path prov:generatedAtTime ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+    ] .
+
 ## ── Categories ──────────────────────────────────────────────────────────────
 
 pu:ConceptShape a sh:NodeShape ;

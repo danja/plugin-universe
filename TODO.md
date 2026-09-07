@@ -56,10 +56,22 @@ permission. Each repository gets its own graph carrying its own licence.
   named by harvested plugins' `foaf:homepage`
 * the embedding step is incremental, so a GitHub sweep only embeds what it adds
 
-## Then — Phase 2 (the profiler)
+## Phase 2 — the profiler — started
 
-See [docs/plan.md](docs/plan.md). This is the differentiator; it is scheduled
-before accounts and payments for that reason.
+Built and verified: the sandbox (`src/profiler/Sandbox.js`), the lilv scanner,
+the measurement model, per-run graphs. `node bin/profile.js --path <built bundles>`.
+
+* **pluginval** — the main gap. Not installed here; it is a JUCE binary from
+  Tracktion and covers VST/VST3/AU/LV2/LADSPA, so it is what would let the 46
+  built downspout VST3s be measured at all.
+* **CPU load** needs a host that runs audio through the plugin — `lv2bm`, or an
+  in-house one. `pu:CpuLoad` is defined and nothing produces it yet.
+* surface measurements on the plugin profile page, and as a search facet
+  ("passes validation", "under 2% CPU")
+* reproducibility: two runs of the same plugin on the same host, within a stated
+  tolerance. The plan calls for this to be tested rather than assumed.
+* the scan currently matches a plugin by `owl:sameAs` to its LV2 IRI, so it only
+  reaches LV2 plugins the catalogue already holds. VST3 needs a different key.
 
 ## Outstanding, not blocking
 

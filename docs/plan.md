@@ -175,7 +175,34 @@ were written for and they found it on their first run.
 
 ---
 
-## Phase 2 — Profiler
+## Phase 2 — Profiler — **IN PROGRESS**
+
+Done: the sandbox, the lilv scanner, the measurement model, per-run graphs, and
+a first real scan.
+
+The sandbox is the piece the rest rests on: `--network none`, read-only root
+with a noexec tmpfs, all capabilities dropped, no-new-privileges, a pids limit,
+memory and CPU bounds, an unprivileged user, and a wall-clock kill from outside
+as well as in. Confinement is verified by test rather than asserted — the
+network, the root filesystem and the plugin mount are each probed from inside.
+
+A crash is a result. That took one correction to get right: a container's exit
+code is its PID 1's, so a plugin taking the scanning tool down arrives as exit
+139 with no signal field set, and reading that as an ordinary non-zero exit
+loses the difference between "this plugin is malformed" and "this plugin
+crashed". Both are now distinguished and recorded.
+
+First measured finding, from 7 built flues bundles: **5 agree with their
+harvested profile, 2 do not.** Flues Disyn reports 8 control ports where its
+profile records 9; Flues Drumkit reports 18 against 43. The built bundles are
+from a tagged v0.1.0 while the source tree has moved on, so this is likely
+version skew rather than a defect — but that is exactly the question the
+profiler exists to raise, and it could not be asked before.
+
+Still to do: pluginval and clap-validator wrappers (neither is installed here),
+`lv2bm` or an in-house host for actual CPU load, measured facets in search, and
+measurements on the plugin profile page.
+
 
 **Goal.** Measured data in the graph. The catalogue becomes authoritative rather than aggregated.
 

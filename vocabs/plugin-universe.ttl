@@ -119,6 +119,12 @@ pu:ScanTime         a pu:Metric ; rdfs:label "Scan time" ; rdfs:comment "Millise
 pu:ValidationResult a pu:Metric ; rdfs:label "Validation result" ;
     rdfs:comment "Verdict from a format validator: pass, fail or crash." .
 pu:DenormalBehaviour a pu:Metric ; rdfs:label "Denormal behaviour" .
+pu:DiscoveredControlPorts a pu:Metric ; rdfs:label "Discovered control ports" ;
+    rdfs:comment "Control ports the built binary reports — the like-for-like counterpart of the parameter count in a harvested profile. Comparing the profile against the *total* port count instead makes every plugin look wrong, because a binary also has audio and atom ports." .
+pu:DiscoveredPorts a pu:Metric ; rdfs:label "Discovered ports" ;
+    rdfs:comment "Ports the built binary reports through lilv, which is what a host sees. Comparing it with the harvested profile's count is how a disagreement between a bundle's Turtle and its binary becomes visible." .
+pu:signal a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:string ;
+    rdfs:comment "The signal a crashing scan died from, where it died from one. A plugin that takes the scanning tool with it is a recorded result." .
 pu:StateIntegrity   a pu:Metric ; rdfs:label "State save/restore integrity" .
 
 pu:subject    a owl:ObjectProperty ; rdfs:domain pu:Measurement ;

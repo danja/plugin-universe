@@ -7,6 +7,7 @@
 * [Suggestions](suggestions.md) — recommendations on data, engineering, product, law and scope
 * [Resources](resources.md) — data sources, forums, specifications, ontologies, tooling, and the source terms review
 * [Deployment](deployment.md) — the runbook: containers, TLS, harvesting on the server, backups
+* [Profiling](profiling.md) — measuring plugins, and the sandbox that runs untrusted code
 
 ## Worklog
 
