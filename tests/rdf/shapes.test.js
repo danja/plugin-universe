@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import fs from 'fs'
 import ShapeValidator, { parseTriples, summarise } from '../../src/store/ShapeValidator.js'
+import { LICENCES } from '../../src/store/GraphRegistry.js'
 import { serialisePlugin } from '../../src/harvest/PluginSerialiser.js'
 import { normalisePlugin } from '../../src/harvest/Normaliser.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
@@ -17,6 +19,24 @@ const rdf = NAMESPACES.rdf
  */
 
 const IRI = `${pu}plugin/test-00000000`
+
+describe('the shapes and the code agree about licences', () => {
+  /**
+   * GraphRegistry.LICENCES decides what a harvester may declare; the SHACL
+   * shape decides what validates. Nothing keeps a Turtle list and a JavaScript
+   * object in step except a test, and when they drifted the symptom was 136
+   * violations in production — every graph the GitHub harvester registered
+   * under a copyleft licence, because the shape still listed only the six the
+   * seed corpus happened to use.
+   */
+  it('allows exactly the licences the registry accepts', () => {
+    const shapes = fs.readFileSync('vocabs/shapes.ttl', 'utf8')
+    const block = shapes.match(/sh:in \(([^)]*)\)\s*;\s*\n\s*sh:message "Every graph declares a licence/)
+    expect(block, 'could not find the graph licence sh:in list').not.toBeNull()
+    const allowed = [...block[1].matchAll(/"([^"]+)"/g)].map(m => m[1]).sort()
+    expect(allowed).toEqual(Object.keys(LICENCES).sort())
+  })
+})
 
 describe('the validation shapes', () => {
   let validator

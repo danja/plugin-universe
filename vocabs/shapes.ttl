@@ -295,7 +295,16 @@ pu:SourceGraphShape a sh:NodeShape ;
         sh:path dcterms:license ;
         sh:minCount 1 ; sh:maxCount 1 ;
         sh:datatype xsd:string ;
-        sh:in ( "CC0-1.0" "CC-BY-SA-4.0" "MIT" "ISC" "proprietary-linkout" "unknown" ) ;
+        # Kept in step with LICENCES in src/store/GraphRegistry.js, which is the
+        # authority. tests/rdf/shapes.test.js fails if the two drift — they did,
+        # the moment the GitHub harvester started registering a graph per
+        # repository with that repository's own licence.
+        sh:in (
+                "CC0-1.0" "Unlicense" "0BSD" "MIT" "ISC" "BSD-2-Clause" "BSD-3-Clause" 
+                "Apache-2.0" "BSL-1.0" "Zlib" "MPL-2.0" "GPL-2.0" "GPL-3.0" "LGPL-2.1" 
+                "LGPL-3.0" "AGPL-3.0" "CC-BY-4.0" "CC-BY-SA-4.0" "proprietary-linkout" 
+                "unknown"
+        ) ;
         sh:message "Every graph declares a licence from the known set. There is no default: a wrong guess here is a licensing error that would not surface until publication." ;
     ] ;
     sh:property [
