@@ -38,7 +38,7 @@ console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`
 // legitimate thing to run and does not need an OAuth App.
 const origin = process.env.SITE_ORIGIN ?? config.get('site.origin')
 const accounts = new Accounts(client)
-const auth = AuthRoutes.fromEnvironment({ accounts, origin })
+const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
 let corrections = null
 if (auth) {
   // Registered at startup, not at first sign-in: a graph holding personal data
@@ -49,11 +49,13 @@ if (auth) {
   await corrections.ensureGraph()
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
   console.log('Contributions enabled')
+} else if (authProblem) {
+  console.log(`Sign-in DISABLED — ${authProblem}`)
 } else {
   console.log('Sign-in disabled (no GITHUB_CLIENT_ID/SECRET); the site is read-only')
 }
 
-const server = createServer({ search, config, projectRoot: Config.projectRoot, auth, corrections })
+const server = createServer({ search, config, projectRoot: Config.projectRoot, auth, corrections, authProblem })
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)
   console.log('  GET /health           service status')

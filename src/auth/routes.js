@@ -61,10 +61,42 @@ export class AuthRoutes {
     this.accounts = accounts
   }
 
+  /**
+   * Build from the environment, or explain why not.
+   *
+   * Three outcomes, and the middle one is the point:
+   *
+   *  - **Not configured at all** — a read-only deployment, which is legitimate.
+   *    `{ routes: null, reason: null }`.
+   *  - **Half configured** — a misconfiguration, not a choice. Sign-in stays
+   *    off and the reason is reported, loudly in the log and in /health.
+   *  - **Configured** — sign-in works.
+   *
+   * The half-configured case used to throw, which took the whole catalogue down
+   * because one optional feature was incomplete. A public catalogue whose
+   * primary job is being read should not go dark over that. It must not fail
+   * *silently* either, or an operator believes sign-in works when it does not —
+   * hence a reason that reaches /health, where monitoring can see it.
+   */
   static fromEnvironment ({ accounts, origin }) {
     const oauth = GitHubOAuth.fromEnvironment({ origin })
-    if (!oauth) return null
-    return new AuthRoutes({ oauth, session: Session.fromEnvironment(), accounts })
+    if (!oauth) return { routes: null, reason: null }
+
+    let session
+    try {
+      session = Session.fromEnvironment()
+    } catch (error) {
+      const reason = `sign-in is configured but unusable: ${error.message}`
+      logger.error(
+        `\n${'!'.repeat(72)}\n` +
+        `SIGN-IN IS DISABLED. ${error.message}\n` +
+        'GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are set, so sign-in was intended.\n' +
+        'The catalogue is serving read-only. /health reports this as misconfigured.\n' +
+        `${'!'.repeat(72)}`
+      )
+      return { routes: null, reason }
+    }
+    return { routes: new AuthRoutes({ oauth, session, accounts }), reason: null }
   }
 
   /**

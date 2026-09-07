@@ -121,6 +121,61 @@ describe('coming back', () => {
   })
 })
 
+describe('a half-configured sign-in', () => {
+  const withEnv = (vars, fn) => {
+    const saved = {}
+    for (const [k, v] of Object.entries(vars)) {
+      saved[k] = process.env[k]
+      if (v === null) delete process.env[k]; else process.env[k] = v
+    }
+    try { return fn() } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v
+      }
+    }
+  }
+
+  it('disables sign-in rather than taking the catalogue down', () => {
+    // This threw before, so one incomplete optional feature made the whole site
+    // a 502. A public catalogue whose primary job is being read should not go
+    // dark because sign-in is half configured.
+    const outcome = withEnv(
+      { GITHUB_CLIENT_ID: 'abc', GITHUB_CLIENT_SECRET: 'shh', SESSION_SECRET: null },
+      () => AuthRoutes.fromEnvironment({ accounts: fakeAccounts(), origin: 'https://example.invalid' })
+    )
+    expect(outcome.routes).toBeNull()
+    expect(outcome.reason).toMatch(/unusable/)
+  })
+
+  it('reports a secret that is present but too short', () => {
+    const outcome = withEnv(
+      { GITHUB_CLIENT_ID: 'abc', GITHUB_CLIENT_SECRET: 'shh', SESSION_SECRET: 'tooshort' },
+      () => AuthRoutes.fromEnvironment({ accounts: fakeAccounts(), origin: 'https://example.invalid' })
+    )
+    expect(outcome.routes).toBeNull()
+    expect(outcome.reason).toMatch(/32 bytes/)
+  })
+
+  it('says nothing when sign-in was simply never configured', () => {
+    // Absent is a choice, not a fault, and must not be reported as one.
+    const outcome = withEnv(
+      { GITHUB_CLIENT_ID: null, GITHUB_CLIENT_SECRET: null },
+      () => AuthRoutes.fromEnvironment({ accounts: fakeAccounts(), origin: 'https://example.invalid' })
+    )
+    expect(outcome.routes).toBeNull()
+    expect(outcome.reason).toBeNull()
+  })
+
+  it('works when fully configured', () => {
+    const outcome = withEnv(
+      { GITHUB_CLIENT_ID: 'abc', GITHUB_CLIENT_SECRET: 'shh', SESSION_SECRET: 'a'.repeat(44) },
+      () => AuthRoutes.fromEnvironment({ accounts: fakeAccounts(), origin: 'https://example.invalid' })
+    )
+    expect(outcome.routes).toBeInstanceOf(AuthRoutes)
+    expect(outcome.reason).toBeNull()
+  })
+})
+
 describe('the account on a request', () => {
   const account = { iri: 'acct-1', login: 'ada', suspended: false }
   const routes = new AuthRoutes({ oauth, session, accounts: fakeAccounts(account) })

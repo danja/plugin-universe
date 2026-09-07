@@ -97,7 +97,7 @@ export const VOCABULARIES = Object.freeze({
 })
 
 export function createServer ({
-  search, config, projectRoot = process.cwd(), auth = null, corrections = null
+  search, config, projectRoot = process.cwd(), auth = null, corrections = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
 
@@ -187,6 +187,10 @@ export function createServer ({
             plugins: search.documents.size,
             index: search.index.size,
             embeddingModel: config?.get('embedding.model') ?? null,
+            // So a half-configured sign-in is visible to monitoring rather than
+            // only to whoever reads the container log at startup.
+            signIn: auth ? 'enabled' : (authProblem ? 'misconfigured' : 'disabled'),
+            ...(authProblem ? { signInProblem: authProblem } : {}),
             licence: LICENCE
           })
         }
