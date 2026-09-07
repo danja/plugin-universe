@@ -116,6 +116,27 @@ export const PROFILER_CONFIG = {
 }
 
 /**
+ * Contributions and moderation.
+ *
+ * The trust threshold is what makes moderation bounded rather than unbounded:
+ * a new contributor's corrections are queued, and past this many accepted ones
+ * they go live on arrival. It is a number to be changed with evidence — too
+ * high and contributors give up before earning it, too low and the queue stops
+ * being a filter.
+ */
+export const CONTRIBUTION_CONFIG = {
+  acceptedBeforeTrusted: 5,
+
+  // A rationale long enough to be a reason and short enough to read.
+  maxRationaleLength: 1000,
+  maxValueLength: 2000,
+
+  // Corrections one account may submit in an hour. Generous for a person,
+  // useless for a script.
+  perAccountPerHour: 30
+}
+
+/**
  * Embedding pipeline.
  */
 export const EMBEDDING_CONFIG = {

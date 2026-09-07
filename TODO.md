@@ -73,7 +73,29 @@ the measurement model, per-run graphs. `node bin/profile.js --path <built bundle
 * the scan currently matches a plugin by `owl:sameAs` to its LV2 IRI, so it only
   reaches LV2 plugins the catalogue already holds. VST3 needs a different key.
 
-## Phase 3 — people and pages — planned, not started
+## Phase 3 — people and pages — auth layer done
+
+Built and tested: `personal-data` licence flag, `src/auth/{Session,GitHubOAuth,Accounts,routes}.js`,
+the three routes, and the sign-in state in the header. 255 tests.
+
+**Not yet verified: one real browser round trip.** Everything up to the redirect to GitHub is
+exercised, and the callback's rejections are tested, but nobody has actually signed in. Run
+`SITE_ORIGIN=http://localhost:4100 node bin/serve.js`, click the link, and check that an account
+appears in `<graph:system/accounts>` and the header shows the login.
+
+Next, in order:
+
+* **contributions.** A typed correction — subject, predicate, proposed value, rationale —
+  validated against the SHACL shapes before it is written, landing in the contributor's CC0
+  graph. This is the first write of catalogue data by a person.
+* **the two graphs per contributor**, `graph:user/<id>-facts` and `-prose`, registered with
+  their respective licences at first contribution.
+* **the review queue** and the trust threshold that empties it.
+* **CSRF tokens** on the contribution forms. The OAuth flow has its state check; ordinary form
+  posts have nothing yet, and the moment there is a form that changes data they need one.
+* **wiki pages** with revisions as graph resources.
+
+## Phase 3 — the plan
 
 [docs/plan.md](docs/plan.md) has the detail. Decisions taken: GitHub OAuth only (no credential
 ever stored, no scopes requested, deliberately not `user:email`); contributions reviewed first

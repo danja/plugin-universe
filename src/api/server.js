@@ -94,7 +94,7 @@ export const VOCABULARIES = Object.freeze({
   shapes: 'vocabs/shapes.ttl'
 })
 
-export function createServer ({ search, config, projectRoot = process.cwd() }) {
+export function createServer ({ search, config, projectRoot = process.cwd(), auth = null }) {
   if (!search) throw new Error('The API server needs a SearchService')
 
   // Fail at startup, not per request. A page whose source file is missing from
@@ -130,13 +130,21 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
     // and a plugin IRI that answers 405 to a link checker looks broken. Node
     // suppresses the body on a HEAD response by itself, so the handler below
     // needs no branch — the headers, including Content-Length, stay correct.
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
+    // POST reaches the auth routes only. Everything else is still read-only,
+    // and says so.
+    const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
+    if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost) {
       return send(response, 405, { error: 'This API is read-only' })
     }
 
     try {
       const path = url.pathname.replace(/\/$/, '') || '/'
       const params = url.searchParams
+      // Who is looking. One account lookup per HTML request; the JSON and RDF
+      // representations do not need it and do not pay for it.
+      const viewer = auth
+        ? { account: await auth.currentAccount(request), signInEnabled: true }
+        : { account: null, signInEnabled: false }
 
       switch (path) {
         case '/': {
@@ -162,7 +170,8 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
             total: outcome.total,
             corpus: search.documents.size,
             elapsedMs: hasCriteria ? Date.now() - started : undefined,
-            facetValues: await search.facets()
+            facetValues: await search.facets(),
+            viewer
           })
           return sendText(response, 200, html, 'text/html; charset=utf-8')
         }
@@ -219,6 +228,26 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
           return send(response, 200, { total: outcome.total, results: outcome.results, licence: LICENCE })
         }
 
+        case '/auth/login':
+        case '/auth/callback':
+        case '/auth/logout': {
+          if (!auth) return send(response, 404, { error: 'Sign-in is not configured on this instance' })
+          if (path === '/auth/logout' && request.method !== 'POST') {
+            // A GET logout is triggerable by any page with an <img> tag.
+            return send(response, 405, { error: 'Sign out with POST' })
+          }
+          const outcome = path === '/auth/login'
+            ? auth.login(request, url)
+            : path === '/auth/callback'
+              ? await auth.callback(request, url)
+              : auth.logout(request)
+          response.writeHead(outcome.status, {
+            ...(outcome.headers ?? {}),
+            ...(outcome.body ? { 'Content-Type': 'text/plain; charset=utf-8' } : {})
+          })
+          return response.end(outcome.body ?? '')
+        }
+
         // The prose pages. /about/crawler in particular is the address this
         // project's own crawler user agent points at, so it is a promise made
         // to every source that has ever seen a request from it.
@@ -226,7 +255,7 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
         case '/terms':
         case '/about/crawler': {
           const page = await loadPage(path, projectRoot)
-          return sendText(response, 200, renderDocPage(page), 'text/html; charset=utf-8')
+          return sendText(response, 200, renderDocPage(page, viewer), 'text/html; charset=utf-8')
         }
 
         case '/ns': {
@@ -272,7 +301,7 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
               })
             }
             return sendText(response, 200,
-              renderCategoryPage(slug, outcome.results, outcome.total), 'text/html; charset=utf-8')
+              renderCategoryPage(slug, outcome.results, outcome.total, viewer), 'text/html; charset=utf-8')
           }
 
           // /plugin/<slug>-<hash> resolves the catalogue IRI it denotes.
@@ -290,7 +319,7 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
               case 'json':
                 return send(response, 200, { ...doc, licence: LICENCE })
               default:
-                return sendText(response, 200, renderPluginPage(doc), 'text/html; charset=utf-8')
+                return sendText(response, 200, renderPluginPage(doc, viewer), 'text/html; charset=utf-8')
             }
           }
           return send(response, 404, { error: 'No such endpoint', path })

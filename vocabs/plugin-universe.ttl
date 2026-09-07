@@ -85,6 +85,32 @@ pu:suspended a owl:DatatypeProperty ; rdfs:range xsd:boolean ;
     rdfs:comment "Checked against the account on every request rather than carried in the session cookie, so suspension takes effect immediately even though sessions are stateless." .
 pu:lastSeen a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
 
+## ── Contributions ───────────────────────────────────────────────────────────
+## A person proposing a change to a fact. Corrections are *proposals* until
+## accepted, and an accepted one takes effect through source precedence rather
+## than by overwriting anything: the harvested statement stays where it is, in
+## its own graph, and the contributor's graph outranks or is outranked by it
+## according to the weights in config/preferences.js. Nothing is ever destroyed
+## by a correction, which is what makes rollback a query.
+
+pu:Correction a owl:Class ; rdfs:label "Correction" ;
+    rdfs:comment "A proposed change to one statement about one plugin. Typed rather than free text, so it can be validated against the shapes before it is written and applied mechanically once accepted." .
+
+pu:correctionSubject a owl:ObjectProperty ; rdfs:domain pu:Correction ;
+    rdfs:comment "The plugin the correction is about." .
+pu:correctionPredicate a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:range xsd:string ;
+    rdfs:comment "Which property is being corrected, as an IRI string. Restricted to a whitelist: a correction is not a way to write arbitrary triples." .
+pu:proposedValue a owl:DatatypeProperty ; rdfs:domain pu:Correction ;
+    rdfs:comment "What the contributor says it should be." .
+pu:currentValue a owl:DatatypeProperty ; rdfs:domain pu:Correction ;
+    rdfs:comment "What it said when the correction was made. Kept so a reviewer can see whether the catalogue changed underneath the proposal." .
+pu:rationale a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:range xsd:string ;
+    rdfs:comment "Why. Free text, and the only part of a correction that is authored prose rather than a fact — but it is about the contribution rather than about the plugin, so it stays with the correction in the system graph." .
+pu:correctionStatus a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:range xsd:string ;
+    rdfs:comment "pending, accepted or rejected. A correction from a trusted contributor is accepted on arrival; one from a new contributor waits." .
+pu:reviewedBy a owl:ObjectProperty ; rdfs:domain pu:Correction .
+pu:reviewedAt a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:range xsd:dateTime .
+
 ## ── Packaging and distribution ──────────────────────────────────────────────
 ## Modelled on the Open Audio Stack registry manifest.
 

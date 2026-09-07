@@ -6,6 +6,8 @@ import VectorIndex from '../src/vectors/VectorIndex.js'
 import EmbeddingService from '../src/embeddings/EmbeddingService.js'
 import SearchService from '../src/search/SearchService.js'
 import { createServer } from '../src/api/server.js'
+import Accounts from '../src/auth/Accounts.js'
+import AuthRoutes from '../src/auth/routes.js'
 
 logger.setLevel('info')
 
@@ -31,7 +33,22 @@ const loaded = await search.loadDocuments()
 // read from disk, not rebuilt from the triple store.
 console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`)
 
-const server = createServer({ search, config, projectRoot: Config.projectRoot })
+// Sign-in, when the instance is configured for it. A read-only deployment is a
+// legitimate thing to run and does not need an OAuth App.
+const origin = process.env.SITE_ORIGIN ?? config.get('site.origin')
+const accounts = new Accounts(client)
+const auth = AuthRoutes.fromEnvironment({ accounts, origin })
+if (auth) {
+  // Registered at startup, not at first sign-in: a graph holding personal data
+  // that is not flagged as such is the one failure this design exists to
+  // prevent, and it must not wait on somebody signing in.
+  await accounts.ensureGraph()
+  console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
+} else {
+  console.log('Sign-in disabled (no GITHUB_CLIENT_ID/SECRET)')
+}
+
+const server = createServer({ search, config, projectRoot: Config.projectRoot, auth })
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)
   console.log('  GET /health           service status')

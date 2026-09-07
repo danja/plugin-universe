@@ -28,7 +28,14 @@ const STYLE = `
 body { margin:0; font:15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
        color:var(--fg); background:var(--bg); }
 .wrap { max-width: 52rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
-header { border-bottom:1px solid var(--line); padding-bottom:1rem; margin-bottom:1.5rem; }
+header { border-bottom:1px solid var(--line); padding-bottom:1rem; margin-bottom:1.5rem; position:relative; }
+.account { position:absolute; top:0; right:0; margin:0; font-size:.82rem; color:var(--muted);
+           display:flex; gap:.5rem; align-items:center; }
+.account a { color:var(--accent); }
+.account form { margin:0; }
+.account button { padding:.15rem .5rem; font-size:.78rem; background:none; color:var(--muted);
+                  border:1px solid var(--line); cursor:pointer; }
+.account button:hover { color:var(--fg); }
 h1 { font-size:1.35rem; margin:0 0 .2rem; letter-spacing:-0.01em; }
 h1 a { color:inherit; text-decoration:none; }
 .tagline { color:var(--muted); font-size:.9rem; margin:0; }
@@ -85,7 +92,25 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 .prose h1 + p, .prose h2 + p { margin-top:.4rem; }
 `
 
-function layout (title, body, { description = '' } = {}) {
+/**
+ * The sign-in corner of the header.
+ *
+ * `account` is null when nobody is signed in, and undefined when the instance
+ * has no sign-in configured at all — a read-only deployment shows nothing
+ * rather than a link that 404s.
+ */
+function accountBar (account, signInEnabled) {
+  if (!signInEnabled) return ''
+  if (!account) {
+    return '<p class="account"><a href="/auth/login">Sign in with GitHub</a></p>'
+  }
+  return `<p class="account">
+    ${escape(account.login)}
+    <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
+  </p>`
+}
+
+function layout (title, body, { description = '', account = null, signInEnabled = false } = {}) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -98,6 +123,7 @@ ${description ? `<meta name="description" content="${escape(description)}">` : '
 <body>
 <div class="wrap">
 <header>
+  ${accountBar(account, signInEnabled)}
   <h1><a href="/">Plugin Universe</a></h1>
   <p class="tagline">An open database of DAW plugins. Public domain (CC0).</p>
 </header>
@@ -148,7 +174,7 @@ function resultItem (r) {
 </div>`
 }
 
-export function renderSearchPage ({ query, facets, results, total, corpus, elapsedMs, facetValues }) {
+export function renderSearchPage ({ query, facets, results, total, corpus, elapsedMs, facetValues, viewer = {} }) {
   const options = (name, values, selected) => `<select name="${name}">
     <option value="">${name}: any</option>
     ${(values ?? []).map(v => `<option value="${escape(v.value)}"${v.value === selected ? ' selected' : ''}>${escape(v.value)} (${v.count})</option>`).join('')}
@@ -171,7 +197,8 @@ ${results.length
     : (query ? '<p class="empty">Nothing matched.</p>' : '')}
 `
   return layout(query ? `${query} — Plugin Universe` : 'Plugin Universe', body, {
-    description: 'An open, machine-readable database of DAW plugins with semantic search.'
+    description: 'An open, machine-readable database of DAW plugins with semantic search.',
+    ...viewer
   })
 }
 
@@ -204,7 +231,7 @@ export function pluginJsonLd (doc) {
   return ld
 }
 
-export function renderPluginPage (doc) {
+export function renderPluginPage (doc, viewer = {}) {
   const rows = [
     ['Vendor', doc.vendor],
     ['Formats', (doc.formats ?? []).join(', ')],
@@ -235,7 +262,7 @@ ${renderProvenance(doc)}
 </p>
 <script type="application/ld+json">${JSON.stringify(pluginJsonLd(doc), null, 2)}</script>
 `
-  return layout(`${doc.name} — Plugin Universe`, body, { description: doc.description ?? '' })
+  return layout(`${doc.name} — Plugin Universe`, body, { description: doc.description ?? '', ...viewer })
 }
 
 /**
@@ -245,12 +272,12 @@ ${renderProvenance(doc)}
  * visitor reads it as part of the site. Constrained to a narrower measure than
  * the search results, because these are paragraphs rather than a table.
  */
-export function renderDocPage ({ title, description, html }) {
+export function renderDocPage ({ title, description, html }, viewer = {}) {
   return layout(`${escape(title)} — Plugin Universe`, `
 <p class="meta"><a href="/">← search</a></p>
 <article class="prose">
 ${html}
-</article>`, { description })
+</article>`, { description, ...viewer })
 }
 
 /**
@@ -261,7 +288,7 @@ ${html}
  * resolve to something. A list of what is in the category is both the useful
  * answer for a person and the honest one for a machine.
  */
-export function renderCategoryPage (slug, results, total) {
+export function renderCategoryPage (slug, results, total, viewer = {}) {
   const body = `
 <p class="meta"><a href="/">← search</a></p>
 <h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">${escape(slug)}</h2>
@@ -270,7 +297,8 @@ export function renderCategoryPage (slug, results, total) {
 ${results.map(resultItem).join('\n')}
 `
   return layout(`${slug} — Plugin Universe`, body, {
-    description: `Plugins categorised as ${slug} in the Plugin Universe catalogue.`
+    description: `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
+    ...viewer
   })
 }
 
