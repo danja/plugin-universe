@@ -1,5 +1,10 @@
-# Every registered graph with its licence terms, most authoritative first.
-SELECT ?graph ?kind ?licence ?redistributable ?inCC0Dump ?precedence
+# Every registered graph with its licence terms and provenance, most
+# authoritative first.
+#
+# derivedFrom and identifier are here because a plugin profile page has to name
+# its source and link to it: a catalogue that cannot say where a fact came from
+# is asking to be trusted rather than checked.
+SELECT ?graph ?kind ?identifier ?licence ?redistributable ?inCC0Dump ?precedence ?derivedFrom ?generatedAtTime
 WHERE {
   GRAPH ${metadataGraph} {
     ?graph a pu:SourceGraph ;
@@ -8,6 +13,9 @@ WHERE {
            pu:redistributable ?redistributable ;
            pu:inCC0Dump ?inCC0Dump ;
            pu:precedence ?precedence .
+    OPTIONAL { ?graph dcterms:identifier ?identifier }
+    OPTIONAL { ?graph prov:wasDerivedFrom ?derivedFrom }
+    OPTIONAL { ?graph prov:generatedAtTime ?generatedAtTime }
   }
 }
 ORDER BY DESC(?precedence) ?graph

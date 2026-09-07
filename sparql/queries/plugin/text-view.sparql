@@ -1,9 +1,11 @@
 # Everything the embedding pipeline needs to compose a plugin's retrieval text,
-# and everything the lexical signal matches against.
+# everything the lexical signal matches against, and the provenance a profile
+# page has to show: which source graph the plugin came from, its own homepage,
+# and the document the source published about it.
 #
 # GROUP_CONCAT keeps this to one row per plugin: the alternative is a join
 # explosion across roles, categories and 900-odd ports.
-SELECT ?plugin ?name ?vendor ?description
+SELECT ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?licenceId ?sourceAvailability ?pricing
        (GROUP_CONCAT(DISTINCT ?roleLabel; separator=", ") AS ?roles)
        (GROUP_CONCAT(DISTINCT ?categoryLabel; separator=", ") AS ?categories)
        (GROUP_CONCAT(DISTINCT ?formatLabel; separator=", ") AS ?formats)
@@ -16,6 +18,11 @@ WHERE {
     OPTIONAL { ?plugin trn:vendor ?vendor }
     OPTIONAL { ?plugin rdfs:comment ?description }
     OPTIONAL { ?plugin trn:caution ?caution }
+    OPTIONAL { ?plugin foaf:homepage ?homepage }
+    OPTIONAL { ?plugin rdfs:seeAlso ?seeAlso }
+    OPTIONAL { ?plugin pu:licenceId ?licenceId }
+    OPTIONAL { ?plugin pu:sourceAvailability ?sourceAvailability }
+    OPTIONAL { ?plugin pu:pricing ?pricing }
     OPTIONAL { ?plugin trn:role ?role      BIND(REPLACE(STR(?role), "^.*/", "") AS ?roleLabel) }
     OPTIONAL { ?plugin trn:format ?format  BIND(REPLACE(STR(?format), "^.*/", "") AS ?formatLabel) }
     OPTIONAL { ?plugin pu:category ?cat    BIND(REPLACE(STR(?cat), "^.*/", "") AS ?categoryLabel) }
@@ -23,5 +30,5 @@ WHERE {
     OPTIONAL { ?plugin lv2:port ?port . ?port lv2:name ?portName }
   }
 }
-GROUP BY ?plugin ?name ?vendor ?description
+GROUP BY ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?licenceId ?sourceAvailability ?pricing
 ORDER BY ?name

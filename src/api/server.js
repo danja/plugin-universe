@@ -130,7 +130,10 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
             format: params.get('format') || null,
             category: params.get('category') || null,
             role: params.get('role') || null,
-            vendor: params.get('vendor') || null
+            vendor: params.get('vendor') || null,
+            source: params.get('source') || null,
+            pricing: params.get('pricing') || null,
+            licence: params.get('licence') || null
           }
           const hasCriteria = Boolean(q) || Object.values(facets).some(Boolean)
           const outcome = hasCriteria
@@ -164,14 +167,17 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
             format: params.get('format'),
             role: params.get('role'),
             category: params.get('category'),
-            vendor: params.get('vendor')
+            vendor: params.get('vendor'),
+            source: params.get('source'),
+            pricing: params.get('pricing'),
+            licence: params.get('licence')
           }
           const limit = Math.min(
             Number(params.get('limit')) || RETRIEVAL_CONFIG.defaultPageSize,
             RETRIEVAL_CONFIG.maxPageSize
           )
           if (!q && !Object.values(facets).some(Boolean)) {
-            return send(response, 400, { error: 'Provide q, or at least one of format, role, category, vendor' })
+            return send(response, 400, { error: 'Provide q, or at least one of format, role, category, vendor, source, pricing, licence' })
           }
           const outcome = q
             ? await search.search(q, { facets, limit })

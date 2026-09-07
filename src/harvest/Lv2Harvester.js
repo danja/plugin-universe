@@ -3,6 +3,7 @@ import path from 'path'
 import { Harvester, HarvestError } from './Harvester.js'
 import { parseTurtleFile } from './TurtleReader.js'
 import { readBundleDataset, SKIP_DIRECTORIES } from './Lv2Bundle.js'
+import { FREE } from './Licensing.js'
 
 /**
  * Harvests LV2 bundles from a directory tree by reading their Turtle directly.
@@ -21,11 +22,17 @@ export class Lv2Harvester extends Harvester {
    * @param {string} spec.licence - the repository's licence, checked per repo
    *   at harvest time rather than assumed (docs/resources.md §4)
    */
-  constructor ({ repoPath, id, licence, derivedFrom, vendor = null }) {
+  /**
+   * @param {string|null} [spec.pricing] - a Licensing pricing IRI, where the
+   *   repository's terms are known. Not derived from the bundle's licence: an
+   *   open-source licence grants source, not a free build.
+   */
+  constructor ({ repoPath, id, licence, derivedFrom, vendor = null, pricing = null }) {
     super({ id, kind: 'source', licence, derivedFrom: derivedFrom ?? repoPath })
     if (!repoPath) throw new HarvestError('Lv2Harvester needs repoPath')
     this.repoPath = repoPath
     this.vendor = vendor
+    this.pricing = pricing
   }
 
   static SKIP_DIRECTORIES = SKIP_DIRECTORIES
@@ -56,6 +63,7 @@ export class Lv2Harvester extends Harvester {
       dataset = dataset ? dataset.merge(parsed) : parsed
     }
     return readBundleDataset(dataset, { vendor: this.vendor })
+      .map(record => (this.pricing ? { ...record, pricing: this.pricing } : record))
   }
 
   async collect () {

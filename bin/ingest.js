@@ -10,6 +10,7 @@ import Lv2Harvester from '../src/harvest/Lv2Harvester.js'
 import OpenAudioStackHarvester from '../src/harvest/OpenAudioStackHarvester.js'
 import GitHubClient from '../src/harvest/GitHubClient.js'
 import GitHubHarvester from '../src/harvest/GitHubHarvester.js'
+import { FREE } from '../src/harvest/Licensing.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import EmbeddingService from '../src/embeddings/EmbeddingService.js'
 import VectorIndex from '../src/vectors/VectorIndex.js'
@@ -108,7 +109,9 @@ function localHarvesters () {
         // doap:license <https://opensource.org/licenses/MIT>.
         licence: 'MIT',
         derivedFrom: 'https://github.com/danja/flues',
-        vendor: 'Danny Ayers'
+        vendor: 'Danny Ayers',
+        // The user's own repository, MIT and given away.
+        pricing: FREE
       })
     }
   ]

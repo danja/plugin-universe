@@ -2,6 +2,7 @@ import fs from 'fs'
 import { Harvester, HarvestError } from './Harvester.js'
 import HttpSource from './HttpSource.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import { FREE, DONATIONWARE } from './Licensing.js'
 
 const trn = NAMESPACES.trn
 
@@ -275,6 +276,13 @@ export class OpenAudioStackHarvester extends Harvester {
       vendor: version.author ?? null,
       homepage: version.url ?? null,
       licence,
+      // The registry describes itself as a distribution platform for free,
+      // open-source audio software and publishes a direct download for every
+      // entry, so this is the source's own assertion rather than an inference
+      // from the licence — which would be wrong, since an open-source licence
+      // says nothing about the price of a binary. A donate link makes it
+      // donationware, which is a more precise version of the same claim.
+      pricing: version.donate ? DONATIONWARE : FREE,
       formats: [...formats],
       artefacts: [...artefacts],
       roles: typeMapping?.roles ?? [],

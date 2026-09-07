@@ -1,4 +1,5 @@
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import { toSpdx, sourceAvailabilityFor, PRICING, AVAILABILITY } from './Licensing.js'
 
 /**
  * Source shapes to the catalogue's graph model.
@@ -123,6 +124,27 @@ export function correctTerm (iri) {
   return TERM_CORRECTIONS[iri] ?? iri
 }
 
+/**
+ * A URL that may be written into the graph as an IRI.
+ *
+ * foaf:homepage has a range of foaf:Document, so its object is a resource, not
+ * a string — and a consumer following the link needs an IRI to follow. Anything
+ * that is not an absolute http(s) URL is dropped rather than emitted as a
+ * malformed IRI: a link that does not resolve is worse than an absent one,
+ * because it looks like a fact.
+ */
+export function normaliseUrl (raw) {
+  if (!raw || typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  try {
+    const url = new URL(trimmed)
+    return /^https?:$/.test(url.protocol) ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 export function normaliseUnit (raw) {
   if (!raw) return { iri: null, label: null }
 
@@ -215,15 +237,25 @@ export function normalisePlugin (raw) {
     bundleName: raw.bundleName ?? null,
     classId: raw.classId ?? null,
     description: raw.description ?? null,
-    homepage: raw.homepage ?? null,
-    seeAlso: raw.seeAlso ?? null,
-    image: raw.image ?? null,
-    audioPreview: raw.audioPreview ?? null,
-    donateUrl: raw.donateUrl ?? null,
+    // URLs are normalised here so the serialiser can write them as IRIs
+    // without re-deciding what counts as a URL.
+    homepage: normaliseUrl(raw.homepage),
+    seeAlso: normaliseUrl(raw.seeAlso),
+    image: normaliseUrl(raw.image),
+    audioPreview: normaliseUrl(raw.audioPreview),
+    donateUrl: normaliseUrl(raw.donateUrl),
     downloadCount: raw.downloadCount ?? null,
     verified: raw.verified === true,
     project: raw.project ?? null,
     licence: raw.licence ?? null,
+    // The SPDX form alongside whatever the source actually said, so a query can
+    // compare licences without every consumer re-implementing this.
+    licenceId: toSpdx(raw.licence),
+    // Derived; null when the licence does not settle it, which is not the same
+    // as proprietary.
+    sourceAvailability: raw.sourceAvailability ?? sourceAvailabilityFor(raw.licence),
+    // Only ever what a harvester asserted, and only from the listed set.
+    pricing: PRICING.has(raw.pricing) ? raw.pricing : null,
     maintainer: raw.maintainer ?? null,
     formats: [...new Set(raw.formats ?? [])],
     roles: [...new Set(roles)],

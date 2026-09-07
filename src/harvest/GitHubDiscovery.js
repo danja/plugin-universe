@@ -26,17 +26,22 @@ export const DEFAULT_TOPICS = Object.freeze([
 ])
 
 /**
- * The rule for whether a discovered repository is harvestable without a human
- * looking at it.
+ * Whether a discovered repository is harvested.
  *
- * An unrecognised or absent licence means `unknown`, which the graph registry
- * flags as not redistributable — so harvesting it would add data the dump can
- * never use, from a source that has not granted anything. Silence is not
- * permission. Such rows stay in the list, marked, for a person to decide on.
+ * **An unrecognised or absent licence is skipped.** That is settled policy, not
+ * a default awaiting review (docs/resources.md §4, rule 7). The graph registry
+ * flags `unknown` as not redistributable, so harvesting one would add data the
+ * public dump could never use, taken from a source that has granted nothing.
+ * Silence is not permission.
  *
- * Archived repositories are excluded by default for a different reason: they
- * are not wrong, just unlikely to be worth a rate-limit window on the first
- * sweep. That one is taste, and flipping it in the file is expected.
+ * Skipped rows stay in the candidate file, marked, rather than being dropped:
+ * the list is a record of what was seen and what was decided about it, and the
+ * policy can be revisited per repository by setting `include` by hand — after
+ * asking the maintainer, which is rule 6.
+ *
+ * Archived repositories are excluded for a weaker reason: not wrong, just
+ * unlikely to be worth a rate-limit window on a first sweep. That one is taste,
+ * and flipping it in the file is expected.
  */
 export function shouldInclude (candidate) {
   if (candidate.licence === 'unknown') return false

@@ -30,6 +30,12 @@ The catalogue holds **645 plugins** in three source graphs:
 | [flues](https://github.com/danja/flues) | 36 | MIT | LV2, machine-readable by design; ports map in untranslated |
 | [Open Audio Stack registry](https://github.com/open-audio-stack/open-audio-stack-registry) | 559 | CC0-1.0 | breadth, and the packaging layer: checksummed downloads per platform and architecture |
 
+Every plugin carries the two things people ask first — **can I see the source**
+and **do I have to pay** — as separate facets, because they are independent:
+Ardour is GPL-3.0 and its official binaries are sold. Source availability is
+derived from the stated licence; pricing is only ever what a source asserted.
+Currently 631 open source, 641 free, 4 donationware, 14 unknown.
+
 Parameters are described with `lv2:port`, `units:` and `lv2:scalePoint`
 throughout, whatever the source format. Hybrid retrieval scores MRR 0.893 on the
 fixture corpus against 0.844 for vector similarity alone.
@@ -92,7 +98,7 @@ browser is not much of an open dataset:
 | Endpoint | Returns |
 |---|---|
 | `GET /` | server-rendered search page |
-| `GET /search?q=&format=&category=` | hybrid search results as JSON |
+| `GET /search?q=&format=&category=&pricing=&source=&licence=` | hybrid search results as JSON |
 | `GET /facets` | facet values and counts |
 | `GET /plugin/<slug>` | one plugin — HTML, or Turtle/JSON-LD by `Accept` or `.ttl`/`.jsonld` |
 | `GET /health` | corpus and index size |

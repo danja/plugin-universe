@@ -49,8 +49,9 @@ Discovery writes a file and ingests nothing. Only rows marked `include` are harv
 repository with no recognised licence is listed but not included, because silence is not
 permission. Each repository gets its own graph carrying its own licence.
 
-* review the candidate list once it exists — particularly the `unknown` licences, which are a
-  question for a person and not for a crawler
+* review the candidate list once it exists. Unlicensed repositories are skipped by policy
+  (resources.md §4 rule 7) and need no attention; what is worth a look is whether anything
+  obviously worth having was missed by the topic search
 * consider seeding it with the DISTRHO and MOD organisations, and with repositories already
   named by harvested plugins' `foaf:homepage`
 * the embedding step is incremental, so a GitHub sweep only embeds what it adds

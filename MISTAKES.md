@@ -3,6 +3,40 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
+## 2026-09-07 — Harvested the homepage, modelled it wrongly, never showed it
+
+**What was wrong.** Every harvester read a plugin's homepage and 642 of 645
+plugins had one in the store. It was written as a **literal**, though
+`foaf:homepage` ranges over `foaf:Document` — so a consumer following the link
+had a string, not something to follow. And no page displayed it: not the HTML
+profile, not the Turtle, not the JSON-LD.
+
+Provenance was in the same state. The named-graph design exists so every
+statement traces to a source and a licence, and all of it was there in the
+metadata graph — invisible to anyone reading a plugin page.
+
+**Why nothing caught it.** The SHACL shapes did not constrain `foaf:homepage`,
+because the shapes were written against what the serialiser emitted rather than
+against what the vocabulary says. A shape derived from the code cannot disagree
+with the code.
+
+**What replaced it.** `normaliseUrl` in the normaliser, so URLs are validated
+once and the serialiser writes IRIs; the shapes now require `foaf:homepage` and
+`rdfs:seeAlso` to be IRIs matching `^https?://`; the text view carries the
+source graph, and every profile page renders a provenance block naming the
+source, its licence, and links to both the origin and the specific source
+record.
+
+**A second defect found while doing it.** `DownspoutHarvester` set
+`derivedFrom` to the local checkout path it happened to be reading. Publishing
+provenance turned that into a broken link and a leak of a local filesystem path
+on 50 public pages. It now records the public origin, and the renderer refuses
+to linkify anything that is not an http(s) URL.
+
+**Lesson.** Data that is harvested but never displayed is not verified by
+anything. Both defects had been in every ingest since the harvesters were
+written and were found within minutes of putting the values on a page.
+
 ## 2026-09-07 — A Fuseki assembler that lost every named graph on restart
 
 **What happened.** The first real `docker compose up` failed with "dependency

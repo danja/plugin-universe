@@ -41,6 +41,32 @@ pu:tag a owl:DatatypeProperty ; rdfs:range xsd:string ;
 pu:unitLabel a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "A parameter's unit as the source wrote it, kept when it could not be mapped to a units: individual. Losing the label would be worse than failing to type it." .
 
+## ── Availability ────────────────────────────────────────────────────────────
+## The two questions asked most often about any plugin: can I see the source,
+## and do I have to pay. Two axes rather than one enumeration, because they are
+## independent — Ardour is GPL-3.0 and its official binaries are sold.
+
+pu:SourceAvailability a owl:Class ; rdfs:label "Source Availability" .
+pu:OpenSource      a pu:SourceAvailability ; rdfs:label "Open source" ;
+    rdfs:comment "Released under an OSI-approved licence or a public-domain dedication. Derived from the stated licence, never guessed." .
+pu:SourceAvailable a pu:SourceAvailability ; rdfs:label "Source available" ;
+    rdfs:comment "Source can be read but the licence does not grant the freedoms of an open-source one." .
+pu:Proprietary     a pu:SourceAvailability ; rdfs:label "Proprietary" ;
+    rdfs:comment "No source. Asserted only where a source says so; an absent licence means unknown, not proprietary." .
+
+pu:Pricing a owl:Class ; rdfs:label "Pricing" .
+pu:Free         a pu:Pricing ; rdfs:label "Free" .
+pu:Donationware a pu:Pricing ; rdfs:label "Donationware" .
+pu:Freemium     a pu:Pricing ; rdfs:label "Freemium" ; rdfs:comment "A free tier alongside a paid one." .
+pu:Paid         a pu:Pricing ; rdfs:label "Paid" .
+
+pu:sourceAvailability a owl:ObjectProperty ; rdfs:range pu:SourceAvailability ;
+    rdfs:comment "Derived from the plugin's own licence. Absent means unknown." .
+pu:pricing a owl:ObjectProperty ; rdfs:range pu:Pricing ;
+    rdfs:comment "Never derived from a licence: an open-source licence grants the right to the source, not a free binary. Asserted only by a harvester whose source states it, and carrying that source's provenance." .
+pu:licenceId a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "The plugin's licence as an SPDX identifier where one is recognisable. dcterms:license keeps whatever the source actually said." .
+
 ## ── Packaging and distribution ──────────────────────────────────────────────
 ## Modelled on the Open Audio Stack registry manifest.
 

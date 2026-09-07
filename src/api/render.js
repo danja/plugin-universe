@@ -47,6 +47,10 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .desc { margin:.25rem 0; }
 .tags { font-size:.8rem; color:var(--muted); }
 .tag { display:inline-block; border:1px solid var(--line); border-radius:99px; padding:.05rem .5rem; margin-right:.3rem; }
+.badge { display:inline-block; border-radius:99px; padding:.05rem .5rem; margin-right:.3rem; font-weight:600;
+         border:1px solid var(--accent); color:var(--accent); }
+.badge-price { background:var(--accent); color:var(--bg); border-color:transparent; }
+.badge-src { border-style:dashed; }
 .score { float:right; font-variant-numeric:tabular-nums; font-size:.78rem; color:var(--muted); }
 table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.88rem; }
 th, td { text-align:left; padding:.35rem .6rem .35rem 0; border-bottom:1px solid var(--line); }
@@ -54,6 +58,10 @@ th { color:var(--muted); font-weight:500; }
 .empty { color:var(--muted); padding:2rem 0; }
 footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; }
 footer a { color:var(--accent); }
+.prov { margin:1.5rem 0; padding:.75rem 1rem; border:1px solid var(--line); border-radius:6px; background:color-mix(in srgb, var(--fg) 3%, transparent); }
+.prov h3 { font-size:.9rem; margin:0 0 .35rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+.prov p { margin:.25rem 0; font-size:.9rem; }
+.prov a { color:var(--accent); }
 code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent); padding:.1em .35em; border-radius:3px; }
 `
 
@@ -85,6 +93,25 @@ ${body}
 </html>`
 }
 
+/** Human labels for the availability individuals. */
+const AVAILABILITY_LABEL = { OpenSource: 'open source', SourceAvailable: 'source available', Proprietary: 'proprietary' }
+const PRICING_LABEL = { Free: 'free', Donationware: 'donationware', Freemium: 'freemium', Paid: 'paid' }
+
+/**
+ * The two answers a person scanning results actually wants, shown as badges
+ * rather than left to be inferred from a licence identifier. An unknown value
+ * shows nothing: saying nothing is honest, and "unknown" in every row is noise.
+ */
+function availabilityBadges (r) {
+  const badges = []
+  if (PRICING_LABEL[r.pricing]) badges.push(`<span class="badge badge-price">${escape(PRICING_LABEL[r.pricing])}</span>`)
+  if (AVAILABILITY_LABEL[r.sourceAvailability]) {
+    badges.push(`<span class="badge badge-src">${escape(AVAILABILITY_LABEL[r.sourceAvailability])}</span>`)
+  }
+  if (r.licenceId) badges.push(`<span class="badge">${escape(r.licenceId)}</span>`)
+  return badges.join('')
+}
+
 function resultItem (r) {
   const tags = [...(r.formats ?? []), ...(r.categories ?? [])]
   const slug = r.iri?.split('/').pop() ?? ''
@@ -92,7 +119,7 @@ function resultItem (r) {
   ${r.score !== undefined ? `<span class="score">${r.score.toFixed(3)}</span>` : ''}
   <h2><a href="/plugin/${escape(slug)}">${escape(r.name)}</a>${r.vendor ? ` <span class="vendor">— ${escape(r.vendor)}</span>` : ''}</h2>
   ${r.description ? `<p class="desc">${escape(r.description.split('\n')[0].slice(0, 220))}</p>` : ''}
-  <p class="tags">${tags.map(t => `<span class="tag">${escape(t)}</span>`).join('')}</p>
+  <p class="tags">${availabilityBadges(r)}${tags.map(t => `<span class="tag">${escape(t)}</span>`).join('')}</p>
 </div>`
 }
 
@@ -107,6 +134,8 @@ export function renderSearchPage ({ query, facets, results, total, corpus, elaps
   <input type="search" name="q" value="${escape(query ?? '')}" placeholder="warm analogue bus compressor" autofocus>
   ${options('format', facetValues?.format, facets.format)}
   ${options('category', facetValues?.category, facets.category)}
+  ${options('pricing', facetValues?.pricing, facets.pricing)}
+  ${options('source', facetValues?.source, facets.source)}
   <button type="submit">Search</button>
 </form>
 ${query || Object.values(facets).some(Boolean)
@@ -143,6 +172,9 @@ export function pluginJsonLd (doc) {
   if (doc.description) ld.description = doc.description
   if (subCategory) ld.applicationSubCategory = subCategory
   if (doc.vendor) ld.author = { '@type': 'Organization', name: doc.vendor }
+  if (doc.homepage) ld.url = doc.homepage
+  if (doc.seeAlso) ld.sameAs = doc.seeAlso
+  if (linkable(doc.provenance?.derivedFrom)) ld.isBasedOn = doc.provenance.derivedFrom
   if (keywords) ld.keywords = keywords
   return ld
 }
@@ -154,6 +186,9 @@ export function renderPluginPage (doc) {
     ['Roles', (doc.roles ?? []).join(', ')],
     ['Categories', (doc.categories ?? []).join(', ')],
     ['Tags', (doc.tags ?? []).join(', ')],
+    ['Price', PRICING_LABEL[doc.pricing]],
+    ['Source', AVAILABILITY_LABEL[doc.sourceAvailability]],
+    ['Licence', doc.licenceId],
     ['Parameters', (doc.parameters ?? []).length ? `${doc.parameters.length}: ${doc.parameters.slice(0, 12).join(', ')}${doc.parameters.length > 12 ? '…' : ''}` : null],
     ['Caution', doc.cautions]
   ].filter(([, v]) => v)
@@ -164,9 +199,11 @@ export function renderPluginPage (doc) {
 ${doc.vendor ? `<p class="tagline">${escape(doc.vendor)}</p>` : ''}
 ${doc.description ? `<p class="desc">${escape(doc.description)}</p>` : ''}
 <table>
+${doc.homepage ? `<tr><th>Homepage</th><td><a href="${escape(doc.homepage)}" rel="nofollow noopener">${escape(doc.homepage)}</a></td></tr>` : ''}
 ${rows.map(([k, v]) => `<tr><th>${escape(k)}</th><td>${escape(v)}</td></tr>`).join('\n')}
 <tr><th>IRI</th><td><code>${escape(doc.iri)}</code></td></tr>
 </table>
+${renderProvenance(doc)}
 <p class="meta">Also available as
   <a href="${escape(doc.iri.replace(NAMESPACES.pu, '/'))}.ttl">Turtle</a>,
   <a href="${escape(doc.iri.replace(NAMESPACES.pu, '/'))}.jsonld">JSON-LD</a>.
@@ -216,6 +253,50 @@ export function categoryTurtle (slug, results) {
   return lines.join('\n')
 }
 
+/**
+ * Where this profile's facts came from.
+ *
+ * Shown on every plugin page rather than buried in the graph. The named-graph
+ * design exists so that every statement can be traced to a source and a licence
+ * (docs/architecture.md §3); a page that does not surface that is asking to be
+ * trusted rather than checked. It is also how the sources get credited, which
+ * the operating principle requires whether or not their licence compels it.
+ */
+/** Only an http(s) URL is rendered as a link; anything else is shown as text. */
+function linkable (value) {
+  if (!value) return false
+  try {
+    return /^https?:$/.test(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
+
+export function renderProvenance (doc) {
+  const source = doc.provenance
+  const links = []
+  if (source?.derivedFrom && !linkable(source.derivedFrom)) {
+    // A source recorded as something other than a URL — a local checkout, say.
+    // Shown, because it is the provenance, but never as a link.
+    links.push(`<code>${escape(source.derivedFrom)}</code>`)
+  } else if (source?.derivedFrom) {
+    links.push(`<a href="${escape(source.derivedFrom)}" rel="nofollow noopener">${escape(source.derivedFrom)}</a>`)
+  }
+  if (doc.seeAlso) {
+    links.push(`<a href="${escape(doc.seeAlso)}" rel="nofollow noopener">source record</a>`)
+  }
+  if (!source && links.length === 0) return ''
+
+  return `<div class="prov">
+  <h3>Provenance</h3>
+  <p>
+    ${source ? `Harvested from <strong>${escape(source.source)}</strong>` : 'Source unrecorded'}${source?.licence ? `, whose metadata is <strong>${escape(source.licence)}</strong>` : ''}.
+    ${links.length ? links.join(' &middot; ') : ''}
+  </p>
+  <p class="tags">Graph <code>${escape(source?.graph ?? 'unknown')}</code>. Catalogue data is CC0; the plugin's own licence is its author's.</p>
+</div>`
+}
+
 /** Turtle for one plugin, for content-negotiated dereferencing. */
 export function pluginTurtle (doc) {
   const lines = [
@@ -223,6 +304,8 @@ export function pluginTurtle (doc) {
     `@prefix pu: <${NAMESPACES.pu}> .`,
     `@prefix rdfs: <${NAMESPACES.rdfs}> .`,
     `@prefix dcterms: <${NAMESPACES.dcterms}> .`,
+    `@prefix foaf: <${NAMESPACES.foaf}> .`,
+    `@prefix prov: <${NAMESPACES.prov}> .`,
     '',
     `${iri(doc.iri)}`,
     `    a trn:PluginProfile ;`,
@@ -230,6 +313,11 @@ export function pluginTurtle (doc) {
   ]
   if (doc.vendor) lines.push(`    trn:vendor ${literal(doc.vendor)} ;`)
   if (doc.description) lines.push(`    rdfs:comment ${literal(doc.description)} ;`)
+  if (doc.homepage) lines.push(`    foaf:homepage ${iri(doc.homepage)} ;`)
+  if (doc.seeAlso) lines.push(`    rdfs:seeAlso ${iri(doc.seeAlso)} ;`)
+  if (linkable(doc.provenance?.derivedFrom)) {
+    lines.push(`    prov:wasDerivedFrom ${iri(doc.provenance.derivedFrom)} ;`)
+  }
   for (const format of doc.formats ?? []) lines.push(`    trn:format trn:${format} ;`)
   // Category IRIs are written out in full: a Turtle prefixed name may not
   // contain a slash, so pu:category/midi does not parse.

@@ -4,6 +4,20 @@ Getting Plugin Universe onto a server, and harvesting once it is there.
 
 The design is in [architecture.md §11](architecture.md). This is the runbook.
 
+## The live server
+
+| | |
+|---|---|
+| Host | `hyperdata` |
+| Repository | **`/home/github/plugin-universe`** — every `docker compose` command in this document runs from there |
+| Site | `https://plugin-universe.com` |
+| IRI second hop | nginx on the same host, `/etc/nginx/snippets/plugin-universe-xmlns.conf` |
+
+Paths in this document are relative to the repository directory. `./data/seed`
+and `./data/curation` in `docker-compose.yml` resolve against it, so they are
+`/home/github/plugin-universe/data/seed` and `.../data/curation` on the server
+unless `SEED_DIR` says otherwise.
+
 ## What runs
 
 | Container | Purpose | Exposed |
@@ -118,6 +132,16 @@ harvest.
 
 ## Harvesting
 
+> **After any `git pull`, rebuild before running anything.** The Dockerfile
+> copies the source into the image, so `docker compose run` executes the code
+> that was baked in at build time — not what is in the checkout. A pull with no
+> rebuild silently runs the old version.
+>
+> ```sh
+> git pull && docker compose build app && docker compose up -d app
+> ```
+
+
 Harvest commands run against the same image and the same volume as the service,
 so the index they build is the index the app serves:
 
@@ -202,10 +226,14 @@ rebuild.)
 
 That writes `data/curation/github-candidates.json` and ingests nothing. Read it,
 edit the `include` flags, and **commit it** — it is a record of decisions about
-other people's work, not a cache. Pay particular attention to rows whose licence
-is `unknown`: those repositories state no licence the graph registry recognises,
-and harvesting them would add data the public dump could never use. Silence is
-not permission; that decision is a person's to make, not a crawler's.
+other people's work, not a cache.
+
+Rows whose licence is `unknown` are **skipped**: those repositories state no
+licence the graph registry recognises, and harvesting them would add data the
+public dump could never use. That is settled policy
+([resources.md §4, rule 7](resources.md)), so they need no action — they stay in
+the file as a record of what was seen. Set `include` on one only after asking
+its maintainer.
 
 ```sh
 docker compose run --rm app node bin/ingest.js --github data/curation/github-candidates.json

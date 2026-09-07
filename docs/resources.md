@@ -201,4 +201,12 @@ non-redistributable, which the dump assembly excludes. Where the answer is yes b
    the catalogue again under another name.
 6. **When the terms are unclear, ask.** An email to a maintainer costs a day and settles the question
    permanently. Most open-source authors will say yes and be pleased to be asked.
+7. **A source with no recognised licence is skipped.** Where an automated sweep meets a repository
+   stating no licence, or one the graph registry does not know, it is recorded and not harvested.
+   This is policy, not a pending decision: `GitHubDiscovery.shouldInclude` implements it and
+   `bin/discover.js` marks such rows `include: false`. They stay in the candidate file so that what
+   was seen and skipped is on the record and the decision can be revisited one repository at a time
+   — by asking, per rule 6, rather than by assuming. The practical reason is the same as rule 1: the
+   CC0 dump is assembled by querying a licence flag, and `unknown` is flagged not redistributable,
+   so harvesting it would add data that can never leave the building.
 

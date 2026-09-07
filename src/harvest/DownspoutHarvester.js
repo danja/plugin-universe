@@ -3,6 +3,7 @@ import path from 'path'
 import { Harvester, HarvestError } from './Harvester.js'
 import { parseTurtleFile, GraphView } from './TurtleReader.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import { FREE } from './Licensing.js'
 
 const trn = NAMESPACES.trn
 const rdfs = NAMESPACES.rdfs
@@ -26,7 +27,11 @@ export class DownspoutHarvester extends Harvester {
       // The user's own repository. Owned outright, so it can be released CC0
       // regardless of the code licence, which covers the code not the facts.
       licence: 'CC0-1.0',
-      derivedFrom: repoPath ?? 'https://github.com/danja/downspout'
+      // The public origin, not the local checkout it happens to be read from.
+      // derivedFrom is published on every plugin profile as the provenance
+      // link, so a filesystem path there is both a broken link and a leak of
+      // where this machine keeps things.
+      derivedFrom: 'https://github.com/danja/downspout'
     })
     this.repoPath = repoPath
     if (!repoPath) throw new HarvestError('DownspoutHarvester needs repoPath')
@@ -124,6 +129,17 @@ export class DownspoutHarvester extends Harvester {
     }
   }
 
+  /**
+   * The repository's own terms, applied to every plugin in it.
+   *
+   * downspout is MIT (its LICENSE file), and the plugins are built and given
+   * away, so both axes are known facts about the user's own work rather than
+   * inferences. Stated here because the profile.ttl files do not carry them.
+   */
+  #repositoryTerms (record) {
+    return { ...record, licence: record.licence ?? 'MIT', pricing: FREE }
+  }
+
   async collect () {
     const pluginsDir = path.join(this.repoPath, 'plugins')
     if (!fs.existsSync(pluginsDir)) {
@@ -135,7 +151,7 @@ export class DownspoutHarvester extends Harvester {
       if (!entry.isDirectory()) continue
       const file = path.join(pluginsDir, entry.name, 'profile.ttl')
       if (!fs.existsSync(file)) continue
-      records.push(await this.readProfile(file))
+      records.push(this.#repositoryTerms(await this.readProfile(file)))
     }
     return records
   }

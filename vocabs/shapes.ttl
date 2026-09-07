@@ -8,6 +8,7 @@
 @prefix owl:     <http://www.w3.org/2002/07/owl#> .
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix foaf:    <http://xmlns.com/foaf/0.1/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix prov:    <http://www.w3.org/ns/prov#> .
 
@@ -95,10 +96,43 @@ pu:PluginShape a sh:NodeShape ;
         sh:message "sameAs asserts that two IRIs denote the same plugin. A document about the plugin is rdfs:seeAlso." ;
     ] ;
     sh:property [
+        sh:path foaf:homepage ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^https?://" ;
+        sh:message "foaf:homepage ranges over foaf:Document, so it is an IRI a consumer can follow — not a string. It was a literal until 2026-09-07 and nothing noticed, because nothing displayed it." ;
+    ] ;
+    sh:property [
+        sh:path rdfs:seeAlso ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^https?://" ;
+        sh:message "A source record is a document to fetch." ;
+    ] ;
+    sh:property [
         sh:path pu:downloadCount ;
         sh:maxCount 1 ;
         sh:datatype xsd:integer ;
         sh:minInclusive 0 ;
+    ] ;
+    sh:property [
+        sh:path pu:sourceAvailability ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:in ( pu:OpenSource pu:SourceAvailable pu:Proprietary ) ;
+        sh:message "Source availability is one of three individuals, and absent means unknown — which is not the same as proprietary." ;
+    ] ;
+    sh:property [
+        sh:path pu:pricing ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:in ( pu:Free pu:Donationware pu:Freemium pu:Paid ) ;
+        sh:message "Pricing is one of four individuals. It is never derived from a licence: an open-source licence grants source, not a free binary." ;
+    ] ;
+    sh:property [
+        sh:path pu:licenceId ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
     ] .
 
 ## ── Parameters ──────────────────────────────────────────────────────────────

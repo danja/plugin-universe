@@ -55,9 +55,16 @@ export function serialisePlugin (plugin, pluginIri) {
   add(trn + 'vendor', plugin.vendor ? literal(plugin.vendor) : null)
   add(trn + 'bundleName', plugin.bundleName ? literal(plugin.bundleName) : null)
   add(trn + 'vstClassId', plugin.classId ? literal(plugin.classId) : null)
-  add(foaf + 'homepage', plugin.homepage ? literal(plugin.homepage) : null)
+  // An IRI, not a literal: foaf:homepage ranges over foaf:Document, and a
+  // consumer following the link needs something to follow. The normaliser has
+  // already discarded anything that is not an absolute http(s) URL.
+  add(foaf + 'homepage', plugin.homepage ? iri(plugin.homepage) : null)
   add(lv2 + 'project', plugin.project ? literal(plugin.project) : null)
   add(dcterms + 'license', plugin.licence ? literal(plugin.licence) : null)
+  add(pu + 'licenceId', plugin.licenceId ? literal(plugin.licenceId) : null)
+  // Can I see the source, and do I have to pay. Absent means nobody has said.
+  add(pu + 'sourceAvailability', plugin.sourceAvailability ? iri(plugin.sourceAvailability) : null)
+  add(pu + 'pricing', plugin.pricing ? iri(plugin.pricing) : null)
   add(pu + 'slug', plugin.registryId ? literal(plugin.registryId) : null)
   // The registry entry is a document *about* the plugin, so it is seeAlso, not
   // sameAs. Only a genuine upstream IRI for the plugin itself earns sameAs.

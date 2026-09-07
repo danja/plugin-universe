@@ -15,10 +15,11 @@ import GitHubDiscovery, { DEFAULT_TOPICS } from '../src/harvest/GitHubDiscovery.
  * search query returned on the day.
  *
  * Rows are marked `include: true` only when the repository states a licence the
- * graph registry recognises as redistributable. An unlicensed repository is not
- * excluded because it is bad; it is excluded because silence is not permission,
- * and harvesting it would add data the public dump could never use. Flip the
- * flag by hand once you have an answer.
+ * graph registry recognises as redistributable. A repository with no recognised
+ * licence is skipped — settled policy, docs/resources.md §4 rule 7 — not because
+ * it is bad but because silence is not permission, and harvesting it would add
+ * data the public dump could never use. Such rows stay in the file as a record
+ * of what was seen; flip the flag by hand once a maintainer has answered.
  *
  * Usage:
  *   node bin/discover.js
@@ -108,7 +109,7 @@ await write(JSON.stringify({
 
 console.log(`\n${rows.length} repositories → ${outPath}`)
 console.log(`  ${included.length} marked include`)
-console.log(`  ${unlicensed.length} with no recognised licence — review these by hand`)
+console.log(`  ${unlicensed.length} skipped: no recognised licence (docs/resources.md §4, rule 7)`)
 console.log(`  API requests used this run: ${client.rateLimit.used}`)
 if (client.rateLimit.remaining !== null) {
   console.log(`  rate limit remaining: ${client.rateLimit.remaining}/${client.rateLimit.limit}`)

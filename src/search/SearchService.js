@@ -1,6 +1,7 @@
 import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { iri, literal } from '../store/SPARQLHelper.js'
 import QueryService from '../store/QueryService.js'
+import GraphRegistry from '../store/GraphRegistry.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import LexicalIndex, { tokenise } from './LexicalIndex.js'
 
@@ -50,7 +51,7 @@ export class SearchService {
    * @param {VectorIndex} deps.index
    * @param {EmbeddingService} deps.embeddings
    */
-  constructor ({ client, index, embeddings, queries = new QueryService() }) {
+  constructor ({ client, index, embeddings, queries = new QueryService(), registry = null }) {
     for (const [key, value] of Object.entries({ client, index, embeddings })) {
       if (!value) throw new SearchError(`SearchService needs ${key}`)
     }
@@ -58,8 +59,11 @@ export class SearchService {
     this.index = index
     this.embeddings = embeddings
     this.queries = queries
+    this.registry = registry ?? new GraphRegistry(client)
     /** @type {Map<string, object>} plugin IRI to its text view row */
     this.documents = new Map()
+    /** @type {Map<string, object>} graph IRI to its provenance and licence */
+    this.sources = new Map()
     this.lexical = new LexicalIndex()
   }
 
@@ -69,10 +73,29 @@ export class SearchService {
    * disk and neither is rebuilt per query.
    */
   async loadDocuments () {
+    // Graph provenance, keyed by graph IRI, so a plugin page can say where its
+    // facts came from and under what terms. Loaded once alongside the documents
+    // rather than joined per query: five graphs, 645 plugins.
+    this.sources = new Map()
+    for (const row of await this.registry.list()) {
+      this.sources.set(row.graph, {
+        graph: row.graph,
+        source: row.identifier ?? row.graph,
+        licence: row.licence ?? null,
+        derivedFrom: row.derivedFrom ?? null
+      })
+    }
+
     const rows = await this.client.select(this.queries.get('plugin/text-view', {}))
     this.documents = new Map(rows.map(row => [row.plugin, {
       iri: row.plugin,
       name: row.name,
+      homepage: row.homepage ?? null,
+      seeAlso: row.seeAlso ?? null,
+      licenceId: row.licenceId ?? null,
+      sourceAvailability: row.sourceAvailability ? row.sourceAvailability.replace(/^.*\//, '') : null,
+      pricing: row.pricing ? row.pricing.replace(/^.*\//, '') : null,
+      provenance: this.sources.get(row.g) ?? null,
       vendor: row.vendor ?? null,
       description: row.description ?? null,
       roles: row.roles ? row.roles.split(', ').filter(Boolean) : [],
@@ -100,12 +123,17 @@ export class SearchService {
    * Build the SPARQL conditions for a facet filter.
    * @returns {string|null} null when no facets were requested
    */
-  #filterConditions ({ format, role, category, vendor }) {
+  #filterConditions ({ format, role, category, vendor, source, pricing, licence }) {
     const conditions = []
     if (format) conditions.push(`?plugin ${iri(NAMESPACES.trn + 'format')} ${iri(NAMESPACES.trn + format)} .`)
     if (role) conditions.push(`?plugin ${iri(NAMESPACES.trn + 'role')} ${iri(NAMESPACES.trn + role)} .`)
     if (category) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'category')} ${iri(`${NAMESPACES.pu}category/${category}`)} .`)
     if (vendor) conditions.push(`?plugin ${iri(NAMESPACES.trn + 'vendor')} ${literal(vendor)} .`)
+    // The availability facets. Values are local names of pu: individuals —
+    // OpenSource, Free — so a URL reads as a question rather than an IRI.
+    if (source) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'sourceAvailability')} ${iri(NAMESPACES.pu + source)} .`)
+    if (pricing) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'pricing')} ${iri(NAMESPACES.pu + pricing)} .`)
+    if (licence) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'licenceId')} ${literal(licence)} .`)
     return conditions.length ? conditions.join('\n    ') : null
   }
 
