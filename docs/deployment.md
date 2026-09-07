@@ -137,7 +137,20 @@ git clone https://github.com/danja/downspout data/seed/downspout
 git clone https://github.com/danja/flues     data/seed/flues
 ```
 
-Or set `SEED_DIR` in `.env` to wherever they already live. A missing checkout is
+Or, if they are already checked out somewhere, point `SEED_DIR` at their
+*parent* directory — it must contain `downspout/` and `flues/`:
+
+```sh
+echo 'SEED_DIR=/home/github' >> .env
+docker compose up -d          # recreates the app container with the new mount
+```
+
+The container runs as uid 1001, and the mount is read-only, so the checkouts
+have to be world-readable. `ls -ld /home/github /home/github/downspout` — if
+either is `drwx------`, the harvest sees nothing and reports the source as
+missing, which looks identical to not having cloned it.
+
+A missing checkout is
 not fatal — the ingest says so plainly and carries on with the rest — but it is
 86 plugins quietly absent, so read that output rather than skimming it. The Open
 Audio Stack registry needs no checkout; it is fetched over HTTP.
@@ -173,19 +186,29 @@ docker compose restart app
 Two steps, deliberately. Which repositories to harvest is a curation decision,
 and it belongs in a file someone has read.
 
+The candidate list has to be editable on the host, so `data/curation/` is
+bind-mounted rather than living in the `app-data` volume. The container runs as
+uid 1001, so give it that directory once:
+
 ```sh
+sudo chown -R 1001:1001 data/curation
 docker compose run --rm app node bin/discover.js --merge
 ```
 
-That writes `data/github-candidates.json` inside the `app-data` volume and
-ingests nothing. Read it, edit the `include` flags, and pay particular attention
-to rows whose licence is `unknown` — those are repositories that state no
-licence the graph registry recognises, and harvesting them would add data the
-public dump could never use. Silence is not permission; that decision is a
-person's to make, not a crawler's.
+(Alternatively build the image as your own user —
+`docker compose build --build-arg APP_UID=$(id -u) --build-arg APP_GID=$(id -g) app`
+— and skip the chown. Either works; the chown is one command and survives a
+rebuild.)
+
+That writes `data/curation/github-candidates.json` and ingests nothing. Read it,
+edit the `include` flags, and **commit it** — it is a record of decisions about
+other people's work, not a cache. Pay particular attention to rows whose licence
+is `unknown`: those repositories state no licence the graph registry recognises,
+and harvesting them would add data the public dump could never use. Silence is
+not permission; that decision is a person's to make, not a crawler's.
 
 ```sh
-docker compose run --rm app node bin/ingest.js --github data/github-candidates.json
+docker compose run --rm app node bin/ingest.js --github data/curation/github-candidates.json
 ```
 
 Each repository becomes its own graph carrying its own licence, so re-harvesting

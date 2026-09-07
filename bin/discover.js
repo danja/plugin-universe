@@ -23,7 +23,7 @@ import GitHubDiscovery, { DEFAULT_TOPICS } from '../src/harvest/GitHubDiscovery.
  * Usage:
  *   node bin/discover.js
  *   node bin/discover.js --topics lv2,clap-plugin --limit 400
- *   node bin/discover.js --out data/github-candidates.json --merge
+ *   node bin/discover.js --out data/curation/github-candidates.json --merge
  */
 
 logger.setLevel('info')
@@ -34,7 +34,7 @@ const flag = name => {
   return index === -1 ? null : args[index + 1]
 }
 
-const outPath = flag('out') ?? 'data/github-candidates.json'
+const outPath = flag('out') ?? 'data/curation/github-candidates.json'
 const limit = Number(flag('limit') ?? 200)
 const maxPages = Number(flag('pages') ?? 2)
 const topics = (flag('topics') ?? DEFAULT_TOPICS.join(',')).split(',').map(t => t.trim()).filter(Boolean)
@@ -78,14 +78,33 @@ if (merge && fs.existsSync(outPath)) {
 const included = rows.filter(row => row.include)
 const unlicensed = rows.filter(row => row.licence === 'unknown')
 
-await fs.promises.mkdir(path.dirname(outPath), { recursive: true })
-await fs.promises.writeFile(outPath, JSON.stringify({
+// A candidate list nobody can read is not a review step. When the output
+// directory is bind-mounted from the host, it has to be writable by the uid
+// this process runs as — say so plainly rather than surfacing a bare EACCES.
+try {
+  await fs.promises.mkdir(path.dirname(outPath), { recursive: true })
+} catch (error) {
+  if (error.code !== 'EEXIST') throw error
+}
+const write = body => fs.promises.writeFile(outPath, body, 'utf8').catch(error => {
+  if (error.code === 'EACCES' || error.code === 'EPERM') {
+    console.error(
+      `\nCannot write ${outPath}: permission denied, running as uid ${process.getuid?.() ?? '?'}.\n` +
+      'If this is a bind mount from the host, give it to that uid:\n' +
+      `  sudo chown -R ${process.getuid?.() ?? 1001}:${process.getgid?.() ?? 1001} data/curation`
+    )
+    process.exit(1)
+  }
+  throw error
+})
+
+await write(JSON.stringify({
   generatedAt: new Date().toISOString(),
   topics,
   site: config.get('site.domain'),
   counts: { found: rows.length, included: included.length, unlicensed: unlicensed.length },
   candidates: rows
-}, null, 2), 'utf8')
+}, null, 2))
 
 console.log(`\n${rows.length} repositories → ${outPath}`)
 console.log(`  ${included.length} marked include`)

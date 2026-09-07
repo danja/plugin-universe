@@ -75,7 +75,7 @@ harvest is a curation decision, and it belongs in a file someone can read and ed
 
 ```sh
 node bin/discover.js --merge                          # writes a candidate list; ingests nothing
-node bin/ingest.js --github data/github-candidates.json
+node bin/ingest.js --github data/curation/github-candidates.json
 ```
 
 Only rows marked `include` are harvested. A repository stating no licence the graph registry

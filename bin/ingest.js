@@ -26,7 +26,7 @@ import { composeText, textHash } from '../src/embeddings/EmbeddingService.js'
  *
  * Usage:
  *   node bin/ingest.js [--skip-embeddings] [--skip-validation] [--source <id>]
- *   node bin/ingest.js --github data/github-candidates.json
+ *   node bin/ingest.js --github data/curation/github-candidates.json
  *
  * With --github the GitHub repositories are harvested and nothing else; without
  * it, the configured sources are harvested and GitHub is not touched.

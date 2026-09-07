@@ -134,6 +134,11 @@ services:
       # directory that need not exist — Docker creates an empty one, and the
       # ingest then reports the source as skipped.
       - ${SEED_DIR:-./data/seed}:/srv/seed:ro
+      # Curation files are decisions a person makes and commits, so they must
+      # be visible and editable on the host — not sealed inside the named
+      # volume with the index and the caches. A bind mount nested inside
+      # /app/data wins over the volume for this path.
+      - ./data/curation:/app/data/curation
     depends_on:
       fuseki:
         condition: service_healthy

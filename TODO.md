@@ -41,8 +41,8 @@ bandwidth. This host's connection makes a bulk sweep impractical, so the two ste
 separated deliberately:
 
 ```sh
-node bin/discover.js --merge      # writes data/github-candidates.json — review it
-node bin/ingest.js --github data/github-candidates.json
+node bin/discover.js --merge      # writes data/curation/github-candidates.json — review it
+node bin/ingest.js --github data/curation/github-candidates.json
 ```
 
 Discovery writes a file and ingests nothing. Only rows marked `include` are harvested, and a
