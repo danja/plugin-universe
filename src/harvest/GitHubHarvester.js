@@ -33,6 +33,16 @@ import { LICENCES } from '../store/GraphRegistry.js'
  * contributors, users — are never called.
  */
 
+/**
+ * Build-time substitution tokens, in the autotools and CMake convention.
+ *
+ * A `.lv2` directory under a name like `pregen/` is often a template rather
+ * than a bundle: the manifest is generated, and until it is, `@uitype@` is not
+ * a valid Turtle name. Recognising this turns a cryptic parser error into an
+ * explanation.
+ */
+const TEMPLATE_PLACEHOLDER = /@[A-Za-z_][A-Za-z0-9_]*@/
+
 /** GitHub reports SPDX ids; these are the ones the graph registry knows. */
 function graphLicenceFor (spdxId) {
   if (!spdxId || spdxId === 'NOASSERTION') return 'unknown'
@@ -205,18 +215,39 @@ export class GitHubHarvester extends Harvester {
 
     for (const [bundle, files] of bundles) {
       let dataset = null
-      try {
-        for (const file of files) {
-          const text = await this.client.fileText(this.owner, this.repo, file, info.defaultBranch)
-          if (text === null) continue
+      const skipped = []
+
+      // Per file, not per bundle. A repository often ships a bundle template
+      // beside the real thing — master_me keeps one under pregen/ whose
+      // manifest contains `ui:@uitype@UI`, substituted at build time and not
+      // Turtle until then. Rejecting the whole bundle over one such file threw
+      // away the plugin sitting next to it.
+      for (const file of files) {
+        let text
+        try {
+          text = await this.client.fileText(this.owner, this.repo, file, info.defaultBranch)
+        } catch (error) {
+          skipped.push(`${file}: ${error.message}`)
+          continue
+        }
+        if (text === null) continue
+        try {
           const parsed = await parseTurtle(text, { file: `${this.derivedFrom}/${file}` })
           dataset = dataset ? dataset.merge(parsed) : parsed
+        } catch (error) {
+          // Diagnosed only after parsing fails, so a legitimate file that
+          // happens to contain an @-delimited token is never skipped for it.
+          skipped.push(TEMPLATE_PLACEHOLDER.test(text)
+            ? `${file}: a build template — contains @placeholder@ tokens, not Turtle until it is generated`
+            : `${file}: ${error.message}`)
         }
-      } catch (error) {
-        rejected.push({ name: bundle, reason: error.message })
+      }
+
+      for (const note of skipped) this.notes.push(`${bundle} — ${note}`)
+      if (!dataset) {
+        rejected.push({ name: bundle, reason: skipped[0] ?? 'no readable Turtle in the bundle' })
         continue
       }
-      if (!dataset) continue
 
       for (const record of readBundleDataset(dataset, { homepage: info.homepage })) {
         if (byIri.has(record.sourceIri)) continue

@@ -278,6 +278,41 @@ describe('release attribution', () => {
     expect(harvester.notes.join(' ')).toMatch(/not attributed/)
   })
 
+  it('reads a bundle whose sibling file is an unparseable build template', async () => {
+    // master_me keeps a template under pregen/ whose manifest contains
+    // `ui:@uitype@UI` — substituted at build time, not Turtle until then.
+    // Rejecting the bundle over it threw away the plugin beside it, and the
+    // whole repository harvested to nothing.
+    const client = fakeRepo({
+      tree: {
+        paths: ['p/warble.lv2/manifest.ttl', 'p/warble.lv2/warble.ttl'],
+        truncated: false
+      },
+      files: {
+        'p/warble.lv2/manifest.ttl': '@prefix ui: <http://lv2plug.in/ns/extensions/ui#> .\n<x> a ui:@uitype@UI .',
+        'p/warble.lv2/warble.ttl': PLUGIN_TTL
+      }
+    })
+    const harvester = new GitHubHarvester({ owner: 'ada', repo: 'warble-lv2', licence: 'GPL-3.0', client })
+    const { plugins, rejected } = await harvester.harvest()
+    expect(plugins).toHaveLength(1)
+    expect(plugins[0].name).toBe('Warble')
+    expect(rejected).toEqual([])
+    expect(harvester.notes.join(' ')).toMatch(/build template/)
+  })
+
+  it('reports a bundle in which nothing parsed, rather than passing it off as empty', async () => {
+    const client = fakeRepo({
+      tree: { paths: ['p/broken.lv2/manifest.ttl'], truncated: false },
+      files: { 'p/broken.lv2/manifest.ttl': 'this is not turtle at all {{{' }
+    })
+    const harvester = new GitHubHarvester({ owner: 'ada', repo: 'broken', licence: 'MIT', client })
+    const { plugins, rejected } = await harvester.harvest()
+    expect(plugins).toHaveLength(0)
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0].name).toBe('p/broken.lv2')
+  })
+
   it('reports a truncated tree instead of silently losing bundles', async () => {
     const client = fakeRepo({
       tree: { paths: ['plugins/warble.lv2/warble.ttl'], truncated: true }
