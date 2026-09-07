@@ -179,19 +179,47 @@ this catches anything introduced by the write itself.
 ## nginx: two ways
 
 **If the server already runs nginx** — the common case, and the right one when
-it serves other sites too — use `deploy/nginx/plugin-universe.host.conf` and
-leave the compose `proxy` profile alone:
+it serves other sites too — use the two host configs and leave the compose
+`proxy` profile alone.
+
+It has to be two stages, because nginx refuses to load a config whose
+`ssl_certificate` does not exist, while certbot's webroot method needs nginx
+already serving the challenge path. Stage one breaks that circle:
 
 ```sh
+sudo cp deploy/nginx/plugin-universe.acme.conf \
+        /etc/nginx/sites-available/plugin-universe.com
+sudo ln -s /etc/nginx/sites-available/plugin-universe.com /etc/nginx/sites-enabled/
+sudo mkdir -p /var/www/certbot
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo certbot certonly --webroot -w /var/www/certbot \
+  -d plugin-universe.com -d www.plugin-universe.com \
+  -d api.plugin-universe.com -d sparql.plugin-universe.com
+
 sudo cp deploy/nginx/plugin-universe.host.conf \
         /etc/nginx/sites-available/plugin-universe.com
-sudo ln -s /etc/nginx/sites-available/plugin-universe.com \
-           /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-That file proxies to `127.0.0.1:4100` and `127.0.0.1:3030`, which is where
+The full config proxies to `127.0.0.1:4100` and `127.0.0.1:3030`, which is where
 compose publishes the app and the store.
+
+### HTTP/2 on a shared host
+
+`plugin-universe.host.conf` does not enable HTTP/2, deliberately. **HTTP/2 is a
+property of the listening socket, not of a server block**: whichever vhost
+enables it for `:443` enables it for every vhost on that socket. Setting it in
+one file when another file does not produces
+
+```
+[warn] protocol options redefined for 0.0.0.0:443
+```
+
+and leaves which setting wins dependent on include order. Enable it once, in one
+file, for the whole server — and note that the standalone `http2 on;` directive
+needs nginx ≥ 1.25.1, while `listen 443 ssl http2;` works on every version and
+merely warns as deprecated on newer ones.
 
 **If nginx has the machine to itself**, use the compose profile instead, which
 mounts `deploy/nginx/plugin-universe.conf` and proxies to the service names:
