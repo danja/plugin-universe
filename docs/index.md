@@ -1,5 +1,11 @@
 # Document Index
 
+## Public-facing
+
+* [About](about.md) — what the project is, who it is for, and the licence. Becomes /about
+* [Contributor terms](contributor-terms.md) — **draft, needs legal review before submissions open**
+* [Crawler](crawler.md) — what the harvester does and how to stop it. Becomes /about/crawler, which the user agent already points at
+
 ## Standing documents
 
 * [System Architecture](architecture.md) — the design: data model, vocabularies, components, retrieval, profiler, deployment

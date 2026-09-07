@@ -75,6 +75,13 @@ export const LICENCES = Object.freeze({
   // Not ours to republish. Indexed as a name and a link, never as a copy.
   'proprietary-linkout': { redistributable: false, cc0Dump: false, notice: true },
 
+  // People. <graph:system> holds accounts, and an account is personal data
+  // under GDPR whatever its licence would otherwise be. Flagging it here means
+  // the public dump excludes it by the same query that excludes a
+  // non-redistributable source — structurally, rather than by remembering to.
+  // Erasure is then a DROP of one graph.
+  'personal-data': { redistributable: false, cc0Dump: false, notice: true },
+
   // The honest answer when a source states no terms. Deliberately not
   // redistributable: silence is not permission.
   unknown: { redistributable: false, cc0Dump: false, notice: true }

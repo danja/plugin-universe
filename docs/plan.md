@@ -242,41 +242,132 @@ measurements on the plugin profile page.
 
 ---
 
-## Phase 3 — People and pages
+## Phase 3 — People and pages — **PLANNED** (2026-09-07)
 
-**Goal.** The catalogue becomes a community resource rather than a database with a search box.
+**Goal.** The catalogue becomes a community resource rather than a database with
+a search box.
 
-**Deliverables**
+This is the first phase with **writes**. Everything up to now is a read-only
+projection of harvested data that can be rebuilt from source at any time; from
+here the store holds things that cannot be recreated. That changes the risk
+profile more than it changes the size of the work.
 
-1. Accounts, sessions, and the tier model (public / registered / pro / admin) in `<graph:system>`.
-2. `foaf:` profiles for registered users, with their own pages.
-3. Plugin wiki pages — revisions as graph resources with `prov:` attribution, so history and rollback
-   are queries.
-4. Comment threads and rankings.
-5. User contribution flow: add a plugin, edit a profile, propose a correction. Contributions land in
-   `<graph:user/{id}>` and are subject to the source-precedence rules. Contributor terms grant CC0
-   for factual contributions and CC BY-SA for authored prose, and the two land in separate graphs so
-   the licence boundary is enforced by the store rather than by review.
-6. Vendor submission flow, landing in `<graph:vendor/{id}>` and marked self-asserted.
-7. Moderation tools: merge duplicate plugins, revert a revision, hide a comment, suspend an account.
+### Decisions taken
 
-**Exit criteria**
+Three, settled before planning because each one changes what gets built.
 
-- A registered user can add a plugin that does not exist yet, edit its wiki page, and see the
-  contribution attributed to their graph.
-- An admin can merge two duplicate plugin entries without losing either source's provenance.
+**Sign-in is GitHub OAuth, and only that.** The project never stores a
+credential — no password hashing, no reset tokens, no email verification, no
+breach plan. The audience is already there: LV2 and plugin development live on
+GitHub, and the GitHub harvester already reads it. The OAuth App requests **no
+scopes**, which still returns a public login, id and avatar from `/user`, and
+deliberately not `user:email` — the standing rule is that an email address is
+not catalogue data, and the surest way to keep it is to be unable to read one.
+The cost is excluding anyone without a GitHub account, which is accepted.
+
+**Contributions are reviewed first, then trusted.** A new contributor's first
+edits sit in a queue; past a threshold they go live immediately, with revert as
+the escape hatch. Moderation work is then bounded and shrinks as the community
+grows, rather than arriving in full on day one when there is no community to
+share it.
+
+**Scope is accounts, corrections and the wiki.** Comments, rankings and vendor
+submissions move to a Phase 3b. This still satisfies the stated exit criteria
+and still exercises the CC0 / CC BY-SA split properly, which is the part worth
+getting right while the volume is small.
+
+### Consequences worth stating
+
+*No new datastore, and no new memory.* Sessions are a signed cookie —
+`HttpOnly`, `Secure`, `SameSite=Lax`, HMAC over the account id and an issue
+time, with the secret in `.env`. There is no session table to keep, and
+suspension is checked by looking the account up at request time, which is a
+query the store answers anyway. On a 4 GB host already running Fuseki, Ollama
+and the app, adding neither a session store nor a relational database is not a
+minor consideration.
+
+*The API stays on `node:http`.* [architecture.md §4](architecture.md) said a
+framework would earn its place when writes arrived. With OAuth-only auth and
+stateless cookies the write surface turns out to be a handful of form-encoded
+POSTs, and a framework's dependency tree is a larger cost than the routing it
+saves. Reconsider if file uploads arrive.
+
+### Deliverables
+
+1. **Accounts.** GitHub OAuth login and callback, signed-cookie sessions, and
+   the tier model (public / registered / pro / admin) plus a trust level, in
+   `<graph:system>`. Sign-out invalidates by expiry; suspension by account
+   state.
+2. **A licence flag for personal data.** `<graph:system>` holds people, so it
+   gets a `personal-data` licence key with `redistributable: false`. The public
+   dump then excludes accounts by the same mechanism that excludes a
+   non-redistributable source — structurally, not by remembering to.
+3. **`foaf:Person` profiles**, with their own pages, carrying a public login and
+   a display name and nothing more.
+4. **Corrections.** A typed, structured proposal to change a fact: subject,
+   predicate, proposed value, rationale. Validated against the SHACL shapes
+   *before* it is written, using the validator the ingest path already has.
+   Accepted corrections land in the contributor's CC0 graph and take effect
+   through the existing source-precedence rules rather than by overwriting
+   anything.
+5. **Plugin wiki pages.** Revisions as graph resources with `prov:wasAttributedTo`
+   and `prov:generatedAtTime`, so history, diff and rollback are queries rather
+   than features. Stored as text and rendered as a restricted Markdown subset —
+   **never raw HTML**, and the existing escaping stays in the path.
+6. **The licence boundary, enforced by the store.** Each contributor gets two
+   graphs, not one: `graph:user/<id>-facts` under CC0 and
+   `graph:user/<id>-prose` under CC BY-SA. Which graph a write lands in is
+   decided by what kind of write it is, so the boundary is a property of the
+   store rather than a judgement made at publication time. (`GraphRegistry.graphIri`
+   currently forbids a slash in an id, hence the suffix form.)
+7. **Moderation.** A queue of pending contributions; approve, reject, revert;
+   suspend an account; merge duplicate plugins without losing either source's
+   provenance.
+8. **Write-path safety**, which is entirely new ground for this codebase: CSRF
+   tokens on every form, per-account and per-IP rate limits, SHACL validation
+   before write, and a hard rule that user input never reaches the store as
+   anything but a literal.
+
+### Exit criteria
+
+- A registered user can add a plugin that does not exist yet, edit its wiki
+  page, and see the contribution attributed to their own graph.
+- A first-time contributor's edit is queued; the same user's edit after the
+  trust threshold is live immediately.
+- The public CC0 dump contains the user's factual contribution and neither their
+  prose nor their account — checked by query, not by inspection.
+- An admin can merge two duplicate plugin entries without losing either source's
+  provenance.
 - A reverted wiki edit leaves an auditable history.
+- Dropping a contributor's graphs removes their contributions and their account.
 
-**Risks**
+### Risks
 
-- *Spam and low-quality submissions arrive the day it opens.* Rate limits, a moderation queue for
-  first contributions, and per-graph revert as the escape hatch.
-- *Duplicate plugins.* Content-hash minting helps only where the identifying tuple matches; a
-  deduplication review tool is part of the moderation deliverable, not an afterthought.
-- *Moderation is unbounded work for one person.* Consider requiring an account age or a contribution
-  threshold before edits go live unreviewed.
+- *Spam arrives the day it opens.* Rate limits, the review queue for first
+  contributions, and per-graph revert as the escape hatch. The review-then-trust
+  model exists for this.
+- *Duplicate plugins.* Content-hash minting helps only where the identifying
+  tuple matches, and the catalogue already has a known case of the same plugin
+  reachable from two sources under different keys. A deduplication tool is part
+  of the moderation deliverable, not an afterthought.
+- *Erasure is not as clean as "drop the graph".* Dropping a contributor's graphs
+  removes their contributions and their attribution, and that is the right
+  mechanism. But a CC0 grant already made is irrevocable, and anything already
+  published in a dump is gone from our control. The contributor terms must say
+  so plainly rather than implying a right to unpublish.
+- *The first write endpoint is the first attack surface.* Everything so far is
+  read-only and CORS-open because none of it can be changed. That stops being
+  true here, and the same open CORS policy becomes a decision to re-examine
+  rather than a given.
+- *Moderation is still unbounded if the trust threshold is wrong.* It is a
+  number in `config/preferences.js`; expect to change it with evidence rather
+  than to guess it correctly first time.
 
----
+### Deferred to Phase 3b
+
+Comment threads, rankings, and the vendor submission flow landing in
+`<graph:vendor/{id}>` marked self-asserted. All three are additive and none
+blocks the exit criteria above.
 
 ## Phase 4 — Pro tier and revenue
 

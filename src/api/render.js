@@ -63,6 +63,26 @@ footer a { color:var(--accent); }
 .prov p { margin:.25rem 0; font-size:.9rem; }
 .prov a { color:var(--accent); }
 code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent); padding:.1em .35em; border-radius:3px; }
+.prose { max-width:42rem; }
+.prose h1 { font-size:1.5rem; margin:0 0 .3rem; letter-spacing:-0.01em; }
+.prose h2 { font-size:1.15rem; margin:2rem 0 .4rem; padding-top:.6rem; border-top:1px solid var(--line); }
+.prose h3 { font-size:1rem; margin:1.4rem 0 .3rem; color:var(--muted); text-transform:uppercase;
+            letter-spacing:.04em; font-size:.82rem; }
+.prose p, .prose li { line-height:1.65; }
+.prose ul, .prose ol { padding-left:1.2rem; }
+.prose li { margin:.3rem 0; }
+.prose a { color:var(--accent); }
+.prose strong { font-weight:650; }
+.prose hr { border:0; border-top:1px solid var(--line); margin:2rem 0; }
+.prose blockquote { margin:1rem 0; padding:.6rem 1rem; border-left:3px solid var(--accent);
+                    background:color-mix(in srgb, var(--fg) 3%, transparent); color:var(--muted); }
+.prose blockquote p { margin:.2rem 0; }
+.prose table { font-size:.86rem; }
+.prose th { white-space:nowrap; }
+.prose pre { background:color-mix(in srgb, var(--fg) 6%, transparent); padding:.7rem .9rem;
+             border-radius:6px; overflow-x:auto; font-size:.82rem; line-height:1.5; }
+.prose pre code { background:none; padding:0; }
+.prose h1 + p, .prose h2 + p { margin-top:.4rem; }
 `
 
 function layout (title, body, { description = '' } = {}) {
@@ -86,7 +106,12 @@ ${body}
   Catalogue data released under
   <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0</a>;
   attribution requested, not required.
-  Machine-readable: <a href="/search?q=reverb">JSON API</a>.
+  <br>
+  <a href="/about">About</a> &middot;
+  <a href="/terms">Contributor terms</a> &middot;
+  <a href="/about/crawler">Crawler</a> &middot;
+  <a href="/ns">Vocabularies</a> &middot;
+  <a href="/search?q=reverb">JSON API</a>
 </footer>
 </div>
 </body>
@@ -211,6 +236,21 @@ ${renderProvenance(doc)}
 <script type="application/ld+json">${JSON.stringify(pluginJsonLd(doc), null, 2)}</script>
 `
   return layout(`${doc.name} — Plugin Universe`, body, { description: doc.description ?? '' })
+}
+
+/**
+ * A prose page — about, terms, the crawler notice.
+ *
+ * The Markdown is rendered elsewhere; this puts it in the site's chrome so a
+ * visitor reads it as part of the site. Constrained to a narrower measure than
+ * the search results, because these are paragraphs rather than a table.
+ */
+export function renderDocPage ({ title, description, html }) {
+  return layout(`${escape(title)} — Plugin Universe`, `
+<p class="meta"><a href="/">← search</a></p>
+<article class="prose">
+${html}
+</article>`, { description })
 }
 
 /**

@@ -25,6 +25,7 @@
     "@rdfjs/namespace": "^2.0.0",
     "faiss-node": "^0.5.1",
     "loglevel": "^1.9.1",
+    "marked": "^18.0.11",
     "rdf-ext": "^2.5.1",
     "rdf-parse": "^4.0.0",
     "rdf-validate-shacl": "^0.6.5"

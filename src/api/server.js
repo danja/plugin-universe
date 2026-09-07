@@ -8,8 +8,9 @@ import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
   renderSearchPage, renderPluginPage, pluginJsonLd, pluginTurtle,
-  renderCategoryPage, categoryTurtle
+  renderCategoryPage, categoryTurtle, renderDocPage
 } from './render.js'
+import loadPage, { PAGES } from './pages.js'
 
 /**
  * The public read API.
@@ -201,6 +202,16 @@ export function createServer ({ search, config, projectRoot = process.cwd() }) {
         case '/plugins': {
           const outcome = await search.browse({ limit: Math.min(Number(params.get('limit')) || 50, RETRIEVAL_CONFIG.maxPageSize) })
           return send(response, 200, { total: outcome.total, results: outcome.results, licence: LICENCE })
+        }
+
+        // The prose pages. /about/crawler in particular is the address this
+        // project's own crawler user agent points at, so it is a promise made
+        // to every source that has ever seen a request from it.
+        case '/about':
+        case '/terms':
+        case '/about/crawler': {
+          const page = await loadPage(path, projectRoot)
+          return sendText(response, 200, renderDocPage(page), 'text/html; charset=utf-8')
         }
 
         case '/ns': {

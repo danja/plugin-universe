@@ -73,6 +73,26 @@ the measurement model, per-run graphs. `node bin/profile.js --path <built bundle
 * the scan currently matches a plugin by `owl:sameAs` to its LV2 IRI, so it only
   reaches LV2 plugins the catalogue already holds. VST3 needs a different key.
 
+## Phase 3 — people and pages — planned, not started
+
+[docs/plan.md](docs/plan.md) has the detail. Decisions taken: GitHub OAuth only (no credential
+ever stored, no scopes requested, deliberately not `user:email`); contributions reviewed first
+then trusted; scope is accounts + corrections + wiki, with comments, rankings and vendor
+submissions deferred to 3b.
+
+Two things to settle before writing code:
+
+* **A GitHub OAuth App** is needed — client id and secret into `.env` as `GITHUB_CLIENT_ID` /
+  `GITHUB_CLIENT_SECRET`, plus a `SESSION_SECRET` for the cookie HMAC. The callback URL is
+  `https://plugin-universe.com/auth/callback`, so it cannot be registered until DNS and TLS
+  are live.
+* ~~**Contributor terms** drafted~~ — [docs/contributor-terms.md](docs/contributor-terms.md).
+  **Still needs review by a lawyer before submissions open.** It is the one document in this
+  repository with legal effect, and it is currently one person's plain-language statement of
+  intent. The intent is settled; the wording is not verified.
+* an [About page](docs/about.md) is drafted too. Both are written to be served at
+  `/about` and `/terms` once there is a route for them.
+
 ## Outstanding, not blocking
 
 * configure the PURL redirect from `http://purl.org/stuff/plugin-universe/` to plugin-universe.com,
