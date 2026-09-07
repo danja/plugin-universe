@@ -78,6 +78,31 @@ Read those before making structural changes.
   by the harvester at write time, and dump assembly is a query over that flag. A harvester that does
   not set one is incomplete.
 
+## The recurring failure in this project
+
+Four times now, a change has been made in one file while a **second file that
+had to change with it** was left alone. Nothing connected them, so nothing
+complained, and each was found in production or by accident:
+
+| Change | The file left behind | Symptom |
+|---|---|---|
+| Added licences to `LICENCES` | the `sh:in` list in `vocabs/shapes.ttl` | 136 SHACL violations after a GitHub sweep |
+| Served pages from `docs/` | `.dockerignore`, which excluded `docs` | 500 on three routes, everything else fine |
+| Added a test directory | the `include` list in `vitest.core.config.js` | tests written, never run — twice |
+| Set the crawler's user-agent URL | the route it promises | a contact page that 404s, already advertised to sources |
+
+**When adding a runtime dependency on a path, a value, or a list, find what else
+has to agree with it — and write the test that binds them.** A test asserting
+that two lists match is worth more than either list being carefully reviewed.
+The three that now have such a test have stopped recurring.
+
+Specifically, before finishing a change, check:
+
+- Does a SHACL shape enumerate what this code enumerates?
+- Does `.dockerignore` exclude a path the app now reads at runtime?
+- Is a new `tests/<dir>/` in `vitest.core.config.js`?
+- Does a published URL — user agent, docs link, IRI — resolve to a route?
+
 ## Working rules
 - API keys are sacred. They must not be shared.
 - Do not run any `git` operations unless the user explicitly approves them.

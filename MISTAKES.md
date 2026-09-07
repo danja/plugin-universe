@@ -3,6 +3,98 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
+Nineteen entries is past the point where anyone reads them all, so what follows
+is what they have in common. The individual entries keep the specifics, which is
+where the value is; this is the index.
+
+---
+
+## The patterns
+
+**1. Two files had to change together, and nothing connected them.**
+The most expensive pattern here, and the only one that has recurred four times.
+A licence list and the SHACL shape enumerating it; `docs/` being served and
+`.dockerignore` excluding it; a new test directory and the Vitest `include`
+list; a URL published in a user agent and the route that answers it. Each was
+found in production or by accident. **The fix that works is a test asserting the
+two agree** — the three that have one have not recurred. Also in
+[CLAUDE.md](CLAUDE.md) as a checklist, because it is a thing to check before
+finishing, not after.
+
+**2. Output that looked right and was not.**
+Turtle that did not parse. A Fuseki assembler that answered every query
+correctly and lost the store on restart. Blank nodes cut in half at every write
+boundary. Twenty-one plugins silently merged into one another. An index size
+counting slots nobody could reach. In each case the system reported success —
+`204`, "57 plugins", a clean page — and the defect was only visible to something
+that *checked*: a parser, a restart, a count that had to add up. **Assert on the
+round trip, not on the operation returning.**
+
+**3. Data harvested but never shown, therefore never verified.**
+`foaf:homepage` was collected for 642 plugins, stored with the wrong node type,
+and displayed nowhere. Provenance sat in the graph, invisible. Every embedding
+contained `[object Object]`. All three had been in every ingest since the code
+was written, and all three were found within minutes of putting the values in
+front of a person. **Nothing checks a field that nothing reads.**
+
+**4. Assumed a shape instead of looking at the data.**
+That a parameter default is a number — the corpus has floats, booleans and a
+file path. That fifty hand-written profiles share one shape — one does not. That
+a native binding has `reconstruct()` — it does not. That units arrive as strings
+— LV2 states them as IRIs, which is the target of the mapping. **One `grep`, or
+one `Object.getOwnPropertyNames`, would have answered each.**
+
+**5. Carried over from semem without re-deciding.**
+Credential defaulting to `admin`/`admin`, against this project's own
+no-fallbacks rule. Fuseki paths and a healthcheck for a different image, adapted
+by reading rather than by running. Reuse is why this project exists at all, but
+**a thing that worked there is a hypothesis here.**
+
+One more that fits nowhere: a headline metric moved the right way while a second
+moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-07 — Wrote tests that never ran
+
+**What was wrong.** `vitest.core.config.js` lists test directories explicitly.
+Two new ones — `tests/embeddings/` and later `tests/profiler/` — were written,
+committed, and not in that list. Both suites passed locally in the sense that
+nothing failed: they were never executed, and the run reported a healthy green
+total that did not include them.
+
+**How it surfaced.** Only by noticing that the file count in the summary had not
+gone up. Nothing else would have said.
+
+**What replaced it.** Both directories added. There is no guard: a glob over
+`tests/**` would remove the failure mode entirely and is worth doing, at the cost
+of losing the deliberate core/store split that keeps the fast suite fast.
+
+**Lesson.** A test that does not run is worse than no test, because it reports
+as coverage. Check the *file* count after adding a directory, not just the
+passing count.
+
+## 2026-09-07 — Advertised a contact page that did not exist
+
+**What was wrong.** `HARVEST_CONFIG.userAgent` sends
+`plugin-universe-harvester/0.1 (+https://plugin-universe.com/about/crawler)` on
+every outbound request, and had done for every harvest of the Open Audio Stack
+registry and of GitHub. There was no such page. The project's own operating
+principle is to "identify the crawler honestly with a contact address", and a
+link to a 404 is not that.
+
+**How it surfaced.** By accident, while adding maintainer contact details for an
+unrelated reason.
+
+**What replaced it.** `docs/crawler.md`, served at that exact path: what the
+crawler does, how it paces itself, that a 403 is treated as an answer, and how to
+make it stop. Plus a test that reads the user agent string, extracts the URL, and
+asserts the path is one the server actually serves — so the promise and the route
+cannot drift apart again.
+
+**Lesson.** A URL in an outbound header is a promise to a stranger, and it is
+made every time the code runs, long before anyone thinks to check it.
+
 ## 2026-09-07 — Excluded from the image the very files the app serves
 
 **What happened.** `/about`, `/terms` and `/about/crawler` returned 500 in
