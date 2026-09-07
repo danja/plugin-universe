@@ -1,0 +1,13 @@
+# Every category concept referenced by any plugin, across every source graph.
+#
+# The scheme is rebuilt from this rather than from whatever the current ingest
+# run happened to harvest. A run over one source would otherwise drop every
+# concept the other sources contribute, because writing the scheme is a DROP and
+# reload of its graph.
+SELECT DISTINCT ?category
+WHERE {
+  GRAPH ?g {
+    ?plugin pu:category ?category .
+  }
+}
+ORDER BY ?category

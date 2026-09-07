@@ -1,5 +1,6 @@
 import logger from 'loglevel'
 import GraphRegistry from '../store/GraphRegistry.js'
+import QueryService from '../store/QueryService.js'
 import URIMinter from '../rdf/URIMinter.js'
 import { insertDataQuery, iri, literal } from '../store/SPARQLHelper.js'
 import { serialisePlugin, serialiseCategoryScheme, resetBlankCounter } from './PluginSerialiser.js'
@@ -39,13 +40,15 @@ export class IngestPipeline {
   constructor (client, {
     registry = new GraphRegistry(client),
     minter = new URIMinter(),
-    validator = null
+    validator = null,
+    queries = new QueryService()
   } = {}) {
     if (!client) throw new IngestError('IngestPipeline needs a SPARQLClient')
     this.client = client
     this.registry = registry
     this.minter = minter
     this.validator = validator
+    this.queries = queries
   }
 
   /**
@@ -199,8 +202,24 @@ export class IngestPipeline {
   }
 
   /**
+   * Every category any plugin in the store refers to.
+   *
+   * Read back rather than accumulated from the run, because writing the scheme
+   * is a DROP and reload of its graph: a run over one source would otherwise
+   * delete every concept the other sources contribute.
+   */
+  async storedCategories () {
+    const rows = await this.client.select(this.queries.get('plugin/categories', {}))
+    const prefix = `${NAMESPACES.pu}category/`
+    return rows
+      .map(row => row.category)
+      .filter(category => category.startsWith(prefix))
+      .map(category => category.slice(prefix.length))
+  }
+
+  /**
    * Write the category concept scheme into the alignment graph. Called once
-   * after the harvesters, with the union of every category they produced.
+   * after the harvesters, with the union of every category in the store.
    */
   async writeCategoryScheme (categories) {
     await this.registry.drop('alignment', 'categories')

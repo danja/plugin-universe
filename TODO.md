@@ -17,15 +17,26 @@
 * ~~SHACL shapes~~ — `vocabs/shapes.ttl`, run by `npm run validate` and before every write
 * ~~AUFX-O and schema.org alignment graph~~ — `vocabs/alignment.ttl`
 
-## Next — finish Phase 1
+## Next — run the sweep on the server
 
-* DOAP / GitHub harvester — API only, project data not maintainer emails.
-  `GITHUB_TOKEN` is in `.env` (fine-grained, public-read-only, no scopes — the reasoning is
-  recorded in `.env.example`). One decision left: **which repositories to sweep.** The OAS
-  registry already covers most open-source plugins that publish releases, so the value here is
-  the ones that do not — LV2 bundles living in source repos with a `manifest.ttl` and no
-  release artefacts. Candidate seeds: the `lv2` and `lv2plugin` GitHub topics, the DISTRHO and
-  MOD organisations, and repositories already referenced by harvested plugins' `foaf:homepage`.
+The GitHub harvester is built and tested; what remains is running it somewhere with
+bandwidth. This host's connection makes a bulk sweep impractical, so the two steps are
+separated deliberately:
+
+```sh
+node bin/discover.js --merge      # writes data/github-candidates.json — review it
+node bin/ingest.js --github data/github-candidates.json
+```
+
+Discovery writes a file and ingests nothing. Only rows marked `include` are harvested, and a
+repository with no recognised licence is listed but not included, because silence is not
+permission. Each repository gets its own graph carrying its own licence.
+
+* review the candidate list once it exists — particularly the `unknown` licences, which are a
+  question for a person and not for a crawler
+* consider seeding it with the DISTRHO and MOD organisations, and with repositories already
+  named by harvested plugins' `foaf:homepage`
+* the embedding step is incremental, so a GitHub sweep only embeds what it adds
 
 ## Then — Phase 2 (the profiler)
 

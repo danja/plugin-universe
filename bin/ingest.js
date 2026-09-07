@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import fs from 'fs'
+import path from 'path'
 import logger from 'loglevel'
 import Config from '../src/Config.js'
 import SPARQLClient from '../src/store/SPARQLClient.js'
@@ -6,46 +8,94 @@ import IngestPipeline from '../src/harvest/IngestPipeline.js'
 import DownspoutHarvester from '../src/harvest/DownspoutHarvester.js'
 import Lv2Harvester from '../src/harvest/Lv2Harvester.js'
 import OpenAudioStackHarvester from '../src/harvest/OpenAudioStackHarvester.js'
+import GitHubClient from '../src/harvest/GitHubClient.js'
+import GitHubHarvester from '../src/harvest/GitHubHarvester.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import EmbeddingService from '../src/embeddings/EmbeddingService.js'
 import VectorIndex from '../src/vectors/VectorIndex.js'
 import { composeText, textHash } from '../src/embeddings/EmbeddingService.js'
 
 /**
- * Harvest the seed sources, write them to the store, and build the vector index.
+ * Harvest sources, write them to the store, and build the vector index.
  *
  * Sources are configured here rather than discovered: adding one means adding
  * its licence and its provenance deliberately, which is the point (see
- * docs/resources.md §4).
+ * docs/resources.md §4). GitHub is the one exception, and only in form — its
+ * repositories come from a candidate file a person has reviewed, which is the
+ * same decision written down somewhere editable.
  *
- * Usage: node bin/ingest.js [--skip-embeddings] [--skip-validation] [--source <id>]
+ * Usage:
+ *   node bin/ingest.js [--skip-embeddings] [--skip-validation] [--source <id>]
+ *   node bin/ingest.js --github data/github-candidates.json
+ *
+ * With --github the GitHub repositories are harvested and nothing else; without
+ * it, the configured sources are harvested and GitHub is not touched.
  */
 
 logger.setLevel('info')
 
 const args = process.argv.slice(2)
+const flag = name => {
+  const index = args.indexOf(`--${name}`)
+  return index === -1 ? null : args[index + 1]
+}
 const skipEmbeddings = args.includes('--skip-embeddings')
-const onlySource = args.includes('--source') ? args[args.indexOf('--source') + 1] : null
+const onlySource = flag('source')
+const githubFile = flag('github')
 
 const config = Config.load()
 const client = new SPARQLClient(config.get('storage.endpoint'))
 
-const harvesters = [
-  new DownspoutHarvester({ repoPath: process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout' }),
-  new Lv2Harvester({
-    repoPath: process.env.FLUES_PATH ?? '/home/danny/github/flues',
-    id: 'flues',
-    // Verified per repository, not assumed: flues' bundles carry
-    // doap:license <https://opensource.org/licenses/MIT>.
-    licence: 'MIT',
-    derivedFrom: 'https://github.com/danja/flues',
-    vendor: 'Danny Ayers'
-  }),
-  new OpenAudioStackHarvester({
-    registryUrl: config.get('sources.openAudioStack.registryUrl'),
-    cachePath: config.get('sources.openAudioStack.cachePath')
+/**
+ * GitHub repositories come from a reviewed candidate file, never from a live
+ * search. `bin/discover.js` writes that file; a person decides what is in it.
+ * Only rows marked `include` are harvested, and each repository gets its own
+ * graph carrying its own licence.
+ */
+async function githubHarvesters (file) {
+  if (!fs.existsSync(file)) {
+    console.error(`No candidate file at ${file}. Run "node bin/discover.js" and review what it writes.`)
+    process.exit(1)
+  }
+  const { candidates } = JSON.parse(await fs.promises.readFile(file, 'utf8'))
+  const github = GitHubClient.fromEnvironment({
+    cacheDir: path.join(Config.projectRoot, 'data/cache/github')
   })
-].filter(h => !onlySource || h.id === onlySource)
+  if (!github.authenticated) {
+    console.error('No GITHUB_TOKEN in .env; 60 requests an hour is not enough to harvest. See .env.example.')
+    process.exit(1)
+  }
+  const selected = candidates.filter(row => row.include)
+  console.log(`${selected.length} of ${candidates.length} repositories marked include in ${file}\n`)
+  return selected.map(row => new GitHubHarvester({
+    owner: row.owner,
+    repo: row.repo,
+    licence: row.licence,
+    client: github
+  }))
+}
+
+function localHarvesters () {
+  return [
+    new DownspoutHarvester({ repoPath: process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout' }),
+    new Lv2Harvester({
+      repoPath: process.env.FLUES_PATH ?? '/home/danny/github/flues',
+      id: 'flues',
+      // Verified per repository, not assumed: flues' bundles carry
+      // doap:license <https://opensource.org/licenses/MIT>.
+      licence: 'MIT',
+      derivedFrom: 'https://github.com/danja/flues',
+      vendor: 'Danny Ayers'
+    }),
+    new OpenAudioStackHarvester({
+      registryUrl: config.get('sources.openAudioStack.registryUrl'),
+      cachePath: config.get('sources.openAudioStack.cachePath')
+    })
+  ]
+}
+
+const harvesters = (githubFile ? await githubHarvesters(githubFile) : localHarvesters())
+  .filter(h => !onlySource || h.id === onlySource)
 
 if (harvesters.length === 0) {
   console.error(`No harvester matches --source ${onlySource}`)
@@ -64,12 +114,25 @@ const validator = args.includes('--skip-validation') ? null : await ShapeValidat
 
 const pipeline = new IngestPipeline(client, { validator })
 const reports = []
-const allCategories = new Set()
+const failures = []
+
+// A sweep over many repositories must not lose the ones that worked because one
+// of them did not. A run over the configured sources is a different matter:
+// three of them, each expected to succeed, so a failure there is worth stopping
+// for rather than logging past.
+const continueOnError = harvesters.length > 3
 
 for (const harvester of harvesters) {
-  const report = await pipeline.run(harvester)
+  let report
+  try {
+    report = await pipeline.run(harvester)
+  } catch (error) {
+    if (!continueOnError) throw error
+    failures.push({ source: harvester.id, reason: error.message })
+    console.log(`\n${harvester.id}  ✗  ${error.message}`)
+    continue
+  }
   reports.push(report)
-  for (const category of report.categories) allCategories.add(category)
 
   console.log(`\n${report.source}  →  ${report.graph}`)
   console.log(`  licence     ${report.licence}`)
@@ -82,10 +145,17 @@ for (const harvester of harvesters) {
       console.log(`    ${item.name}: ${item.reason}`)
     }
   }
+  // Things the harvester could not assert but should not swallow — a truncated
+  // git tree, release assets it declined to attribute.
+  for (const note of harvester.notes ?? []) console.log(`  note        ${note}`)
 }
 
-const scheme = await pipeline.writeCategoryScheme(allCategories)
-console.log(`\ncategories  →  ${scheme.graph}  (${allCategories.size} concepts, ${scheme.tripleCount} triples)`)
+// Rebuilt from the store, not from this run: writing the scheme drops and
+// reloads its graph, so a partial ingest would otherwise delete the concepts
+// every other source contributes.
+const storedCategories = await pipeline.storedCategories()
+const scheme = await pipeline.writeCategoryScheme(storedCategories)
+console.log(`\ncategories  →  ${scheme.graph}  (${storedCategories.length} concepts, ${scheme.tripleCount} triples)`)
 
 // The alignment to AUFX-O and schema.org. Assertions of this project about
 // other people's IRIs, so CC0 like the rest of the catalogue — it maps to those
@@ -118,7 +188,14 @@ const index = await VectorIndex.open({
   model: config.get('embedding.model')
 })
 
+// Only what this run harvested. Adding to the index rather than rebuilding it
+// is what makes harvesting one more source affordable: re-embedding the whole
+// catalogue is three quarters of an hour of CPU inference.
 const all = reports.flatMap(report => report.plugins)
+if (all.length === 0) {
+  console.log('\nNothing new to embed.')
+  process.exit(failures.length > 0 ? 1 : 0)
+}
 console.log(`\nEmbedding ${all.length} plugins with ${config.get('embedding.model')}...`)
 
 // Saved periodically as well as at the end. A full rebuild is three quarters
@@ -146,3 +223,9 @@ await index.save()
 console.log(`  ${embedded}/${all.length} embedded in ${((Date.now() - started) / 1000).toFixed(1)}s`)
 console.log(`  index: ${index.size} vectors at ${index.path}`)
 console.log(`  text hash of first: ${textHash(composeText(all[0].plugin))}`)
+
+if (failures.length > 0) {
+  console.log(`\n${failures.length} source(s) failed:`)
+  for (const failure of failures) console.log(`  ${failure.source}: ${failure.reason}`)
+  process.exit(1)
+}

@@ -3,6 +3,31 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
+## 2026-09-07 — Threw away the units vocabulary when the source got it right
+
+**What was wrong.** `normaliseUnit` mapped unit *strings* — "Hz", "%", "ms" — onto
+`units:` IRIs. An LV2 bundle does not use strings: it states `units:unit
+units:hz` directly, which is the exact target of the mapping. That fell through
+to the unrecognised branch, so the plugin ended up with no typed unit at all and
+a `pu:unitLabel` reading "http://lv2plug.in/ns/extensions/units#hz".
+
+The mapping worked on every source that needed mapping and failed on the one
+source that had already done it correctly.
+
+**How it surfaced.** A test of the new GitHub harvester, written against a
+bundle that declares its units the ordinary LV2 way. The seed corpus never
+caught it because the flues bundles declare no units at all, so nothing in the
+store was actually wrong — but it would have silently degraded every LV2 bundle
+harvested from GitHub, which is precisely the population that harvester targets.
+
+**What replaced it.** A `units:` IRI passes through as itself, with its local
+name as the label.
+
+**Lesson.** A normaliser is a mapping *towards* a target vocabulary, so it needs
+a case for input that is already in it. Worth checking the other maps for the
+same shape: `PARAMETER_ALIASES` and `LV2_CLASS_MAP` both key on the source
+vocabulary and would behave the same way.
+
 ## 2026-09-07 — Cut blank nodes in half at every batch boundary
 
 **What happened.** The first SHACL run over the store reported 24 violations:

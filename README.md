@@ -67,6 +67,18 @@ node bin/validate.js            # SHACL, graph by graph
 node bin/serve.js               # search UI and JSON API on :4100
 ```
 
+Harvesting LV2 bundles from GitHub is two steps, on purpose — which repositories to
+harvest is a curation decision, and it belongs in a file someone can read and edit:
+
+```sh
+node bin/discover.js --merge                          # writes a candidate list; ingests nothing
+node bin/ingest.js --github data/github-candidates.json
+```
+
+Only rows marked `include` are harvested. A repository stating no licence the graph registry
+recognises is listed but not included: silence is not permission. Each repository gets its own
+graph carrying its own licence, so re-harvesting one is a DROP of that graph alone.
+
 Ingest validates against `vocabs/shapes.ttl` before it writes anything, and
 embedding the full catalogue takes about fifty minutes on CPU — `--skip-embeddings`
 and `--skip-validation` are there for a faster loop.

@@ -23,13 +23,20 @@ const lv2 = NAMESPACES.lv2
 const units = NAMESPACES.units
 
 /**
- * Deprecated parameter predicates, mapped onto their lv2: equivalents.
+ * Deprecated parameter predicates and their lv2: equivalents.
  *
  * Downspout uses trn:min/trn:max (17 occurrences) and trn:minimum/trn:maximum
  * (13) for the same thing. Rather than pick a winner between two bespoke terms,
  * both are retired in favour of lv2:, which flues and valis already use — so
  * all three sources land on one parameter shape with no translation for the LV2
  * side at all.
+ *
+ * This is a record of that decision, not the mechanism that implements it: the
+ * harvesters read both spellings into one raw record and `normaliseParameter`
+ * reconciles them by field name. Kept because the list of retired terms is
+ * worth having written down — it is what the upstream proposal to the
+ * transmission repo has to say — but do not reach for it expecting a lookup
+ * table that something consults.
  */
 export const PARAMETER_ALIASES = Object.freeze({
   [`${trn}min`]: `${lv2}minimum`,
@@ -118,6 +125,16 @@ export function correctTerm (iri) {
 
 export function normaliseUnit (raw) {
   if (!raw) return { iri: null, label: null }
+
+  // An LV2 bundle states its unit as a units: IRI already — that is the target
+  // of this whole mapping, so it passes through rather than being treated as an
+  // unrecognised string. Without this the units vocabulary arrives as a label
+  // reading "http://lv2plug.in/ns/extensions/units#hz" and no typed unit at
+  // all, which is the opposite of what harvesting LV2 is supposed to give.
+  if (raw.startsWith(units)) {
+    return { iri: raw, label: raw.slice(units.length) }
+  }
+
   const iri = UNIT_MAP[raw] ?? UNIT_MAP[raw.trim()] ?? null
   return { iri, label: raw }
 }

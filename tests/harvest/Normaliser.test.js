@@ -30,6 +30,15 @@ describe('parameter normalisation', () => {
     expect(normaliseUnit('ms').iri).toBe(`${units}ms`)
   })
 
+  it('passes a units: IRI through, because that is already the target', () => {
+    // An LV2 bundle states its unit as an IRI. Treating that as an
+    // unrecognised string produced a label reading
+    // "http://lv2plug.in/ns/extensions/units#hz" and no typed unit at all.
+    const { iri, label } = normaliseUnit(`${units}hz`)
+    expect(iri).toBe(`${units}hz`)
+    expect(label).toBe('hz')
+  })
+
   it('keeps an unrecognised unit label rather than dropping it', () => {
     const { iri, label } = normaliseUnit('widgets')
     expect(iri).toBeNull()
