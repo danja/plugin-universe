@@ -28,6 +28,7 @@ import { composeText, textHash } from '../src/embeddings/EmbeddingService.js'
  * Usage:
  *   node bin/ingest.js [--skip-embeddings] [--skip-validation] [--source <id>]
  *   node bin/ingest.js --github data/curation/github-candidates.json
+ *   node bin/ingest.js --only-new        embed just what has no vector yet
  *
  * With --github the GitHub repositories are harvested and nothing else; without
  * it, the configured sources are harvested and GitHub is not touched.
@@ -41,6 +42,7 @@ const flag = name => {
   return index === -1 ? null : args[index + 1]
 }
 const skipEmbeddings = args.includes('--skip-embeddings')
+const onlyNew = args.includes('--only-new')
 const onlySource = flag('source')
 const githubFile = flag('github')
 
@@ -235,10 +237,26 @@ const index = await VectorIndex.open({
 // Only what this run harvested. Adding to the index rather than rebuilding it
 // is what makes harvesting one more source affordable: re-embedding the whole
 // catalogue is three quarters of an hour of CPU inference.
-const all = reports.flatMap(report => report.plugins)
+const harvested = reports.flatMap(report => report.plugins)
+
+// --only-new embeds what the index has no vector for, which after a sweep that
+// added a handful of plugins is a handful of plugins rather than the whole
+// catalogue — minutes instead of the better part of an hour.
+//
+// It compares IRIs, not content. A plugin whose description changed keeps its
+// stale vector, because the index records no text hash to compare against; a
+// full run is still the way to pick that up. Said plainly here because a
+// staleness check that silently misses staleness is worse than none.
+const all = onlyNew
+  ? harvested.filter(({ iri }) => !index.positionByIri.has(iri))
+  : harvested
+
 if (all.length === 0) {
-  console.log('\nNothing new to embed.')
+  console.log(`\nNothing to embed${onlyNew ? ' — every harvested plugin already has a vector' : ''}.`)
   process.exit(failures.length > 0 ? 1 : 0)
+}
+if (onlyNew) {
+  console.log(`\n${harvested.length} harvested, ${all.length} without a vector.`)
 }
 console.log(`\nEmbedding ${all.length} plugins with ${config.get('embedding.model')}...`)
 

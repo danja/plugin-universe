@@ -74,6 +74,8 @@ before accounts and payments for that reason.
   mints two IRIs, because the identity tuples are different kinds of thing. Nothing in the
   current corpus overlaps, so this is a design question rather than a defect — the answer is
   probably `owl:sameAs` from a matching pass, not a change to minting.
-* embedding throughput: 645 plugins take about 50 minutes on this machine, CPU-only. Fine for
-  a nightly rebuild, too slow for an interactive re-ingest. Incremental embedding keyed on
-  `pu:composedTextHash` would only re-embed what changed.
+* embedding throughput: `--only-new` now embeds just the plugins with no vector, which covers
+  the common case of a sweep adding a few. What it cannot see is a plugin whose *text* changed
+  upstream — its IRI is unchanged, so the stale vector stays. The index records no text hash to
+  compare against; storing `pu:composedTextHash` beside each vector would close that, and would
+  make a nightly refresh cheap instead of a fifty-minute rebuild.

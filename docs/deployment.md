@@ -199,6 +199,18 @@ docker compose restart app
 
 It checkpoints every hundred plugins, so an interrupted run does not start over.
 
+**After a sweep that added a few plugins, embed only those:**
+
+```sh
+docker compose run --rm app node bin/ingest.js --only-new
+docker compose restart app
+```
+
+`--only-new` embeds what the index has no vector for. It compares IRIs, not
+content, so a plugin whose description changed upstream keeps its stale vector —
+a full run is still the way to pick that up. `/health` reporting `plugins` above
+`index` is what tells you some are missing.
+
 Restart the app afterwards — it loads the index once at start, not per request:
 
 ```sh
