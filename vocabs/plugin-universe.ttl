@@ -67,6 +67,24 @@ pu:pricing a owl:ObjectProperty ; rdfs:range pu:Pricing ;
 pu:licenceId a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "The plugin's licence as an SPDX identifier where one is recognisable. dcterms:license keeps whatever the source actually said." .
 
+## ── Accounts ────────────────────────────────────────────────────────────────
+## Personal data, in <graph:system/accounts>, which carries the `personal-data`
+## licence flag and is therefore excluded from every public dump by the same
+## query that excludes any other non-redistributable source. What is recorded
+## here is exactly what the contributor terms say is recorded: no email address,
+## because the sign-in cannot read one, and no access token, because it is
+## discarded after identification.
+
+pu:githubId a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "The GitHub numeric id. Identity is minted from this rather than the login, because a login can be renamed and an account whose IRI moved would orphan every contribution attributed to it." .
+pu:trustLevel a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "new, trusted or moderator. Earned, never asserted by the account holder: it decides whether a contribution is queued or goes live." .
+pu:tier a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "registered, pro or admin." .
+pu:suspended a owl:DatatypeProperty ; rdfs:range xsd:boolean ;
+    rdfs:comment "Checked against the account on every request rather than carried in the session cookie, so suspension takes effect immediately even though sessions are stateless." .
+pu:lastSeen a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
+
 ## ── Packaging and distribution ──────────────────────────────────────────────
 ## Modelled on the Open Audio Stack registry manifest.
 
