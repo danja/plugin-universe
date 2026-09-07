@@ -1,0 +1,8 @@
+Bind-mounted into the app container at /srv/seed. Clone the seed repositories
+here on a server that should harvest them:
+
+  git clone https://github.com/danja/downspout
+  git clone https://github.com/danja/flues
+
+Or point SEED_DIR at wherever they already live. An empty directory is fine —
+the ingest reports each missing source as skipped and carries on.

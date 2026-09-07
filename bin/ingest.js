@@ -75,23 +75,64 @@ async function githubHarvesters (file) {
   }))
 }
 
+/**
+ * The configured sources.
+ *
+ * Two of them read a git checkout from the local filesystem, which is right on
+ * a development machine and absent on a server. A missing checkout is reported
+ * and skipped rather than aborting the run: the remaining source is 559 plugins
+ * and there is no sense in having none of them because two repositories are not
+ * cloned. It is announced loudly, though — a catalogue quietly missing 86
+ * plugins is exactly the kind of gap nobody notices.
+ *
+ * Set DOWNSPOUT_PATH and FLUES_PATH, or bind-mount the checkouts, to include
+ * them. See docs/deployment.md.
+ */
 function localHarvesters () {
-  return [
-    new DownspoutHarvester({ repoPath: process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout' }),
-    new Lv2Harvester({
-      repoPath: process.env.FLUES_PATH ?? '/home/danny/github/flues',
-      id: 'flues',
-      // Verified per repository, not assumed: flues' bundles carry
-      // doap:license <https://opensource.org/licenses/MIT>.
-      licence: 'MIT',
-      derivedFrom: 'https://github.com/danja/flues',
-      vendor: 'Danny Ayers'
-    }),
-    new OpenAudioStackHarvester({
-      registryUrl: config.get('sources.openAudioStack.registryUrl'),
-      cachePath: config.get('sources.openAudioStack.cachePath')
-    })
+  const downspoutPath = process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout'
+  const fluesPath = process.env.FLUES_PATH ?? '/home/danny/github/flues'
+
+  const candidates = [
+    {
+      path: downspoutPath,
+      env: 'DOWNSPOUT_PATH',
+      build: () => new DownspoutHarvester({ repoPath: downspoutPath })
+    },
+    {
+      path: fluesPath,
+      env: 'FLUES_PATH',
+      build: () => new Lv2Harvester({
+        repoPath: fluesPath,
+        id: 'flues',
+        // Verified per repository, not assumed: flues' bundles carry
+        // doap:license <https://opensource.org/licenses/MIT>.
+        licence: 'MIT',
+        derivedFrom: 'https://github.com/danja/flues',
+        vendor: 'Danny Ayers'
+      })
+    }
   ]
+
+  const harvesters = []
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate.path)) {
+      harvesters.push(candidate.build())
+    } else {
+      console.log(
+        `SKIPPING a source: no checkout at ${candidate.path}. ` +
+        `Set ${candidate.env} or bind-mount it to include it.`
+      )
+    }
+  }
+
+  // Needs no local checkout: it fetches the registry over HTTP.
+  harvesters.push(new OpenAudioStackHarvester({
+    registryUrl: config.get('sources.openAudioStack.registryUrl'),
+    cachePath: config.get('sources.openAudioStack.cachePath')
+  }))
+
+  if (harvesters.length < candidates.length + 1) console.log('')
+  return harvesters
 }
 
 const harvesters = (githubFile ? await githubHarvesters(githubFile) : localHarvesters())

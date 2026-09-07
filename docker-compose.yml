@@ -116,6 +116,11 @@ services:
       # megabytes of vector index. The old 2048 was copied from a larger
       # machine. 256 leaves five times the measured need.
       NODE_OPTIONS: --max-old-space-size=${NODE_HEAP:-256}
+      # The seed repositories, when they are checked out on this machine.
+      # Absent is fine: bin/ingest.js reports and skips a source with no
+      # checkout rather than failing the run.
+      DOWNSPOUT_PATH: /srv/seed/downspout
+      FLUES_PATH: /srv/seed/flues
     # A little swap headroom here, unlike the store: Node's cold pages are
     # exactly what swap is good for, and a stall in the web tier is recoverable
     # in a way that a stalled garbage collector is not.
@@ -125,6 +130,10 @@ services:
       # The vector index and the harvest caches are state. They survive a
       # rebuild, and `docker compose run` shares them with the running service.
       - app-data:/app/data
+      # Read-only bind mounts of the seed checkouts. ${SEED_DIR} defaults to a
+      # directory that need not exist — Docker creates an empty one, and the
+      # ingest then reports the source as skipped.
+      - ${SEED_DIR:-./data/seed}:/srv/seed:ro
     depends_on:
       fuseki:
         condition: service_healthy

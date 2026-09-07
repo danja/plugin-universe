@@ -125,18 +125,42 @@ so the index they build is the index the app serves:
 docker compose run --rm app node bin/ingest.js
 ```
 
-That harvests the configured sources — downspout, flues and the Open Audio Stack
-registry — validates them against the SHACL shapes, writes them to per-source
-graphs, and embeds every plugin. **The embedding step is the slow part**: around
-five seconds per plugin on CPU, so a full 645-plugin build is roughly fifty
-minutes. It checkpoints every hundred plugins, so an interrupted run does not
-start over.
+That harvests the configured sources, validates them against the SHACL shapes,
+writes them to per-source graphs, and embeds every plugin.
 
-To skip it while iterating on the graph:
+**Two of the three sources are local git checkouts.** downspout and flues are
+read from the filesystem, so on a server they have to be there. Clone them into
+`data/seed/`, which is bind-mounted into the container at `/srv/seed`:
+
+```sh
+git clone https://github.com/danja/downspout data/seed/downspout
+git clone https://github.com/danja/flues     data/seed/flues
+```
+
+Or set `SEED_DIR` in `.env` to wherever they already live. A missing checkout is
+not fatal — the ingest says so plainly and carries on with the rest — but it is
+86 plugins quietly absent, so read that output rather than skimming it. The Open
+Audio Stack registry needs no checkout; it is fetched over HTTP.
+
+**Do the slow part separately the first time.** Embedding is around five seconds
+per plugin on CPU, so a 645-plugin build is roughly fifty minutes and will make
+the site sluggish while it runs. Harvest first:
 
 ```sh
 docker compose run --rm app node bin/ingest.js --skip-embeddings
+docker compose restart app
 ```
+
+The site is now populated and searchable — **lexical search works without any
+vectors at all**, so this is a usable state rather than a broken one. Then embed
+when it suits, overnight or under `nohup`:
+
+```sh
+docker compose run --rm app node bin/ingest.js
+docker compose restart app
+```
+
+It checkpoints every hundred plugins, so an interrupted run does not start over.
 
 Restart the app afterwards — it loads the index once at start, not per request:
 
