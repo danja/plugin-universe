@@ -14,6 +14,7 @@ import { FREE } from '../src/harvest/Licensing.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import EmbeddingService from '../src/embeddings/EmbeddingService.js'
 import VectorIndex from '../src/vectors/VectorIndex.js'
+import SearchService from '../src/search/SearchService.js'
 import { composeText, textHash } from '../src/embeddings/EmbeddingService.js'
 
 /**
@@ -239,24 +240,39 @@ const index = await VectorIndex.open({
 // catalogue is three quarters of an hour of CPU inference.
 const harvested = reports.flatMap(report => report.plugins)
 
-// --only-new embeds what the index has no vector for, which after a sweep that
-// added a handful of plugins is a handful of plugins rather than the whole
-// catalogue — minutes instead of the better part of an hour.
-//
-// It compares IRIs, not content. A plugin whose description changed keeps its
-// stale vector, because the index records no text hash to compare against; a
-// full run is still the way to pick that up. Said plainly here because a
+/**
+ * Plugins in the store that the index has no vector for.
+ *
+ * Read from the store, not from this run's reports. That distinction is the
+ * whole point: `--github` harvests repositories *instead of* the configured
+ * sources, so a run without it never opens those graphs — and an --only-new
+ * that considered only what it harvested would report "nothing to embed" while
+ * a plugin in a graph it did not touch sat there without a vector. Which is
+ * exactly what happened.
+ *
+ * The text view is the same shape composeText produces identical output for,
+ * pinned by tests/embeddings/composeText.test.js, so a vector built here is
+ * interchangeable with one built from a harvest record.
+ */
+async function unembedded () {
+  const search = new SearchService({ client, index, embeddings })
+  const total = await search.loadDocuments()
+  const missing = [...search.documents.values()]
+    .filter(doc => !index.positionByIri.has(doc.iri))
+    .map(doc => ({ iri: doc.iri, plugin: doc }))
+  console.log(`\n${total} plugins in the store, ${missing.length} without a vector.`)
+  return missing
+}
+
+// --only-new compares IRIs, not content. A plugin whose description changed
+// keeps its stale vector, because the index records no text hash to compare
+// against; a full run is still the way to pick that up. Said plainly because a
 // staleness check that silently misses staleness is worse than none.
-const all = onlyNew
-  ? harvested.filter(({ iri }) => !index.positionByIri.has(iri))
-  : harvested
+const all = onlyNew ? await unembedded() : harvested
 
 if (all.length === 0) {
-  console.log(`\nNothing to embed${onlyNew ? ' — every harvested plugin already has a vector' : ''}.`)
+  console.log(`Nothing to embed${onlyNew ? ' — every plugin in the store has a vector' : ''}.`)
   process.exit(failures.length > 0 ? 1 : 0)
-}
-if (onlyNew) {
-  console.log(`\n${harvested.length} harvested, ${all.length} without a vector.`)
 }
 console.log(`\nEmbedding ${all.length} plugins with ${config.get('embedding.model')}...`)
 
