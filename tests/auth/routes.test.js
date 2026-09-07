@@ -166,6 +166,19 @@ describe('a half-configured sign-in', () => {
     expect(outcome.reason).toBeNull()
   })
 
+  it('survives an empty origin instead of taking the site down', () => {
+    // The actual production failure: docker-compose passes an unset variable as
+    // an empty string, `??` accepted it as a value, and the resulting empty
+    // origin threw out of GitHubOAuth — outside the guard, which only wrapped
+    // the session. Every 502 on the site came from these three lines.
+    const outcome = withEnv(
+      { GITHUB_CLIENT_ID: 'abc', GITHUB_CLIENT_SECRET: 'shh', SESSION_SECRET: 'a'.repeat(44) },
+      () => AuthRoutes.fromEnvironment({ accounts: fakeAccounts(), origin: '' })
+    )
+    expect(outcome.routes).toBeNull()
+    expect(outcome.reason).toMatch(/site origin/)
+  })
+
   it('works when fully configured', () => {
     const outcome = withEnv(
       { GITHUB_CLIENT_ID: 'abc', GITHUB_CLIENT_SECRET: 'shh', SESSION_SECRET: 'a'.repeat(44) },

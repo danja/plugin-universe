@@ -36,7 +36,13 @@ console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`
 
 // Sign-in, when the instance is configured for it. A read-only deployment is a
 // legitimate thing to run and does not need an OAuth App.
-const origin = process.env.SITE_ORIGIN ?? config.get('site.origin')
+// `||`, not `??`. docker-compose passes `${SITE_ORIGIN:-}`, which is an empty
+// string when the variable is unset — and `?? ` only falls back on null or
+// undefined, so an unset variable arrived as '' and defeated the default. This
+// took the site down with "needs the site origin". An empty environment
+// variable means unset everywhere in this project; Config.js already treats it
+// that way.
+const origin = process.env.SITE_ORIGIN || config.get('site.origin')
 const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
 let corrections = null

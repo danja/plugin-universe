@@ -63,6 +63,27 @@ describe('the app container receives what the app reads', () => {
     expect(undocumented, `not in .env.example: ${undocumented.join(', ')}`).toEqual([])
   })
 
+  it('passes optional variables as `${VAR:-}`, which the code must read with `||`', () => {
+    // `${VAR:-}` yields an empty string when unset, not an absent variable. Any
+    // reader using `??` treats that empty string as a value — which is exactly
+    // how an unset SITE_ORIGIN became an empty origin and a site-wide 502.
+    const optional = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'SESSION_SECRET', 'SITE_ORIGIN']
+    for (const name of optional) {
+      expect(block, `${name} should be \${${name}:-}`).toContain(`${name}: \${${name}:-}`)
+    }
+
+    const readers = ['bin/serve.js', 'bin/ingest.js', 'src/auth/GitHubOAuth.js', 'src/auth/Session.js']
+    for (const file of readers) {
+      const source = fs.readFileSync(file, 'utf8')
+      const coalesced = [...source.matchAll(/process\.env\.([A-Z_]+)\s*\?\?/g)].map(m => m[1])
+      expect(
+        coalesced,
+        `${file} reads ${coalesced.join(', ')} with ?? — an empty string from compose passes that ` +
+        'test. Use || so an empty variable counts as unset.'
+      ).toEqual([])
+    }
+  })
+
   it('leaves the auth variables optional, so a read-only deployment still starts', () => {
     // `${VAR:?}` would make them mandatory. Sign-in absent is a valid
     // configuration and must not stop the container coming up.

@@ -93,8 +93,10 @@ async function githubHarvesters (file) {
  * them. See docs/deployment.md.
  */
 function localHarvesters () {
-  const downspoutPath = process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout'
-  const fluesPath = process.env.FLUES_PATH ?? '/home/danny/github/flues'
+  // `||` rather than `??`: compose passes an unset variable as an empty
+  // string, which `??` accepts as a value. See the note in bin/serve.js.
+  const downspoutPath = process.env.DOWNSPOUT_PATH || '/home/danny/github/downspout'
+  const fluesPath = process.env.FLUES_PATH || '/home/danny/github/flues'
 
   const candidates = [
     {

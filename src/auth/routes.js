@@ -79,11 +79,15 @@ export class AuthRoutes {
    * hence a reason that reaches /health, where monitoring can see it.
    */
   static fromEnvironment ({ accounts, origin }) {
-    const oauth = GitHubOAuth.fromEnvironment({ origin })
-    if (!oauth) return { routes: null, reason: null }
-
+    // The whole of construction is guarded, not just the session. The first
+    // version wrapped only Session.fromEnvironment, so a bad origin threw from
+    // GitHubOAuth and took the site down anyway — the guard was written for the
+    // failure that had been imagined rather than for the class of failure.
+    let oauth
     let session
     try {
+      oauth = GitHubOAuth.fromEnvironment({ origin })
+      if (!oauth) return { routes: null, reason: null }
       session = Session.fromEnvironment()
     } catch (error) {
       const reason = `sign-in is configured but unusable: ${error.message}`
