@@ -269,9 +269,28 @@ server under our administration. Moving the catalogue to another host becomes an
 edit to a config file rather than a request to someone else's admin interface,
 which matters given that purl.org's own editing has been unreliable.
 
-The second hop is `deploy/nginx/hyperdata-xmlns.conf`. Add its blocks to the
-existing hyperdata.it server block; they are scoped to `/xmlns/plugin-universe/`
-and touch nothing else under `/xmlns/`.
+The second hop is `deploy/nginx/hyperdata-xmlns.conf`. It is a **snippet**, not a
+site config — bare `location` blocks, which are only legal inside a `server { }`,
+so putting it in `sites-enabled/` fails with "location directive is not allowed
+here". Install it as an include:
+
+```sh
+sudo cp deploy/nginx/hyperdata-xmlns.conf \
+        /etc/nginx/snippets/plugin-universe-xmlns.conf
+```
+
+then one line inside the existing hyperdata.it TLS server block:
+
+```nginx
+include /etc/nginx/snippets/plugin-universe-xmlns.conf;
+```
+
+```sh
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Everything in it is scoped to `/xmlns/plugin-universe/`, so the other namespaces
+hyperdata.it serves are untouched.
 
 Two details in there worth not undoing:
 

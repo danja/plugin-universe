@@ -27,7 +27,8 @@ Left to do on the server itself, none of it code:
 
 * point DNS for `plugin-universe.com`, `www`, `api`, `sparql` and `mcp` at the host
 * issue certificates, then `docker compose --profile proxy up -d`
-* add the blocks in `deploy/nginx/hyperdata-xmlns.conf` to the hyperdata.it nginx config.
+* install `deploy/nginx/hyperdata-xmlns.conf` as `/etc/nginx/snippets/plugin-universe-xmlns.conf`
+  and `include` it from the hyperdata.it server block — it is a snippet, not a site config.
   purl.org already redirects `/stuff/` to `https://hyperdata.it/xmlns/`, so that one rule is
   all purl.org ever needs to hold — everything that might change is on our own server. Then
   check that `curl -sL -H "Accept: text/turtle" http://purl.org/stuff/plugin-universe/plugin/<slug>`
