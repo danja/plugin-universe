@@ -176,9 +176,57 @@ Every registered graph, checked against `vocabs/shapes.ttl` separately so the
 report names the source that needs fixing. Ingest validates before writing too;
 this catches anything introduced by the write itself.
 
+## nginx: two ways
+
+**If the server already runs nginx** — the common case, and the right one when
+it serves other sites too — use `deploy/nginx/plugin-universe.host.conf` and
+leave the compose `proxy` profile alone:
+
+```sh
+sudo cp deploy/nginx/plugin-universe.host.conf \
+        /etc/nginx/sites-available/plugin-universe.com
+sudo ln -s /etc/nginx/sites-available/plugin-universe.com \
+           /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+That file proxies to `127.0.0.1:4100` and `127.0.0.1:3030`, which is where
+compose publishes the app and the store.
+
+**If nginx has the machine to itself**, use the compose profile instead, which
+mounts `deploy/nginx/plugin-universe.conf` and proxies to the service names:
+
+```sh
+docker compose --profile proxy up -d
+```
+
+The two files are not interchangeable, and the difference is not cosmetic.
+`sites-enabled/*` is included inside the `http { }` block, so anything at file
+scope in the container variant would apply to every vhost on the machine: its
+`gzip on` collides with the one Debian's `nginx.conf` already sets, and its
+`proxy_set_header` and `gzip_types` would silently change how the server's other
+sites behave. The host variant keeps all of that inside its own server blocks
+and prefixes its `limit_req_zone` names, since zone names share one namespace
+across the whole configuration.
+
 ## TLS
 
 Issue certificates before starting nginx, using the webroot the proxy serves:
+
+With host nginx, certbot handles both issuance and the config edit:
+
+```sh
+sudo certbot certonly --webroot -w /var/www/certbot \
+  -d plugin-universe.com -d www.plugin-universe.com \
+  -d api.plugin-universe.com -d sparql.plugin-universe.com
+```
+
+`plugin-universe.host.conf` already points at
+`/etc/letsencrypt/live/plugin-universe.com/`, which is where that puts them.
+Renewal is whatever cron or systemd timer certbot installed; it reloads nginx
+itself.
+
+With the containerised proxy, issue them into the mounted directory instead:
 
 ```sh
 mkdir -p deploy/nginx/certs
@@ -188,16 +236,17 @@ docker run --rm \
   certbot/certbot certonly --webroot -w /var/www/certbot \
   -d plugin-universe.com -d www.plugin-universe.com \
   -d api.plugin-universe.com -d sparql.plugin-universe.com
-```
 
-Then:
-
-```sh
 docker compose --profile proxy up -d
 ```
 
 Renewal runs the same command; nginx picks up the new files on
 `docker compose exec nginx nginx -s reload`.
+
+Either way, the ACME challenge must be reachable over plain HTTP before the
+certificate exists — both configs serve `/.well-known/acme-challenge/` from
+`/var/www/certbot` and redirect everything else to HTTPS, so create that
+directory before the first run.
 
 ## Resolving the IRIs
 
