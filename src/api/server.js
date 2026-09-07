@@ -97,6 +97,21 @@ export const VOCABULARIES = Object.freeze({
 export function createServer ({ search, config, projectRoot = process.cwd() }) {
   if (!search) throw new Error('The API server needs a SearchService')
 
+  // Fail at startup, not per request. A page whose source file is missing from
+  // the deployment is a packaging error — it happened once, when docs/ was in
+  // .dockerignore — and the symptom was a 500 on three routes while everything
+  // else looked healthy. A container that will not start is far easier to
+  // notice than one that is quietly broken in one corner.
+  const missing = Object.entries(PAGES)
+    .filter(([, page]) => !fs.existsSync(pathJoin(projectRoot, page.file)))
+    .map(([route, page]) => `${route} → ${page.file}`)
+  if (missing.length > 0) {
+    throw new Error(
+      `Prose pages are missing their source files:\n  ${missing.join('\n  ')}\n` +
+      'Check that docs/ reached the deployment — .dockerignore has excluded it before.'
+    )
+  }
+
   return http.createServer(async (request, response) => {
     const started = Date.now()
     let url

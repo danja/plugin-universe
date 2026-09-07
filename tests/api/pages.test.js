@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import { PAGES, rewriteLink, renderMarkdown, loadPage } from '../../src/api/pages.js'
 import { renderDocPage } from '../../src/api/render.js'
+import { createServer } from '../../src/api/server.js'
 
 /**
  * The prose pages are the repository's own Markdown, served in the site's
@@ -96,6 +97,16 @@ describe('the page in the site chrome', () => {
     expect(html).toContain('Plugin Universe</a></h1>')
     expect(html).toContain('href="/about"')
     expect(html).toContain('class="prose"')
+  })
+
+  it('refuses to start when a page source is missing', () => {
+    // This was a 500 on three routes in production, from docs/ being in
+    // .dockerignore while the app served pages out of it. A container that
+    // will not start is far easier to notice than one quietly broken in one
+    // corner, so the check moved from per-request to startup.
+    const search = { documents: new Map(), index: { size: 0 }, facets: async () => ({}) }
+    expect(() => createServer({ search, config: null, projectRoot: '/nonexistent' }))
+      .toThrow(/missing their source files/)
   })
 
   it('returns null for a path it does not serve', async () => {

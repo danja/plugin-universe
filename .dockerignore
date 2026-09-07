@@ -15,8 +15,12 @@ data
 # Not needed at runtime, and large.
 .git
 .github
-docs
 tests
 coverage
 .vscode
 .idea
+
+# docs/ IS needed at runtime: /about, /terms and /about/crawler are rendered
+# from the Markdown in it, so that the terms on the site and the terms in the
+# repository cannot drift. Excluding it built an image that served 500s on
+# those three routes and nothing else. 204K of text is not worth the saving.

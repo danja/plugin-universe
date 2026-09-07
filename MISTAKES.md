@@ -3,6 +3,29 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
+## 2026-09-07 — Excluded from the image the very files the app serves
+
+**What happened.** `/about`, `/terms` and `/about/crawler` returned 500 in
+production while every other route was fine.
+
+**Cause.** `.dockerignore` lists `docs` — written when nothing at runtime read
+it, and correct at the time. Later the prose pages were built to render the
+repository's own Markdown, deliberately, so that the terms on the site and the
+terms in the repository could not drift. Nobody revisited the exclusion. The
+image therefore had no `docs/`, `loadPage` threw, and the handler turned that
+into a 500.
+
+**What replaced it.** `docs/` is in the image — 204K of text against three
+broken routes is not a saving. And the check moved from per-request to
+**startup**: a deployment missing a page's source file now refuses to start,
+naming the routes and the files. A container that will not come up is far easier
+to notice than one quietly broken in one corner.
+
+**Lesson.** Adding a runtime dependency on a path means checking what excludes
+that path. `.dockerignore`, `.gitignore` and the SHACL shapes have now each been
+left behind by a change elsewhere in this project; the pattern is a second file
+that has to be edited in step and no test connecting them.
+
 ## 2026-09-07 — Harvested the homepage, modelled it wrongly, never showed it
 
 **What was wrong.** Every harvester read a plugin's homepage and 642 of 645
