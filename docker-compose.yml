@@ -49,10 +49,17 @@ services:
     mem_limit: ${FUSEKI_MEM:-1400m}
     memswap_limit: ${FUSEKI_MEM:-1400m}
     volumes:
-      - fuseki-data:/fuseki/databases
-      - ./config/fuseki/assembler-tdb2.ttl:/fuseki/config/plugin-universe.ttl:ro
+      # This image is secoresearch/fuseki: its base is /fuseki-base, not the
+      # /fuseki that the official images use. A config mounted at the wrong
+      # path is not an error — Fuseki simply never reads it, and the dataset
+      # silently is not there.
+      - fuseki-data:/fuseki-base/databases
+      - ./config/fuseki/assembler-tdb2.ttl:/fuseki-base/configuration/plugin-universe.ttl:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3030/$$/ping"]
+      # wget, not curl: this image has no curl, and a healthcheck that can
+      #  never pass makes every dependant fail with "dependency failed to
+      # start" while the container itself is perfectly healthy.
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3030/$$/ping > /dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

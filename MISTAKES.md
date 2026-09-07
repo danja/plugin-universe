@@ -3,6 +3,49 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
+## 2026-09-07 — A Fuseki assembler that lost every named graph on restart
+
+**What happened.** The first real `docker compose up` failed with "dependency
+fuseki failed to start". Chasing that turned up four defects in the Fuseki
+service, none of which had ever been exercised because local development used a
+hand-created dataset rather than the assembler.
+
+1. **The healthcheck called `curl`, which is not in the image.** It could never
+   pass, so `depends_on: condition: service_healthy` blocked forever while the
+   container itself was perfectly healthy. That is the error the user saw. The
+   image has `wget`.
+2. **Every path was for a different image.** `secoresearch/fuseki` uses
+   `/fuseki-base`, not the `/fuseki` of the official images. The assembler was
+   mounted at `/fuseki/config/`, which the server never reads — and a config at
+   the wrong path is not an error, it is silence, so the dataset simply was not
+   there. The volume was mounted at `/fuseki/databases` for the same reason.
+3. **The worst one: named graphs were not persisted at all.** The assembler
+   declared `ja:RDFDataset` with a `ja:defaultGraph` of `tdb2:GraphTDB2`. That
+   reads as though it says "a TDB2 dataset with a union default graph". It does
+   not. It builds a *general* dataset around one persistent graph, so quads
+   written to any named graph go into an in-memory structure. Writes returned
+   204, queries answered correctly, and a restart emptied the store. Measured:
+   insert two triples, restart, count zero.
+
+   Every triple in this system lives in a named graph. This would have lost the
+   entire catalogue, silently, on the first restart after going live.
+
+   The fix is to attach the service directly to `tdb2:DatasetTDB2` with
+   `tdb2:unionDefaultGraph true`.
+4. The documented "create the dataset" step would have created a second,
+   differently configured dataset alongside the assembler's.
+
+**Root cause of all four.** The Fuseki service was carried over from semem's
+compose file and adapted by reading, never by running. Everything else in this
+project has been checked against live services; this one component was checked
+against a local Fuseki that had been set up by hand months earlier and therefore
+exercised none of it.
+
+**Prevention.** Persistence is now verified the only way it can be — write,
+restart, count; then `down`, `up`, count again. A store that answers correctly
+until it is restarted is indistinguishable from a working one right up to the
+moment it matters.
+
 ## 2026-09-07 — Threw away the units vocabulary when the source got it right
 
 **What was wrong.** `normaliseUnit` mapped unit *strings* — "Hz", "%", "ms" — onto

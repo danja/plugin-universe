@@ -94,12 +94,17 @@ docker compose exec ollama ollama pull nomic-embed-text:v1.5
 Pulling the model is a few hundred megabytes and only happens once; it lives in
 the `ollama-models` volume.
 
-Create the dataset if the store does not have one:
+The `plugin-universe` dataset is created by the assembler that compose mounts,
+so there is nothing to create by hand — doing it through `/$/datasets` would
+make a second, differently configured one. Confirm it is there:
 
 ```sh
-curl -u "admin:$SPARQL_PASSWORD" -X POST http://localhost:3030/\$/datasets \
-     --data 'dbName=plugin-universe&dbType=tdb2'
+curl -s -u "admin:$SPARQL_PASSWORD" http://localhost:3030/\$/datasets \
+  | grep -o '"ds.name" : "[^"]*"'
 ```
+
+`/plugin-universe` is ours. `/ds` also appears — the image ships its own default
+dataset and it is harmless, unused and empty.
 
 Then build and start the app:
 
@@ -367,7 +372,7 @@ backing up. What is irreplaceable:
 
 ```sh
 docker compose exec fuseki /jena-fuseki/bin/tdb2.tdbdump \
-  --loc /fuseki/databases/plugin-universe > backup-$(date +%F).nq
+  --loc /fuseki-base/databases/plugin-universe > backup-$(date +%F).nq
 ```
 
 Until those phases land, a weekly dump is ample.

@@ -50,11 +50,13 @@ cp .env.example .env      # then fill it in — there are no defaults
 npm run store:up          # or point .env at an existing Fuseki
 ```
 
-Create the dataset if your store does not already have one:
+`store:up` mounts `config/fuseki/assembler-tdb2.ttl`, which creates the
+`plugin-universe` dataset — do not also create one through `/$/datasets`, or you
+get two differently configured datasets with the same intent. Confirm it exists:
 
 ```sh
-curl -X POST http://localhost:3030/\$/datasets \
-     --data 'dbName=plugin-universe&dbType=tdb2'
+curl -s -u "admin:$SPARQL_PASSWORD" http://localhost:3030/\$/datasets \
+  | grep -o '"ds.name" : "[^"]*"'
 ```
 
 ## Use

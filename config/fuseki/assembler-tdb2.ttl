@@ -5,9 +5,21 @@
 @prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
 
-# TDB2 dataset for the plugin catalogue. Union default graph is on: most
-# queries want to see across source graphs, and the ones that care about
-# provenance name their graph explicitly.
+# TDB2 dataset for the plugin catalogue.
+#
+# The service attaches directly to a tdb2:DatasetTDB2. It is tempting to write
+# this as a ja:RDFDataset whose ja:defaultGraph is a tdb2:GraphTDB2 — it reads
+# as though it says the same thing, and Fuseki starts happily either way. It
+# does not say the same thing. That construction builds a *general* dataset
+# around one persistent graph, so quads written to any named graph land in an
+# in-memory dataset structure and are gone at the next restart.
+#
+# Every triple in this system lives in a named graph, so that mistake loses the
+# entire catalogue silently: writes return 204, queries answer correctly, and a
+# restart empties the store. Measured — one INSERT, one restart, zero triples.
+#
+# Union default graph is on: most queries want to see across source graphs, and
+# the ones that care about provenance name their graph explicitly.
 
 :service a fuseki:Service ;
     fuseki:name       "plugin-universe" ;
@@ -17,12 +29,9 @@
     fuseki:endpoint   [ fuseki:operation fuseki:gsp-rw ; fuseki:name "data"   ] ;
     fuseki:dataset    :dataset .
 
-:dataset a ja:RDFDataset ;
-    ja:defaultGraph :unionGraph .
-
-:unionGraph a tdb2:GraphTDB2 ;
-    tdb2:dataset :tdb2Dataset ;
+# The location is inside the image's FUSEKI_BASE, which for secoresearch/fuseki
+# is /fuseki-base — not the /fuseki the official images use. The persistent
+# volume in docker-compose.yml is mounted there.
+:dataset a tdb2:DatasetTDB2 ;
+    tdb2:location          "/fuseki-base/databases/plugin-universe" ;
     tdb2:unionDefaultGraph true .
-
-:tdb2Dataset a tdb2:DatasetTDB2 ;
-    tdb2:location "/fuseki/databases/plugin-universe" .
