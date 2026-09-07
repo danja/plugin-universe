@@ -10,6 +10,22 @@
 ##
 ## Secrets come from .env, which compose reads for substitution here and which
 ## .dockerignore keeps out of the image.
+##
+## ── Memory ──────────────────────────────────────────────────────────────────
+##
+## Sized to fit a 4 GB server. Every limit is overridable from .env, and the
+## defaults are deliberately modest rather than comfortable.
+##
+## `memswap_limit` equal to `mem_limit` means *no swap for this container*, and
+## that is the point of setting it. Swap is worth having on a small host, but
+## not for these two processes: a JVM garbage collection walks the whole live
+## heap, so a paged-out heap turns a GC into a disk I/O storm, and Ollama reads
+## its model weights on every forward pass. Both must stay resident. Swap then
+## does its real job — absorbing cold pages elsewhere on the system and keeping
+## the OOM killer away from the store.
+##
+## (Docker needs cgroup v2, or `swapaccount=1` on a cgroup v1 kernel, to honour
+## memswap_limit. If it cannot, it warns and ignores it rather than failing.)
 
 services:
   fuseki:
@@ -25,7 +41,13 @@ services:
       ENABLE_DATA_WRITE: "true"
       ENABLE_UPDATE: "true"
       ENABLE_UPLOAD: "true"
-      JVM_ARGS: -Xmx2g
+      # TDB2 memory-maps its indexes and leans on the OS page cache, not the
+      # Java heap, so a large -Xmx does not help it and takes memory the page
+      # cache would use better. The catalogue is tens of thousands of triples;
+      # 1g is already generous. Raise it only with a measurement in hand.
+      JVM_ARGS: -Xmx${FUSEKI_HEAP:-1g}
+    mem_limit: ${FUSEKI_MEM:-1400m}
+    memswap_limit: ${FUSEKI_MEM:-1400m}
     volumes:
       - fuseki-data:/fuseki/databases
       - ./config/fuseki/assembler-tdb2.ttl:/fuseki/config/plugin-universe.ttl:ro
@@ -42,6 +64,18 @@ services:
     container_name: plugin-universe-ollama
     ports:
       - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    environment:
+      # Search embeds the query text, so this is a serving dependency and not
+      # only a batch one. Keeping the model loaded costs a few hundred megabytes
+      # and saves a reload on the first search after an idle spell; releasing it
+      # is the trade for a smaller resident footprint overnight.
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      # One small model, one request at a time. Both bound the memory this can
+      # reach for, which matters more here than throughput.
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    mem_limit: ${OLLAMA_MEM:-1600m}
+    memswap_limit: ${OLLAMA_MEM:-1600m}
     volumes:
       - ollama-models:/root/.ollama
     healthcheck:
@@ -69,6 +103,17 @@ services:
       # Harvesting only. Absent is fine for serving.
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       PORT: "4100"
+      # Measured, not guessed: serving the full 645-plugin catalogue the
+      # container sits at 48 MB resident, and stays there through a 40-request
+      # concurrent burst. The working set is the document map and a few
+      # megabytes of vector index. The old 2048 was copied from a larger
+      # machine. 256 leaves five times the measured need.
+      NODE_OPTIONS: --max-old-space-size=${NODE_HEAP:-256}
+    # A little swap headroom here, unlike the store: Node's cold pages are
+    # exactly what swap is good for, and a stall in the web tier is recoverable
+    # in a way that a stalled garbage collector is not.
+    mem_limit: ${APP_MEM:-384m}
+    memswap_limit: ${APP_MEMSWAP:-640m}
     volumes:
       # The vector index and the harvest caches are state. They survive a
       # rebuild, and `docker compose run` shares them with the running service.
@@ -91,6 +136,7 @@ services:
       - ./deploy/nginx/plugin-universe.conf:/etc/nginx/conf.d/default.conf:ro
       - ./deploy/nginx/certs:/etc/nginx/certs:ro
       - certbot-webroot:/var/www/certbot:ro
+    mem_limit: ${NGINX_MEM:-96m}
     depends_on:
       - app
     restart: unless-stopped

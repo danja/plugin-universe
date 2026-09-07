@@ -20,11 +20,59 @@ available here — hence the `127.0.0.1:` prefixes in the compose file.
 ## Requirements
 
 - Docker with Compose v2
-- About 8 GB of RAM. Fuseki takes 2 GB of heap; the embedding model wants a
-  couple more while it runs.
-- Around 10 GB of disk for the store, the model and the index.
+- **4 GB of RAM is enough**, and the defaults are sized for it. See below.
+- Around 10 GB of disk for the store, the embedding model and the index.
 - DNS for `plugin-universe.com`, `www`, `api`, `sparql` and `mcp` pointing at
   the host.
+
+### Memory
+
+Every limit is set in `docker-compose.yml` and overridable from `.env`. The
+defaults, and where they come from:
+
+| Container | Limit | Swap | Why |
+|---|---|---|---|
+| `fuseki` | 1400m, heap 1g | none | TDB2 memory-maps its indexes and relies on the OS page cache, not the Java heap. A bigger `-Xmx` does not help it and steals memory the page cache would use better. |
+| `ollama` | 1600m | none | Model residency. `OLLAMA_KEEP_ALIVE` decides whether it stays loaded between searches. |
+| `app` | 384m, heap 256m | 640m | Measured: 48 MB resident serving 645 plugins, unchanged through a 40-request concurrent burst. |
+| `nginx` | 96m | default | Proxying only. |
+
+**Ollama is a serving dependency, not only a batch one.** Search embeds the
+query text, so a text search fails without it. The per-query cost is negligible;
+the memory is the model sitting resident. `OLLAMA_KEEP_ALIVE=30m` keeps it warm
+during active use and releases it overnight, at the price of a second or two on
+the first search after an idle spell.
+
+Steady-state serving is roughly 1.8 GB. The peak is an ingest, where Fuseki and
+Ollama are both working: about 2.4 GB.
+
+### Swap
+
+Worth having on a small host, and worth keeping away from two of these
+containers. `memswap_limit` equals `mem_limit` for `fuseki` and `ollama`, which
+means no swap for either — a JVM garbage collection walks the whole live heap,
+so a paged-out heap turns a GC into a disk I/O storm, and Ollama reads its model
+weights on every forward pass. Swap's real job here is absorbing cold pages
+elsewhere on the system and keeping the OOM killer away from the store.
+
+```sh
+sudo fallocate -l 4G /swapfile        # btrfs needs different handling
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+sudo sysctl vm.swappiness=10
+echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swappiness.conf
+```
+
+`swappiness=10` matters: the default of 60 swaps anonymous memory fairly
+eagerly, which is what to avoid with a JVM present. `zram` is a good alternative
+or complement — compressed swap in RAM, no disk I/O — and on a small VPS it
+usually beats a swapfile.
+
+Docker needs cgroup v2, or `swapaccount=1` on a cgroup v1 kernel, to honour
+`memswap_limit`. Where it cannot, it warns and ignores the setting rather than
+failing, so check `docker compose up` output the first time.
 
 ## First run
 
@@ -231,8 +279,10 @@ Until those phases land, a weekly dump is ample.
 ## Operating notes
 
 - **The app loads the index at start.** After any ingest, restart it.
-- **Ollama and Fuseki both want memory.** If the host is tight, run the ingest
-  with the app stopped.
+- **Watch the limits before trusting them.** `docker stats --no-stream` after a
+  day of real traffic says whether the defaults above fit your host. A container
+  that keeps hitting its ceiling is killed and restarted, which looks like a
+  mysterious outage rather than a memory problem.
 - **Harvest politely.** `config/preferences.js` holds the request interval and
   the crawler's user agent, which carries a real contact address. If that
   address stops working, fix it before the next sweep.

@@ -27,7 +27,10 @@ RUN mkdir -p /app/data && chown plugin-universe:plugin-universe /app/data
 VOLUME ["/app/data"]
 
 USER plugin-universe
-ENV NODE_OPTIONS=--max-old-space-size=2048
+# Modest by default and overridden from docker-compose.yml. The working set is
+# the document map and a few megabytes of vector index, not gigabytes; the old
+# 2048 was inherited from a larger machine rather than measured.
+ENV NODE_OPTIONS=--max-old-space-size=512
 ENV PORT=4100
 EXPOSE 4100
 
