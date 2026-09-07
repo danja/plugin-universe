@@ -123,9 +123,25 @@ Vendors, people, releases and measurements get IRIs by the same rules under
 `.../vendor/`, `.../person/`, `.../release/`, `.../measurement/`.
 
 Content negotiation happens at the serving host, which the PURL redirects to: an IRI resolves to
-Turtle, JSON-LD, or the HTML profile page according to the request. The PURL redirect configuration
-is therefore a piece of deployment state that must be maintained alongside the site — record it in
-the repo rather than only in the purl.org account.
+Turtle, JSON-LD, or the HTML profile page according to the request.
+
+**Resolution is two hops, and this is deliberate.** purl.org holds a single partial redirect from
+`/stuff/` to `https://hyperdata.it/xmlns/`, which is already in place and never needs to change
+again; hyperdata.it, which the project owner administers, holds the rule that points
+`/xmlns/plugin-universe/` at the current serving host. The redirect configuration is a piece of
+deployment state that must be maintained alongside the site, so it lives in the repo as
+`deploy/nginx/hyperdata-xmlns.conf` rather than only in someone's account.
+
+The indirection is worth more than it costs. It means every decision that might change lives on a
+server under our control, so moving the catalogue is an edit to a config file rather than a request
+to a third-party admin interface — which matters, because purl.org's own editing has proved
+unreliable. Both hops use 302 rather than 301: a permanent redirect is cached indefinitely by
+browsers and crawlers, which would nail the IRIs to the current host and undo the decoupling that is
+the entire reason for minting under a PURL.
+
+The namespace root resolves to the ontology rather than to the site, because a consumer resolving
+the bare `pu:` prefix is asking what the terms mean. `pu:category/<slug>` resolves to the SKOS
+concept and the plugins in it, so a facet is a page and an IRI at once.
 
 ### 2.2 Curated behaviour layer
 

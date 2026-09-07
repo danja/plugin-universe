@@ -176,6 +176,46 @@ ${rows.map(([k, v]) => `<tr><th>${escape(k)}</th><td>${escape(v)}</td></tr>`).jo
   return layout(`${doc.name} — Plugin Universe`, body, { description: doc.description ?? '' })
 }
 
+/**
+ * A category page: the browsable facet, and the thing a pu:category IRI
+ * dereferences to.
+ *
+ * Categories are minted as IRIs and asserted on every plugin, so they have to
+ * resolve to something. A list of what is in the category is both the useful
+ * answer for a person and the honest one for a machine.
+ */
+export function renderCategoryPage (slug, results, total) {
+  const body = `
+<p class="meta"><a href="/">← search</a></p>
+<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">${escape(slug)}</h2>
+<p class="meta">${total} plugin${total === 1 ? '' : 's'} in this category.
+  Also as <a href="${escape(`/category/${slug}`)}.ttl">Turtle</a>.</p>
+${results.map(resultItem).join('\n')}
+`
+  return layout(`${slug} — Plugin Universe`, body, {
+    description: `Plugins categorised as ${slug} in the Plugin Universe catalogue.`
+  })
+}
+
+/** Turtle for one category concept and its members. */
+export function categoryTurtle (slug, results) {
+  const concept = `${NAMESPACES.pu}category/${slug}`
+  const lines = [
+    `@prefix pu: <${NAMESPACES.pu}> .`,
+    `@prefix skos: <${NAMESPACES.skos}> .`,
+    '',
+    `${iri(concept)}`,
+    '    a skos:Concept ;',
+    `    skos:inScheme ${iri(`${NAMESPACES.pu}categories`)} ;`,
+    `    skos:prefLabel ${literal(slug)} .`,
+    ''
+  ]
+  for (const result of results) {
+    lines.push(`${iri(result.iri)} pu:category ${iri(concept)} .`)
+  }
+  return lines.join('\n')
+}
+
 /** Turtle for one plugin, for content-negotiated dereferencing. */
 export function pluginTurtle (doc) {
   const lines = [

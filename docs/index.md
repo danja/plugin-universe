@@ -6,6 +6,7 @@
 * [Implementation Plan](plan.md) — six phases, each with deliverables, exit criteria and risks
 * [Suggestions](suggestions.md) — recommendations on data, engineering, product, law and scope
 * [Resources](resources.md) — data sources, forums, specifications, ontologies, tooling, and the source terms review
+* [Deployment](deployment.md) — the runbook: containers, TLS, harvesting on the server, backups
 
 ## Worklog
 

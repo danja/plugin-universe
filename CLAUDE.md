@@ -172,9 +172,15 @@ plugin classes and user tags map in as `skos:closeMatch`.
 
 ## Deployment
 
-Docker Compose: an application container and a Fuseki (TDB2) container, with a healthcheck gate so
-the app waits for the store. nginx terminates TLS and reverse-proxies. The profiler runner is a
-separate, tightly confined container and is the only component permitted to execute third-party code.
+The runbook is `docs/deployment.md`. Docker Compose: `app`, `fuseki` (TDB2) and `ollama`, with a
+healthcheck gate so the app waits for the store, and nginx behind a `proxy` profile terminating TLS
+and reverse-proxying. The profiler runner is a separate, tightly confined container and is the only
+component permitted to execute third-party code.
+
+Only nginx is published. Everything else binds to `127.0.0.1` — Fuseki exposes an update endpoint,
+and publishing that by accident is the worst mistake available here. `.dockerignore` keeps `.env`
+out of the image; configuration reaches the container through the environment, and `Config.load()`
+prefers a real environment variable over anything it reads from a file.
 
 Subdomains: the bare domain serves the web UI, `api.` the REST API, `sparql.` the public read-only
 endpoint, `mcp.` the agent endpoint.

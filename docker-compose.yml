@@ -1,9 +1,25 @@
+## Plugin Universe.
+##
+##   docker compose up -d                    store, embeddings and the app
+##   docker compose --profile proxy up -d    the above plus nginx on 80/443
+##
+## Harvesting is a one-off command against the same image and the same volume:
+##
+##   docker compose run --rm app node bin/ingest.js
+##   docker compose run --rm app node bin/discover.js --merge
+##
+## Secrets come from .env, which compose reads for substitution here and which
+## .dockerignore keeps out of the image.
+
 services:
   fuseki:
     image: secoresearch/fuseki:latest
     container_name: plugin-universe-fuseki
     ports:
-      - "${FUSEKI_PORT:-3030}:3030"
+      # Bound to the loopback interface: the store is reached through the app
+      # and through nginx, and a TDB2 update endpoint on a public port is not
+      # something to expose by accident.
+      - "127.0.0.1:${FUSEKI_PORT:-3030}:3030"
     environment:
       ADMIN_PASSWORD: ${SPARQL_PASSWORD:?SPARQL_PASSWORD must be set}
       ENABLE_DATA_WRITE: "true"
@@ -21,5 +37,66 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: plugin-universe-ollama
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: plugin-universe-app
+    ports:
+      - "127.0.0.1:${APP_PORT:-4100}:4100"
+    environment:
+      # Service names, not localhost: inside the compose network these resolve
+      # to the other containers. Set here rather than in .env because they are
+      # deployment topology, not secrets.
+      SPARQL_URL_BASE: http://fuseki:3030
+      SPARQL_DATASET: ${SPARQL_DATASET:-plugin-universe}
+      SPARQL_USER: ${SPARQL_USER:?SPARQL_USER must be set}
+      SPARQL_PASSWORD: ${SPARQL_PASSWORD:?SPARQL_PASSWORD must be set}
+      OLLAMA_URL: http://ollama:11434
+      # Harvesting only. Absent is fine for serving.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      PORT: "4100"
+    volumes:
+      # The vector index and the harvest caches are state. They survive a
+      # rebuild, and `docker compose run` shares them with the running service.
+      - app-data:/app/data
+    depends_on:
+      fuseki:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: plugin-universe-nginx
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/plugin-universe.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
 volumes:
   fuseki-data:
+  ollama-models:
+  app-data:
+  certbot-webroot:

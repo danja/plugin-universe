@@ -31,7 +31,7 @@ const loaded = await search.loadDocuments()
 // read from disk, not rebuilt from the triple store.
 console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`)
 
-const server = createServer({ search, config })
+const server = createServer({ search, config, projectRoot: Config.projectRoot })
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)
   console.log('  GET /health           service status')
@@ -39,6 +39,8 @@ server.listen(port, () => {
   console.log('  GET /facets           facet values and counts')
   console.log('  GET /plugins          browse')
   console.log('  GET /plugin/<slug>    one plugin')
+  console.log('  GET /category/<slug>  one category, and what is in it')
+  console.log('  GET /ns/<name>.ttl    the vocabularies the data refers to')
 })
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

@@ -28,5 +28,13 @@ VOLUME ["/app/data"]
 
 USER plugin-universe
 ENV NODE_OPTIONS=--max-old-space-size=2048
+ENV PORT=4100
+EXPOSE 4100
+
+# The API answers /health with the corpus and index sizes, so this checks that
+# the store is reachable and the index loaded — not merely that a process is up.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://localhost:'+(process.env.PORT||4100)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "bin/serve.js"]

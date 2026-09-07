@@ -17,7 +17,23 @@
 * ~~SHACL shapes~~ — `vocabs/shapes.ttl`, run by `npm run validate` and before every write
 * ~~AUFX-O and schema.org alignment graph~~ — `vocabs/alignment.ttl`
 
-## Next — run the sweep on the server
+## Next — get it live, then sweep
+
+Deployment is built and verified: the image builds, carries no `.env`, and serves 645 plugins
+against live Fuseki and Ollama with a passing container healthcheck; compose and nginx
+configurations both validate. See [docs/deployment.md](docs/deployment.md).
+
+Left to do on the server itself, none of it code:
+
+* point DNS for `plugin-universe.com`, `www`, `api`, `sparql` and `mcp` at the host
+* issue certificates, then `docker compose --profile proxy up -d`
+* add the blocks in `deploy/nginx/hyperdata-xmlns.conf` to the hyperdata.it nginx config.
+  purl.org already redirects `/stuff/` to `https://hyperdata.it/xmlns/`, so that one rule is
+  all purl.org ever needs to hold — everything that might change is on our own server. Then
+  check that `curl -sL -H "Accept: text/turtle" http://purl.org/stuff/plugin-universe/plugin/<slug>`
+  comes back as Turtle, which proves negotiation survives both hops.
+
+## Then — run the sweep on the server
 
 The GitHub harvester is built and tested; what remains is running it somewhere with
 bandwidth. This host's connection makes a bulk sweep impractical, so the two steps are

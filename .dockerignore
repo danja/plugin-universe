@@ -1,0 +1,22 @@
+# Secrets never enter an image. `COPY . .` would otherwise bake .env into a
+# layer, where it survives every later deletion and travels with the image to
+# wherever it is pushed. Configuration reaches the container through the
+# environment instead; Config.load() prefers a real environment variable over
+# anything it reads from a file, so this is not a limitation.
+.env
+.env.*
+!.env.example
+
+# Build output and state, not source. The vector index is a volume.
+node_modules
+data
+*.log
+
+# Not needed at runtime, and large.
+.git
+.github
+docs
+tests
+coverage
+.vscode
+.idea

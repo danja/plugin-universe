@@ -12,6 +12,7 @@ The catalogue is **CC0**. User-authored prose is CC BY-SA.
 - [Implementation plan](docs/plan.md) — six phases with exit criteria
 - [Suggestions](docs/suggestions.md) — recommendations and rationale
 - [Resources](docs/resources.md) — data sources, forums, specs, and the source terms review
+- [Deployment](docs/deployment.md) — the server runbook
 - [Mistakes](MISTAKES.md) — things that turned out to be wrong
 
 ## Status
