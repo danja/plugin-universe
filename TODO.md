@@ -27,16 +27,14 @@ Deployment is built and verified: the image builds, carries no `.env`, and serve
 against live Fuseki and Ollama with a passing container healthcheck; compose and nginx
 configurations both validate. See [docs/deployment.md](docs/deployment.md).
 
-Left to do on the server itself, none of it code:
+The DNS, the certificates and the nginx snippet were all done in a later session — the site
+serves, sign-in works against the live GitHub OAuth App, and the IRI chain was checked end to
+end with `curl -sL -H "Accept: text/turtle"` surviving both hops. purl.org holds one rule
+redirecting `/stuff/` to `https://hyperdata.it/xmlns/`; everything that might change is on our
+own server.
 
-* point DNS for `plugin-universe.com`, `www`, `api`, `sparql` and `mcp` at the host
-* issue certificates, then `docker compose --profile proxy up -d`
-* install `deploy/nginx/hyperdata-xmlns.conf` as `/etc/nginx/snippets/plugin-universe-xmlns.conf`
-  and `include` it from the hyperdata.it server block — it is a snippet, not a site config.
-  purl.org already redirects `/stuff/` to `https://hyperdata.it/xmlns/`, so that one rule is
-  all purl.org ever needs to hold — everything that might change is on our own server. Then
-  check that `curl -sL -H "Accept: text/turtle" http://purl.org/stuff/plugin-universe/plugin/<slug>`
-  comes back as Turtle, which proves negotiation survives both hops.
+Anything still needing a person at a terminal has moved to
+[docs/danja-todo.md](docs/danja-todo.md), which is the list to work from.
 
 ## Then — run the sweep on the server
 

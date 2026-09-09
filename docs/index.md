@@ -19,6 +19,11 @@
 
 * [2026-09-07 — The registry, the shapes, and two bugs the shapes found](entries/2026-09-07_claude_registry-shapes-alignment.md)
 
+## Working documents
+
+* [Danja's list](danja-todo.md) — actions needing server access, credentials or a decision
+* [TODO](../TODO.md) — what the project needs next, by phase
+
 ## Background
 
 * [Initial Plan](plan-draft.md) — the original sketch
