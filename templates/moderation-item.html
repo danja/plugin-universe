@@ -1,0 +1,11 @@
+<div class="result">
+    <h2>{{field}} &rarr; {{value}}</h2>
+    <p class="desc">on <a href="{{href}}">{{slug}}</a> by {{by}}</p>
+    {{{rationale}}}
+    <form method="post" action="/moderation" class="correct">
+      <input type="hidden" name="csrf" value="{{csrf}}">
+      <input type="hidden" name="correction" value="{{correction}}">
+      <button type="submit" name="decision" value="accept">Accept</button>
+      <button type="submit" name="decision" value="reject" class="secondary">Reject</button>
+    </form>
+  </div>

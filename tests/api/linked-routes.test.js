@@ -16,7 +16,29 @@ import fs from 'fs'
  * to check, and content negotiation is covered by tests/api/negotiate.test.js.
  */
 
-const RENDER = fs.readFileSync('src/api/render.js', 'utf8')
+/**
+ * Everywhere a link can be written: the templates, and whatever HTML is still
+ * assembled in code.
+ *
+ * When the page HTML moved out of `render.js` into `templates/`, this guard
+ * kept reading `render.js` and found five links where there had been a dozen —
+ * it went blind rather than red, which is the failure mode it exists to
+ * prevent. It now reads both, and asserts it found enough to be doing its job.
+ */
+function sources () {
+  const files = ['src/api/render.js', 'src/api/serialise.js']
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`
+      if (entry.isDirectory()) walk(full)
+      else if (entry.name.endsWith('.html')) files.push(full)
+    }
+  }
+  walk('templates')
+  return files.map(file => fs.readFileSync(file, 'utf8')).join('\n')
+}
+
+const RENDER = sources()
 const SERVER = fs.readFileSync('src/api/server.js', 'utf8')
 
 /** The `case '/x':` labels of the dispatch switch. */
@@ -31,8 +53,20 @@ const STATIC_ROUTES = new Set(
 const DYNAMIC_ROUTES = [...SERVER.matchAll(/path\.match\((\/.*\/)\)\s*$/gm)]
   .map(match => new RegExp(match[1].slice(1, -1)))
 
-/** Replace each `${...}` — brace-matched, they nest — with a sample value. */
+/**
+ * Replace each interpolation with a sample value.
+ *
+ * Two syntaxes now: `${...}` where HTML is still assembled in JavaScript, and
+ * `{{name}}` / `{{{name}}}` in the templates. Missing the second made every
+ * templated link look like a literal path containing braces.
+ */
 function substitute (template) {
+  return substituteDollar(template)
+    .replace(/\{\{\{?[a-zA-Z0-9_]+\}?\}\}/g, 'sample')
+}
+
+/** The `${...}` form, brace-matched because they nest. */
+function substituteDollar (template) {
   let out = ''
   for (let i = 0; i < template.length; i++) {
     if (template[i] === '$' && template[i + 1] === '{') {
@@ -79,14 +113,20 @@ describe('the routes the site links to', () => {
   })
 
   it('finds links to check', () => {
-    expect(linkedPaths().length).toBeGreaterThan(5)
+    // Low is the tell that the guard has stopped looking where the links are.
+    expect(linkedPaths().length).toBeGreaterThan(8)
+  })
+
+  it('reads the templates, which is where the markup now lives', () => {
+    expect(RENDER).toContain('Plugin Universe')
+    expect(RENDER.length).toBeGreaterThan(5000)
   })
 
   it('serves every one of them', () => {
     const broken = linkedPaths().filter(path => !served(path))
     expect(
       broken,
-      `src/api/render.js links to ${broken.join(', ')}, which src/api/server.js does not serve.`
+      `A template or renderer links to ${broken.join(', ')}, which src/api/server.js does not serve.`
     ).toEqual([])
   })
 

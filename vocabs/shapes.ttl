@@ -33,6 +33,48 @@ pu:shapes a owl:Ontology ;
     rdfs:label "Plugin Universe validation shapes" ;
     dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> .
 
+## ── Wiki prose ──────────────────────────────────────────────────────────────
+
+pu:WikiRevisionShape a sh:NodeShape ;
+    sh:targetClass pu:WikiRevision ;
+    rdfs:label "Wiki revision" ;
+
+    sh:property [
+        sh:path pu:wikiSubject ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "A revision is about exactly one plugin." ;
+    ] ;
+    sh:property [
+        sh:path pu:wikiText ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "A revision holds exactly one body of Markdown. Two would mean a save merged with an existing revision instead of superseding it." ;
+    ] ;
+    sh:property [
+        sh:path pu:editSummary ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path prov:wasAttributedTo ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "Prose is CC BY-SA, which requires attribution. A revision with no author cannot be licensed." ;
+    ] ;
+    sh:property [
+        sh:path prov:generatedAtTime ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "Which revision is current is decided by time, so a revision without one can never be shown." ;
+    ] ;
+    sh:property [
+        sh:path prov:wasRevisionOf ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "A revision supersedes at most one other. Two predecessors is a forked history, which this design has no way to present." ;
+    ] .
+
 ## ── Plugins ─────────────────────────────────────────────────────────────────
 
 pu:PluginShape a sh:NodeShape ;

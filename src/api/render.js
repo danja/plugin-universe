@@ -4,6 +4,7 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // One-way: the HTML pages embed the JSON-LD, the serialisations know nothing
 // about HTML.
 import { linkable, pluginJsonLd } from './serialise.js'
+import templates, { escape } from './Templates.js'
 
 /**
  * HTML and RDF rendering for the public pages.
@@ -15,158 +16,6 @@ import { linkable, pluginJsonLd } from './serialise.js'
  * Server-rendered, no client framework: a catalogue page is text and links.
  */
 
-function escape (text) {
-  return String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-const STYLE = `
-:root { color-scheme: light dark; --fg:#1a1a1a; --bg:#fdfdfc; --muted:#666; --line:#e0dedb; --accent:#2b5f75; }
-@media (prefers-color-scheme: dark) {
-  :root { --fg:#e8e6e3; --bg:#16181a; --muted:#9a9a9a; --line:#2e3236; --accent:#7fb8cd; }
-}
-* { box-sizing: border-box; }
-body { margin:0; font:15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-       color:var(--fg); background:var(--bg); }
-.wrap { max-width: 52rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
-header { border-bottom:1px solid var(--line); padding-bottom:1rem; margin-bottom:1.5rem; position:relative; }
-.account { position:absolute; top:0; right:0; margin:0; font-size:.82rem; color:var(--muted);
-           display:flex; gap:.5rem; align-items:center; }
-.account a { color:var(--accent); }
-.account form { margin:0; }
-.account button { padding:.15rem .5rem; font-size:.78rem; background:none; color:var(--muted);
-                  border:1px solid var(--line); cursor:pointer; }
-.account button:hover { color:var(--fg); }
-h1 { font-size:1.35rem; margin:0 0 .2rem; letter-spacing:-0.01em; }
-h1 a { color:inherit; text-decoration:none; }
-.tagline { color:var(--muted); font-size:.9rem; margin:0; }
-form { display:flex; gap:.5rem; margin:1.5rem 0 1rem; flex-wrap:wrap; }
-input[type=search] { flex:1 1 20rem; padding:.6rem .75rem; font-size:1rem; border:1px solid var(--line);
-                     border-radius:6px; background:var(--bg); color:var(--fg); }
-select, button { padding:.6rem .7rem; font-size:.9rem; border:1px solid var(--line); border-radius:6px;
-                 background:var(--bg); color:var(--fg); }
-button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
-.meta { color:var(--muted); font-size:.85rem; margin:.5rem 0 1.5rem; }
-.result { padding:.9rem 0; border-bottom:1px solid var(--line); }
-.result.has-shot { display:flex; gap:.9rem; align-items:flex-start; }
-.result-body { min-width:0; flex:1; }
-/* A sized box whether or not the image arrives: a third-party URL that 404s
-   must not collapse the row or shift the text under it. */
-.shot { background:var(--line); border-radius:4px; object-fit:cover; display:block; }
-.shot-thumb { width:72px; height:72px; flex:0 0 72px; }
-.shot-full { width:100%; max-width:320px; height:auto; aspect-ratio:1; margin:.6rem 0; }
-.shot-figure { margin:.6rem 0; max-width:320px; }
-.shot-figure figcaption { font-size:.75rem; color:var(--muted); margin-top:.3rem; }
-.pager { display:flex; gap:1rem; align-items:baseline; justify-content:space-between;
-         margin:1.2rem 0 .4rem; font-size:.85rem; }
-.pager a { color:var(--accent); text-decoration:none; }
-.pager a:hover { text-decoration:underline; }
-.pager .disabled { color:var(--line); }
-.pager .page { color:var(--muted); }
-.scope { font-style:italic; }
-.measured table { margin:.4rem 0 .6rem; }
-.badge-warn { background:#7a3b12; color:#ffd9b3; }
-.muted { color:var(--muted); }
-.tags strong { color:var(--muted); font-weight:600; margin-right:.3rem; }
-.result h2 { font-size:1.02rem; margin:0 0 .2rem; font-weight:600; }
-.result h2 a { color:var(--accent); text-decoration:none; }
-.result h2 a:hover { text-decoration:underline; }
-.vendor { color:var(--muted); font-weight:400; }
-.desc { margin:.25rem 0; }
-.tags { font-size:.8rem; color:var(--muted); }
-.tag { display:inline-block; border:1px solid var(--line); border-radius:99px; padding:.05rem .5rem; margin-right:.3rem; }
-.badge { display:inline-block; border-radius:99px; padding:.05rem .5rem; margin-right:.3rem; font-weight:600;
-         border:1px solid var(--accent); color:var(--accent); }
-.badge-price { background:var(--accent); color:var(--bg); border-color:transparent; }
-.badge-src { border-style:dashed; }
-.score { float:right; font-variant-numeric:tabular-nums; font-size:.78rem; color:var(--muted); }
-table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.88rem; }
-th, td { text-align:left; padding:.35rem .6rem .35rem 0; border-bottom:1px solid var(--line); }
-th { color:var(--muted); font-weight:500; }
-.empty { color:var(--muted); padding:2rem 0; }
-footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; }
-footer a { color:var(--accent); }
-.prov { margin:1.5rem 0; padding:.75rem 1rem; border:1px solid var(--line); border-radius:6px; background:color-mix(in srgb, var(--fg) 3%, transparent); }
-.prov h3 { font-size:.9rem; margin:0 0 .35rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
-.prov p { margin:.25rem 0; font-size:.9rem; }
-.prov a { color:var(--accent); }
-code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent); padding:.1em .35em; border-radius:3px; }
-.prose { max-width:42rem; }
-.prose h1 { font-size:1.5rem; margin:0 0 .3rem; letter-spacing:-0.01em; }
-.prose h2 { font-size:1.15rem; margin:2rem 0 .4rem; padding-top:.6rem; border-top:1px solid var(--line); }
-.prose h3 { font-size:1rem; margin:1.4rem 0 .3rem; color:var(--muted); text-transform:uppercase;
-            letter-spacing:.04em; font-size:.82rem; }
-.prose p, .prose li { line-height:1.65; }
-.prose ul, .prose ol { padding-left:1.2rem; }
-.prose li { margin:.3rem 0; }
-.prose a { color:var(--accent); }
-.prose strong { font-weight:650; }
-.prose hr { border:0; border-top:1px solid var(--line); margin:2rem 0; }
-.prose blockquote { margin:1rem 0; padding:.6rem 1rem; border-left:3px solid var(--accent);
-                    background:color-mix(in srgb, var(--fg) 3%, transparent); color:var(--muted); }
-.prose blockquote p { margin:.2rem 0; }
-.prose table { font-size:.86rem; }
-.prose th { white-space:nowrap; }
-.prose pre { background:color-mix(in srgb, var(--fg) 6%, transparent); padding:.7rem .9rem;
-             border-radius:6px; overflow-x:auto; font-size:.82rem; line-height:1.5; }
-.prose pre code { background:none; padding:0; }
-.prose h1 + p, .prose h2 + p { margin-top:.4rem; }
-.correct { display:flex; flex-wrap:wrap; gap:.5rem; align-items:flex-end; margin:.6rem 0; }
-.correct label { display:flex; flex-direction:column; gap:.2rem; font-size:.8rem; color:var(--muted); }
-.correct input[type=text] { padding:.4rem .5rem; font-size:.9rem; border:1px solid var(--line);
-                            border-radius:6px; background:var(--bg); color:var(--fg); min-width:16rem; }
-
-/* ── Narrow screens ────────────────────────────────────────────────────────
-   A phone is not a small desktop. Three things were wrong on one and each is
-   a different mistake:
-
-   - 15px body text is a density choice that suits a wide window and reads as
-     cramped on a handset held at arm's length. Bigger, not smaller.
-   - The account bar is absolutely positioned in the header's top-right corner.
-     That was fine when it held a login link; it now holds two links and a
-     button, and on a narrow screen it sat on top of the title.
-   - min-width:16rem on the correction input is 256px, which overflows a
-     360px viewport once the page padding is counted — and an overflowing form
-     field drags the whole page sideways.
-
-   The breakpoint is in rem so it follows the reader's own text size rather
-   than assuming a device width. */
-@media (max-width: 40rem) {
-  body { font-size:16.5px; }
-  .wrap { padding:1.25rem 1rem 3rem; }
-  header { padding-bottom:.8rem; margin-bottom:1.2rem; }
-  /* Out of the corner and into the flow, above the title where it cannot
-     collide with it. */
-  .account { position:static; justify-content:flex-start; flex-wrap:wrap;
-             margin:0 0 .8rem; font-size:.88rem; }
-  h1 { font-size:1.5rem; }
-  .tagline { font-size:.95rem; }
-  /* One control per row: four dropdowns sharing a line on a handset are four
-     controls nobody can hit. */
-  form { gap:.45rem; }
-  input[type=search], select, form > button { flex:1 1 100%; width:100%; font-size:1rem; }
-  .correct { gap:.45rem; }
-  .correct label, .correct input[type=text], .correct select, .correct button { width:100%; }
-  .correct input[type=text] { min-width:0; }
-  .shot-thumb { width:56px; height:56px; flex:0 0 56px; }
-  .result.has-shot { gap:.7rem; }
-  .prov { padding:.7rem .8rem; }
-  /* A wide table is the other way a page ends up scrolling sideways. Let the
-     headings wrap, and give anything still too wide its own scroll rather than
-     the document's. */
-  .prose th { white-space:normal; }
-  table { display:block; overflow-x:auto; }
-  .pager { gap:.5rem; font-size:.9rem; }
-}
-.correct button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
-.correct button.secondary { background:none; color:var(--muted); border:1px solid var(--line); }
-.err { color:#b3261e; font-size:.88rem; }
-.ok { color:var(--accent); font-size:.88rem; font-weight:600; }
-@media (prefers-color-scheme: dark) { .err { color:#f2b8b5; } }
-`
 
 /**
  * The sign-in corner of the header.
@@ -177,55 +26,24 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
  */
 function accountBar (account, signInEnabled) {
   if (!signInEnabled) return ''
-  if (!account) {
-    return '<p class="account"><a href="/auth/login">Sign in with GitHub</a></p>'
-  }
-  // The moderation queue is linked here or it is not reachable at all. A route
-  // with no link is the same defect as a link with no route, and this project
-  // has already shipped one of those.
-  const moderating = account.trustLevel === TRUST.MODERATOR
-    ? '<a href="/moderation">Moderation</a>'
-    : ''
-  return `<p class="account">
-    ${escape(account.login)}
-    <a href="/contributions">Your contributions</a>
-    ${moderating}
-    <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
-  </p>`
+  if (!account) return templates.render('account-signed-out', {})
+  return templates.render('account-signed-in', {
+    login: account.login,
+    // The moderation queue is linked here or it is not reachable at all. A
+    // route with no link is the same defect as a link with no route, and this
+    // project has already shipped one of those.
+    moderation: templates.when(account.trustLevel === TRUST.MODERATOR, 'account-moderation', {})
+  })
 }
 
 function layout (title, body, { description = '', account = null, signInEnabled = false } = {}) {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escape(title)}</title>
-${description ? `<meta name="description" content="${escape(description)}">` : ''}
-<style>${STYLE}</style>
-</head>
-<body>
-<div class="wrap">
-<header>
-  ${accountBar(account, signInEnabled)}
-  <h1><a href="/">Plugin Universe</a></h1>
-  <p class="tagline">An open database of DAW plugins. Public domain (CC0).</p>
-</header>
-${body}
-<footer>
-  Catalogue data released under
-  <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0</a>;
-  attribution requested, not required.
-  <br>
-  <a href="/about">About</a> &middot;
-  <a href="/terms">Contributor terms</a> &middot;
-  <a href="/about/crawler">Crawler</a> &middot;
-  <a href="/ns">Vocabularies</a> &middot;
-  <a href="/search?q=reverb">JSON API</a>
-</footer>
-</div>
-</body>
-</html>`
+  return templates.render('layout', {
+    title,
+    description: templates.when(Boolean(description), 'meta-description', { description }),
+    style: templates.asset('site.css'),
+    account: accountBar(account, signInEnabled),
+    body
+  })
 }
 
 /** Human labels for the availability individuals. */
@@ -288,33 +106,32 @@ export function pluginImage (doc, { size = 'thumb' } = {}) {
  * image or the image without the caption.
  */
 function pluginFigure (doc) {
-  const shot = pluginImage(doc, { size: 'full' })
-  if (!shot) return ''
+  const image = pluginImage(doc, { size: 'full' })
+  if (!image) return ''
   let host = ''
   try {
     host = new URL(doc.image).host
   } catch {
     return ''
   }
-  return `<figure class="shot-figure">
-  ${shot}
-  <figcaption>Image served by the source, ${escape(host)} — not copied here, and its author's.</figcaption>
-</figure>`
+  return templates.render('plugin-figure', { image, host })
 }
 
 function resultItem (r) {
+  const image = pluginImage(r)
   const tags = [...(r.formats ?? []), ...(r.categories ?? [])]
-  const slug = r.iri?.split('/').pop() ?? ''
-  const shot = pluginImage(r)
-  return `<div class="result${shot ? ' has-shot' : ''}">
-  ${shot}
-  <div class="result-body">
-  ${r.score !== undefined ? `<span class="score">${r.score.toFixed(3)}</span>` : ''}
-  <h2><a href="/plugin/${escape(slug)}">${escape(r.name)}</a>${r.vendor ? ` <span class="vendor">— ${escape(r.vendor)}</span>` : ''}</h2>
-  ${r.description ? `<p class="desc">${escape(r.description.split('\n')[0].slice(0, 220))}</p>` : ''}
-  <p class="tags">${availabilityBadges(r)}${tags.map(t => `<span class="tag">${escape(t)}</span>`).join('')}</p>
-  </div>
-</div>`
+  return templates.render('result', {
+    shotClass: image ? ' has-shot' : '',
+    image,
+    score: templates.when(r.score !== undefined, 'result-score', { score: r.score?.toFixed(3) }),
+    slug: r.iri?.split('/').pop() ?? '',
+    name: r.name,
+    vendor: templates.when(Boolean(r.vendor), 'result-vendor', { vendor: r.vendor }),
+    description: templates.when(Boolean(r.description), 'description',
+      { description: String(r.description ?? '').split('\n')[0].slice(0, 220) }),
+    badges: availabilityBadges(r),
+    tags: templates.each('tag', tags, value => ({ value }))
+  })
 }
 
 /**
@@ -336,43 +153,49 @@ export function pager ({ total, offset, limit, params = {} }) {
     const string = query.toString()
     return `/${string ? `?${string}` : ''}`
   }
-  const page = Math.floor(offset / limit) + 1
-  const pages = Math.ceil(total / limit)
-  const previous = offset > 0
-    ? `<a href="${escape(at(Math.max(0, offset - limit)))}" rel="prev">← newer</a>`
-    : '<span class="disabled">← newer</span>'
-  const next = offset + limit < total
-    ? `<a href="${escape(at(offset + limit))}" rel="next">older →</a>`
-    : '<span class="disabled">older →</span>'
-  return `<nav class="pager">${previous}<span class="page">page ${page} of ${pages}</span>${next}</nav>`
+  const step = (condition, position, rel, label) => condition
+    ? templates.render('pager-link', { href: at(position), rel, label })
+    : templates.render('pager-disabled', { label })
+
+  return templates.render('pager', {
+    previous: step(offset > 0, Math.max(0, offset - limit), 'prev', '\u2190 newer'),
+    next: step(offset + limit < total, offset + limit, 'next', 'older \u2192'),
+    page: Math.floor(offset / limit) + 1,
+    pages: Math.ceil(total / limit)
+  })
 }
 
 export function renderSearchPage ({
   query, facets, results, total, corpus, elapsedMs, facetValues, viewer = {},
   browsing = null
 }) {
-  const options = (name, values, selected) => `<select name="${name}">
-    <option value="">${name}: any</option>
-    ${(values ?? []).map(v => `<option value="${escape(v.value)}"${v.value === selected ? ' selected' : ''}>${escape(v.value)} (${v.count})</option>`).join('')}
-  </select>`
+  const facetSelect = name => templates.render('search-facet', {
+    name,
+    options: templates.each('search-facet-option', facetValues?.[name] ?? [], value => ({
+      value: value.value,
+      count: value.count,
+      selected: value.value === facets[name] ? ' selected' : ''
+    }))
+  })
 
-  const body = `
-<form method="get" action="/">
-  <input type="search" name="q" value="${escape(query ?? '')}" placeholder="warm analogue bus compressor" autofocus>
-  ${options('format', facetValues?.format, facets.format)}
-  ${options('category', facetValues?.category, facets.category)}
-  ${options('pricing', facetValues?.pricing, facets.pricing)}
-  ${options('source', facetValues?.source, facets.source)}
-  <button type="submit">Search</button>
-</form>
-${query || Object.values(facets).some(Boolean)
-    ? `<p class="meta">${total} of ${corpus} plugins${elapsedMs !== undefined ? `, ${elapsedMs} ms` : ''}</p>`
-    : `<p class="meta">${corpus} plugins indexed. Search by what a plugin does, not just its name.${browsing ? ' Most recently added first:' : ''}</p>`}
-${results.length
-    ? results.map(resultItem).join('\n')
-    : (query ? '<p class="empty">Nothing matched.</p>' : '')}
-${browsing ? pager({ total, offset: browsing.offset, limit: browsing.limit, params: { q: query, ...facets } }) : ''}
-`
+  const searched = Boolean(query) || Object.values(facets).some(Boolean)
+  const body = templates.render('search', {
+    query: query ?? '',
+    facets: ['format', 'category', 'pricing', 'source'].map(facetSelect).join('\n  '),
+    summary: templates.render('meta-line', {
+      text: searched
+        ? `${total} of ${corpus} plugins${elapsedMs !== undefined ? `, ${elapsedMs} ms` : ''}`
+        : `${corpus} plugins indexed. Search by what a plugin does, not just its name.` +
+          `${browsing ? ' Most recently added first:' : ''}`
+    }),
+    results: results.length
+      ? results.map(resultItem).join('\n')
+      : templates.when(Boolean(query), 'empty', { text: 'Nothing matched.' }),
+    pager: browsing
+      ? pager({ total, offset: browsing.offset, limit: browsing.limit, params: { q: query, ...facets } })
+      : ''
+  })
+
   return layout(query ? `${query} — Plugin Universe` : 'Plugin Universe', body, {
     description: 'An open, machine-readable database of DAW plugins with semantic search.',
     ...viewer
@@ -389,30 +212,26 @@ export function renderPluginPage (doc, viewer = {}, contribution = null, measure
     ['Price', PRICING_LABEL[doc.pricing]],
     ['Source', AVAILABILITY_LABEL[doc.sourceAvailability]],
     ['Licence', doc.licenceId],
-    ['Parameters', (doc.parameters ?? []).length ? `${doc.parameters.length}: ${doc.parameters.slice(0, 12).join(', ')}${doc.parameters.length > 12 ? '…' : ''}` : null],
+    ['Parameters', (doc.parameters ?? []).length ? `${doc.parameters.length}: ${doc.parameters.slice(0, 12).join(', ')}${doc.parameters.length > 12 ? '\u2026' : ''}` : null],
     ['Caution', doc.cautions]
-  ].filter(([, v]) => v)
+  ].filter(([, value]) => value)
+  const path = doc.iri.replace(NAMESPACES.pu, '/')
 
-  const body = `
-<p class="meta"><a href="/">← search</a></p>
-<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">${escape(doc.name)}</h2>
-${doc.vendor ? `<p class="tagline">${escape(doc.vendor)}</p>` : ''}
-${pluginFigure(doc)}
-${doc.description ? `<p class="desc">${escape(doc.description)}</p>` : ''}
-<table>
-${doc.homepage ? `<tr><th>Homepage</th><td><a href="${escape(doc.homepage)}" rel="nofollow noopener">${escape(doc.homepage)}</a></td></tr>` : ''}
-${rows.map(([k, v]) => `<tr><th>${escape(k)}</th><td>${escape(v)}</td></tr>`).join('\n')}
-<tr><th>IRI</th><td><code>${escape(doc.iri)}</code></td></tr>
-</table>
-${renderMeasurements(measured)}
-${renderProvenance(doc)}
-${contribution ? renderCorrectionForm(doc, contribution) : ''}
-<p class="meta">Also available as
-  <a href="${escape(doc.iri.replace(NAMESPACES.pu, '/'))}.ttl">Turtle</a>,
-  <a href="${escape(doc.iri.replace(NAMESPACES.pu, '/'))}.jsonld">JSON-LD</a>.
-</p>
-<script type="application/ld+json">${JSON.stringify(pluginJsonLd(doc), null, 2)}</script>
-`
+  const body = templates.render('plugin', {
+    name: doc.name,
+    vendor: templates.when(Boolean(doc.vendor), 'tagline', { text: doc.vendor }),
+    figure: pluginFigure(doc),
+    description: templates.when(Boolean(doc.description), 'description', { description: doc.description }),
+    homepage: templates.when(Boolean(doc.homepage), 'plugin-homepage', { href: doc.homepage }),
+    rows: templates.each('table-row', rows, ([label, value]) => ({ label, value })),
+    iri: doc.iri,
+    measurements: renderMeasurements(measured),
+    provenance: renderProvenance(doc),
+    correctionForm: contribution ? renderCorrectionForm(doc, contribution) : '',
+    ttl: `${path}.ttl`,
+    jsonld: `${path}.jsonld`,
+    jsonLd: JSON.stringify(pluginJsonLd(doc), null, 2)
+  })
   return layout(`${doc.name} — Plugin Universe`, body, { description: doc.description ?? '', ...viewer })
 }
 
@@ -437,34 +256,32 @@ ${contribution ? renderCorrectionForm(doc, contribution) : ''}
  * That is the state the correction form shipped in.
  */
 export function renderContributionsPage (rows, { viewer = {}, correctable = {}, trustLevel = null }) {
-  const label = predicate => correctable[predicate]?.label ?? predicate.replace(/^.*[/#]/, '')
-  const badge = status => `<span class="badge badge-${status === 'accepted' ? 'src' : status === 'rejected' ? 'warn' : 'price'}">${escape(status)}</span>`
+  const BADGE = { accepted: 'src', rejected: 'warn', pending: 'price' }
+  const accepted = rows.filter(row => row.status === 'accepted').length
 
-  const items = rows.map(row => {
-    const slug = row.subject.split('/').pop()
-    return `<div class="result">
-  <h2><a href="/plugin/${escape(slug)}">${escape(slug)}</a> ${badge(row.status)}</h2>
-  <p class="desc">${escape(label(row.predicate))} → <strong>${escape(row.value)}</strong></p>
-  ${row.rationale ? `<p class="tags">${escape(row.rationale)}</p>` : ''}
-  <p class="tags">Suggested ${escape(String(row.at).slice(0, 10))}${row.reviewedAt ? `, decided ${escape(String(row.reviewedAt).slice(0, 10))}` : ''}.</p>
-</div>`
-  }).join('\n')
+  const body = templates.render('contributions', {
+    heading: templates.render('page-heading', { title: 'Your contributions' }),
+    standing: rows.length === 0
+      ? ''
+      : templates.render('meta-line', {
+        text: trustLevel === 'new'
+          ? `${accepted} of your suggestions have been accepted. ` +
+            `After ${CONTRIBUTION_CONFIG.acceptedBeforeTrusted}, later ones go live as soon as you make them.`
+          : 'Your corrections are applied as soon as you make them.'
+      }),
+    items: rows.length === 0
+      ? templates.render('empty', { text: 'Nothing yet. Every plugin page has a \u201Csuggest a correction\u201D form.' })
+      : templates.each('contribution', rows, row => ({
+        slug: row.subject.split('/').pop(),
+        badge: templates.render('badge', { kind: BADGE[row.status] ?? 'price', label: row.status }),
+        field: correctable[row.predicate]?.label ?? row.predicate.replace(/^.*[/#]/, ''),
+        value: row.value,
+        rationale: templates.when(Boolean(row.rationale), 'tags-line', { text: row.rationale }),
+        at: String(row.at).slice(0, 10),
+        decided: row.reviewedAt ? `, decided ${String(row.reviewedAt).slice(0, 10)}` : ''
+      }))
+  })
 
-  const counts = rows.reduce((tally, row) => ({ ...tally, [row.status]: (tally[row.status] ?? 0) + 1 }), {})
-  const standing = trustLevel === 'new'
-    ? `<p class="meta">${counts.accepted ?? 0} of your suggestions have been accepted. ` +
-      `After ${CONTRIBUTION_CONFIG.acceptedBeforeTrusted}, later ones go live as soon as you make them.</p>`
-    : '<p class="meta">Your corrections are applied as soon as you make them.</p>'
-
-  const body = `
-<p class="meta"><a href="/">← search</a></p>
-<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">Your contributions</h2>
-${rows.length === 0
-    ? '<p class="empty">Nothing yet. Every plugin page has a “suggest a correction” form.</p>'
-    : `${standing}\n${items}`}
-<p class="tags">Facts you contribute are dedicated to the public domain under CC0, as set out in
-  the <a href="/terms">contributor terms</a>. Nothing here is shown to anyone else.</p>
-`
   return layout('Your contributions — Plugin Universe', body, {
     description: 'Corrections you have suggested to the Plugin Universe catalogue.',
     ...viewer
@@ -472,28 +289,24 @@ ${rows.length === 0
 }
 
 export function renderModerationPage (pending, { csrfToken, message, viewer = {} }) {
-  const rows = pending.map(item => `
-  <div class="result">
-    <h2>${escape(item.predicate.replace(/^.*[#/]/, ''))} &rarr; ${escape(String(item.value).slice(0, 120))}</h2>
-    <p class="desc">on <a href="${escape(item.subject.replace(NAMESPACES.pu, '/'))}">${escape(item.subject.split('/').pop())}</a>
-       by ${escape(item.by.split('/').pop())}</p>
-    ${item.rationale ? `<p class="desc">&ldquo;${escape(item.rationale)}&rdquo;</p>` : ''}
-    <form method="post" action="/moderation" class="correct">
-      <input type="hidden" name="csrf" value="${escape(csrfToken)}">
-      <input type="hidden" name="correction" value="${escape(item.correction)}">
-      <button type="submit" name="decision" value="accept">Accept</button>
-      <button type="submit" name="decision" value="reject" class="secondary">Reject</button>
-    </form>
-  </div>`).join('\n')
-
-  return layout('Moderation — Plugin Universe', `
-<p class="meta"><a href="/">← search</a></p>
-<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">Moderation queue</h2>
-${message ? `<p class="ok">${escape(message)}</p>` : ''}
-<p class="meta">${pending.length} correction${pending.length === 1 ? '' : 's'} awaiting review.
-  Accepting writes the fact to the contributor's public-domain graph and counts towards their trust.</p>
-${pending.length ? rows : '<p class="empty">Nothing waiting.</p>'}
-`, { description: 'Corrections awaiting review.', ...viewer })
+  const body = templates.render('moderation', {
+    heading: templates.render('page-heading', { title: 'Moderation queue' }),
+    message: templates.when(Boolean(message), 'notice', { text: message }),
+    count: `${pending.length} correction${pending.length === 1 ? '' : 's'}`,
+    items: pending.length
+      ? templates.each('moderation-item', pending, item => ({
+        field: item.predicate.replace(/^.*[#/]/, ''),
+        value: String(item.value).slice(0, 120),
+        href: item.subject.replace(NAMESPACES.pu, '/'),
+        slug: item.subject.split('/').pop(),
+        by: item.by.split('/').pop(),
+        rationale: templates.when(Boolean(item.rationale), 'quoted', { text: item.rationale }),
+        csrf: csrfToken,
+        correction: item.correction
+      }))
+      : templates.render('empty', { text: 'Nothing waiting.' })
+  })
+  return layout('Moderation — Plugin Universe', body, { description: 'Corrections awaiting review.', ...viewer })
 }
 
 /**
@@ -504,11 +317,8 @@ ${pending.length ? rows : '<p class="empty">Nothing waiting.</p>'}
  * the search results, because these are paragraphs rather than a table.
  */
 export function renderDocPage ({ title, description, html }, viewer = {}) {
-  return layout(`${escape(title)} — Plugin Universe`, `
-<p class="meta"><a href="/">← search</a></p>
-<article class="prose">
-${html}
-</article>`, { description, ...viewer })
+  return layout(`${title} — Plugin Universe`, templates.render('doc-page', { html }),
+    { description, ...viewer })
 }
 
 /**

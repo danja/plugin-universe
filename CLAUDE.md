@@ -223,7 +223,9 @@ proposed upstream to the transmission repo, not forked.
 
 Plugin IRIs are minted under `http://purl.org/stuff/plugin-universe/`, by content hash over the
 identifying tuple so that re-harvesting is idempotent — `.../plugin/<slug>-<sha256[0:8]>`, and
-`.../vendor/`, `.../person/`, `.../release/`, `.../measurement/` by the same rule. The PURL redirects
+`.../vendor/`, `.../person/`, `.../release/`, `.../measurement/`, `.../correction/` and
+`.../revision/` by the same rule. `URIMinter` refuses a type it does not know, so a new kind of
+resource means adding it there rather than assembling an IRI by hand. The PURL redirects
 to whatever host currently serves the site, so IRIs survive a change of domain; never mint an IRI
 under the serving domain itself. Where an upstream canonical IRI already exists — LV2 plugins have
 them by design — preserve it with `owl:sameAs` rather than replacing it.

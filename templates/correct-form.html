@@ -1,0 +1,13 @@
+<div class="prov">
+  <h3>Suggest a correction</h3>
+  {{{error}}}
+  {{{submitted}}}
+  <form method="post" action="/plugin/{{slug}}/correct" class="correct">
+    <input type="hidden" name="csrf" value="{{csrf}}">
+    <label>Field <select name="predicate">{{{options}}}</select></label>
+    <label>Should be <input type="text" name="value" required maxlength="{{maxValue}}"></label>
+    <label>Why <input type="text" name="rationale" maxlength="{{maxRationale}}" placeholder="optional"></label>
+    <button type="submit">Suggest</button>
+  </form>
+  <p class="tags">Contributed facts are CC0. See the <a href="/terms">contributor terms</a>.</p>
+</div>

@@ -4,6 +4,7 @@ import GraphRegistry from '../store/GraphRegistry.js'
 import URIMinter from '../rdf/URIMinter.js'
 import { TRUST } from '../auth/Accounts.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
+import ensureContributorGraphs from './ContributorGraphs.js'
 
 /**
  * Corrections: a person proposing that one fact about one plugin is wrong.
@@ -145,33 +146,9 @@ export class Corrections {
     })
   }
 
-  /**
-   * The two graphs a contributor writes through.
-   *
-   * Facts under CC0 and prose under CC BY-SA, separately, so which licence
-   * applies is decided by which graph a write goes to rather than by anyone
-   * remembering. `GraphRegistry.graphIri` forbids a slash in an id, hence the
-   * suffix rather than a path.
-   */
+  /** The contributor's CC0 and CC BY-SA graphs, registered if new. */
   async ensureContributorGraphs (account) {
-    const base = account.iri.split('/').pop()
-    const graphs = {}
-    for (const [kind, licence, what] of [
-      ['facts', 'CC0-1.0', 'Factual contributions, dedicated to the public domain'],
-      ['prose', 'CC-BY-SA-4.0', 'Authored prose, licensed share-alike with attribution']
-    ]) {
-      const id = `${base}-${kind}`
-      graphs[kind] = await this.registry.isRegistered('user', id)
-        ? GraphRegistry.graphIri('user', id)
-        : await this.registry.register({
-          kind: 'user',
-          id,
-          licence,
-          derivedFrom: account.iri,
-          comment: `${what} by ${account.login}.`
-        })
-    }
-    return graphs
+    return ensureContributorGraphs(this.registry, account)
   }
 
   /**

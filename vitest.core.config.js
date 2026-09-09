@@ -9,6 +9,7 @@ export default defineConfig({
       'tests/harvest/**/*.test.js',
       'tests/auth/**/*.test.js',
       'tests/contrib/**/*.test.js',
+      'tests/wiki/**/*.test.js',
       'tests/embeddings/**/*.test.js',
       'tests/profiler/**/*.test.js',
       'tests/api/**/*.test.js',

@@ -138,7 +138,15 @@ export const CONTRIBUTION_CONFIG = {
 
   // Corrections one account may submit in an hour. Generous for a person,
   // useless for a script.
-  perAccountPerHour: 30
+  perAccountPerHour: 30,
+
+  // Wiki prose. Long enough for a thorough page about a plugin — a few
+  // thousand words — and short enough that one paste cannot fill the store.
+  maxWikiLength: 40000,
+
+  // Wiki saves one account may make in an hour. Lower than the correction
+  // limit because each one writes a full revision that is kept forever.
+  wikiEditsPerHour: 20
 }
 
 /**

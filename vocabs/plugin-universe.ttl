@@ -112,6 +112,24 @@ pu:correctionStatus a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:ra
 pu:reviewedBy a owl:ObjectProperty ; rdfs:domain pu:Correction .
 pu:reviewedAt a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:range xsd:dateTime .
 
+## ── Wiki prose ──────────────────────────────────────────────────────────────
+## The CC BY-SA half of the catalogue. Facts are CC0 and live in a contributor's
+## -facts graph; prose is share-alike and lives in their -prose graph, so the
+## licence boundary is a property of the store rather than a judgement made at
+## publication time.
+
+pu:WikiRevision a owl:Class ; rdfs:label "Wiki revision" ;
+    rdfs:comment "One saved version of the prose about a plugin. Revisions are never edited and never deleted: saving writes a new one that supersedes the last through prov:wasRevisionOf, so the history is the data rather than a log kept beside it. That is also what makes a bad edit reversible without trusting anybody's backup." .
+
+pu:wikiSubject a owl:ObjectProperty ; rdfs:domain pu:WikiRevision ;
+    rdfs:comment "The plugin this revision is about. Not pu:subject, whose domain is pu:Measurement — a measurement and a paragraph are about a plugin in different senses and conflating the properties would make either query wrong." .
+
+pu:wikiText a owl:DatatypeProperty ; rdfs:domain pu:WikiRevision ; rdfs:range xsd:string ;
+    rdfs:comment "Markdown as the contributor typed it. The source is stored and never the rendered HTML: rendering is a decision made on the way out, so a change to how prose is sanitised applies to every revision ever written rather than only to the next one." .
+
+pu:editSummary a owl:DatatypeProperty ; rdfs:domain pu:WikiRevision ; rdfs:range xsd:string ;
+    rdfs:comment "What changed and why, in the contributor's words. Optional, and about the edit rather than about the plugin." .
+
 ## ── Packaging and distribution ──────────────────────────────────────────────
 ## Modelled on the Open Audio Stack registry manifest.
 
