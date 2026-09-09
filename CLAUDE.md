@@ -128,10 +128,20 @@ change, and a long one rarely does.
 
 ## Working rules
 - API keys are sacred. They must not be shared.
+- **Keep [docs/danja-todo.md](docs/danja-todo.md) current.** It is the user's own action list —
+  anything needing server access, credentials, legal review or a decision that is theirs goes
+  there and not into a chat message that scrolls away. Revise it at the end of any session that
+  changes what they need to do: strike finished items into the "Confirmed done" section rather
+  than deleting them, move new ones into priority order, and say plainly which things block
+  which. Do not let it accumulate completed steps — a list of what has already happened is not
+  a list of what to do. It is also the right place to record something the deployment cannot
+  tell us, and anything I asserted about the server that I have not actually verified.
 - Do not run any `git` operations unless the user explicitly approves them.
 - Use the Read tool to read files, not `sed`/`cat`/`head`/`tail` via Bash. Bash tool calls require per-call user approval; Read does not.
 - Log mistakes in MISTAKES.md (what happened, root cause, prevention).
-- Periodically review TODO.md and revise as necessary.
+- Periodically review TODO.md and revise as necessary, and `docs/danja-todo.md` with it: TODO.md
+  is what the project needs, danja-todo.md is what the user needs to do. An item that lands in
+  one usually changes the other.
 
 ## Development Guidelines
 

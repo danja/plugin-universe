@@ -94,7 +94,14 @@ services:
     restart: unless-stopped
 
   app:
-    build: .
+    build:
+      context: .
+      # Filled by bin/deploy.sh, which is the supported way to build this. Left
+      # empty by a bare `docker compose build`, and then /health reports the
+      # build as unknown rather than claiming something it cannot know.
+      args:
+        BUILD_COMMIT: ${BUILD_COMMIT:-}
+        BUILD_TIME: ${BUILD_TIME:-}
     container_name: plugin-universe-app
     ports:
       - "127.0.0.1:${APP_PORT:-4100}:4100"

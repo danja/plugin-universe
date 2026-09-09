@@ -74,6 +74,18 @@ describe('the service is up and is the service we think it is', () => {
     expect(health.signIn, health.signInProblem ?? '').toBe('enabled')
   })
 
+  it('says which code it is running, not only which data', () => {
+    // The site reported a healthy plugin count for an hour while serving from a
+    // container that had never been rebuilt, and finding that out took four
+    // commands on the server. A null commit means the image was built without
+    // bin/deploy.sh, so nobody can tell what is deployed.
+    expect(health.build, '/health has no build stamp — the running image predates it').toBeDefined()
+    expect(health.build.commit, 'built without bin/deploy.sh; the deployed commit is unknowable')
+      .toMatch(/^[0-9a-f]{40}$/)
+    expect(new Date(health.build.builtAt).getTime()).not.toBeNaN()
+    console.log(`    deployed: ${health.build.commit.slice(0, 8)} built ${health.build.builtAt}`)
+  })
+
   it('says what the data may be used for, on every response', () => {
     expect(health.licence.licence).toBe('CC0-1.0')
   })

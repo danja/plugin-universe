@@ -72,7 +72,12 @@ describe('the app container receives what the app reads', () => {
       expect(block, `${name} should be \${${name}:-}`).toContain(`${name}: \${${name}:-}`)
     }
 
-    const readers = ['bin/serve.js', 'bin/ingest.js', 'src/auth/GitHubOAuth.js', 'src/auth/Session.js']
+    const readers = [
+      'bin/serve.js', 'bin/ingest.js', 'src/auth/GitHubOAuth.js', 'src/auth/Session.js',
+      // Reads BUILD_COMMIT and BUILD_TIME, which arrive as empty strings when
+      // the image is built without them.
+      'src/api/server.js'
+    ]
     for (const file of readers) {
       const source = fs.readFileSync(file, 'utf8')
       const coalesced = [...source.matchAll(/process\.env\.([A-Z_]+)\s*\?\?/g)].map(m => m[1])
@@ -82,6 +87,28 @@ describe('the app container receives what the app reads', () => {
         'test. Use || so an empty variable counts as unset.'
       ).toEqual([])
     }
+  })
+
+  it('carries the build stamp from the deploy script to the running container', () => {
+    // Four files have to agree for /health to be able to say which code it is
+    // running, and nothing else connects them: the script that computes the
+    // commit, the compose build args that carry it, the Dockerfile that turns
+    // the argument into an environment variable, and the code that reads it.
+    // Any one of them missing and the stamp is silently null — which reads as
+    // "an old image" and is indistinguishable from one.
+    expect(block, 'docker-compose.yml passes no BUILD_COMMIT build arg')
+      .toMatch(/args:[\s\S]*BUILD_COMMIT: \$\{BUILD_COMMIT:-\}/)
+    expect(block).toMatch(/BUILD_TIME: \$\{BUILD_TIME:-\}/)
+
+    const dockerfile = fs.readFileSync('Dockerfile', 'utf8')
+    for (const name of ['BUILD_COMMIT', 'BUILD_TIME']) {
+      expect(dockerfile, `Dockerfile does not declare ARG ${name}`).toMatch(new RegExp(`ARG ${name}`))
+      expect(dockerfile, `Dockerfile does not export ${name}`).toMatch(new RegExp(`ENV ${name}=`))
+    }
+
+    const deploy = fs.readFileSync('bin/deploy.sh', 'utf8')
+    expect(deploy, 'bin/deploy.sh does not export the stamp').toMatch(/export BUILD_COMMIT BUILD_TIME/)
+    expect(deploy, 'bin/deploy.sh does not compute the commit').toMatch(/git rev-parse HEAD/)
   })
 
   it('leaves the auth variables optional, so a read-only deployment still starts', () => {

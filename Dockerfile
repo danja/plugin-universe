@@ -33,6 +33,19 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --chown=${APP_UID}:${APP_GID} . .
 
+# What this image is, so a running container can say which code it holds.
+#
+# Deliberately no default. An unset argument becomes an empty variable and
+# /health reports the build as unknown, which is the truth; a default of
+# "unknown" baked into the image would be the same claim made less honestly,
+# and a default of "latest" would be a lie. bin/deploy.sh fills both in.
+#
+# Last, so that changing them does not invalidate the layers above.
+ARG BUILD_COMMIT
+ARG BUILD_TIME
+ENV BUILD_COMMIT=${BUILD_COMMIT}
+ENV BUILD_TIME=${BUILD_TIME}
+
 # The vector index is state, not build output.
 RUN mkdir -p /app/data && chown ${APP_UID}:${APP_GID} /app/data
 VOLUME ["/app/data"]

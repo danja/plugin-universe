@@ -119,6 +119,25 @@ export const VOCABULARIES = Object.freeze({
  * the prose pages are — `docs/` was excluded by `.dockerignore` once and the
  * only symptom was three routes returning 500 in production.
  */
+/**
+ * Which code this process is running.
+ *
+ * Read once, at load. `||` rather than `??`: an unset Docker build argument
+ * arrives as an empty string, and `??` would accept that as a value — the same
+ * mistake that took the site down through `SITE_ORIGIN` once. An unstamped
+ * build reports null, which is the truth and is visible; it does not report
+ * "unknown", which reads like a version.
+ *
+ * This exists because "is my deploy live?" had no answer. The site reported a
+ * plugin count and a healthy status while serving code from a container that
+ * had never been rebuilt, and finding that out took four commands on the
+ * server. It is now one request.
+ */
+export const BUILD = Object.freeze({
+  commit: process.env.BUILD_COMMIT || null,
+  builtAt: process.env.BUILD_TIME || null
+})
+
 export const STATIC_FILES = Object.freeze({
   '/robots.txt': { file: 'robots.txt', type: 'text/plain; charset=utf-8' }
 })
@@ -226,6 +245,9 @@ export function createServer ({
             plugins: search.documents.size,
             index: search.index.size,
             embeddingModel: config?.get('embedding.model') ?? null,
+            // Which code, not just which data. Null means the image was built
+            // without a stamp, not that the build is old.
+            build: BUILD,
             // So a half-configured sign-in is visible to monitoring rather than
             // only to whoever reads the container log at startup.
             signIn: auth ? 'enabled' : (authProblem ? 'misconfigured' : 'disabled'),

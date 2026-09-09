@@ -193,6 +193,22 @@ place in this project where the rules bite hardest:
   - Links rot. A link-out graph needs re-checking on a schedule and a way to record a dead link,
     or the catalogue slowly fills with 404s that look like data.
 
+## Recurring — not a phase, a habit
+
+* **Keep [docs/danja-todo.md](docs/danja-todo.md) current.** Anything needing server access,
+  credentials, legal review or a decision belongs there rather than in this file, and it is
+  worth revising at the end of any session that changes it. It goes stale in one direction —
+  completed steps accumulate at the top and the next real action sinks — so pruning matters
+  more than adding. Finished items are struck into its "Confirmed done" section, not deleted.
+* **Run `npm run test:live` after every deploy.** It is the only check that sees the deployment
+  rather than a copy of it: a container never rebuilt, an ingest run on the wrong machine, an
+  expired certificate, a broken redirect. `./bin/deploy.sh` verifies the commit stamp by itself,
+  but only the live suite checks the site.
+* **Re-read this file and MISTAKES.md when starting something structural.** The recurring
+  failure in [CLAUDE.md](CLAUDE.md) — two files that must change together with nothing
+  connecting them — has cost more than any other class of defect here, and it is cheapest to
+  catch before the second file is forgotten rather than after.
+
 ## Outstanding, not blocking
 
 * **rewrite README.md around the method, not the inventory.** The interesting claim this project
