@@ -109,15 +109,28 @@ I will write the concepts.
 
 ---
 
-## 4. Blockers
+## 3b. Re-ingest, when convenient
 
-**Contributor terms need a lawyer.** `docs/contributor-terms.md` is the one
-document in the repository with legal effect and it is currently one person's
-plain-language statement of intent. The intent is settled; the wording is not
-verified. **Until it is reviewed, do not advertise contributions to anyone but
-yourself.** The machinery is complete and working — sign-in, corrections, the
-moderation queue, trust promotion, rate limiting — so this is the only thing
-between the current state and opening it up.
+Not urgent, and not a blocker. Two things landed that only take effect on the
+next ingest:
+
+* **The ontologies now go into the store.** `vocabs/plugin-universe.ttl`,
+  `trn-extensions.ttl` and `trn-profile.ttl` were served from disk and were not
+  in the graph at all, so every `pu:` and `trn:` IRI in the published data
+  pointed at a document the endpoint holding the data could not read. Until the
+  re-ingest, the profiler's measurement labels fall back to bare local names on
+  the live site.
+* The corrected `pu:Latency` definition, and units on the metrics.
+
+```sh
+cd /home/github/plugin-universe
+docker compose run --rm app node bin/ingest.js --only-new
+docker compose restart app
+```
+
+- [ ] re-ingested, whenever it suits
+
+## 4. Blockers
 
 **`pluginval` is not installed anywhere.** A JUCE binary from Tracktion covering
 VST/VST3/AU/LV2/LADSPA, and the thing that would let the 46 built downspout VST3s
@@ -149,6 +162,13 @@ in the profiler is waiting on anything.
   against the plugins installed here. AUFX-O equivalents for reverb, delay and
   so on are *not* asserted, because I could not check the published ontology. If
   you can open it, the missing alignments are an hour's work.
+- **When to get the terms properly reviewed.** A second opinion judged them
+  adequate and contributions are open on that basis; `docs/contributor-terms.md`
+  now says exactly that rather than claiming a sign-off it did not have. The
+  trigger for a real review is **promotion** — advertising the site, or taking
+  money for placement — because that is when the exposure changes and when the
+  DSA/ASA labelling obligations in Phase 4 arrive alongside it. Worth deciding
+  now who does it, so it is not the thing holding up a launch.
 - **A sitemap.** `robots.txt` has no `Sitemap:` line because there is no
   sitemap, and pointing at a 404 is the same defect as a user agent advertising
   a contact page that does not exist. Worth having for 752 plugin pages — say

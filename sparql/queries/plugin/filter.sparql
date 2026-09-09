@@ -1,10 +1,13 @@
 # The IRIs of plugins matching a facet filter. Applied as a filter on retrieval
 # candidates, never as a score: a user asking for LV2 plugins does not want a
 # VST3 ranked highly because it matched the words better.
+#
+# Each condition carries its own GRAPH clause rather than sharing one. Most
+# facets are properties of the plugin and belong in the graph the plugin came
+# from; a measurement is written by the profiler into a run graph of its own,
+# and a filter that assumed one graph could not express it at all.
 SELECT DISTINCT ?plugin
 WHERE {
-  GRAPH ?g {
-    ?plugin a trn:PluginProfile .
-    ${conditions}
-  }
+  GRAPH ?g { ?plugin a trn:PluginProfile }
+  ${conditions}
 }

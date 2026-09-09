@@ -88,6 +88,8 @@ export class SearchService {
     this.sources = new Map()
     /** @type {Map<string, object>} category slug to its concept */
     this.categories = new Map()
+    /** @type {Map<string, object>} plugin IRI to its most recent profiler run */
+    this.measurements = new Map()
     this.lexical = new LexicalIndex()
   }
 
@@ -132,6 +134,44 @@ export class SearchService {
       })
     }
 
+    // What the profiler measured. Loaded here rather than joined per request
+    // for the same reason as the sources and the scheme, and because the
+    // profiler had been writing these since Phase 2 with nothing reading them.
+    //
+    // Rows arrive oldest first, so a later run replaces an earlier one whole
+    // rather than merging with it: two runs on different days are two accounts
+    // of the plugin, and mixing their readings would produce a description of
+    // neither.
+    this.measurements = new Map()
+    for (const row of await this.client.select(this.queries.get('plugin/measurements', {}))) {
+      let entry = this.measurements.get(row.subject)
+      if (!entry || entry.run !== row.run) {
+        entry = {
+          run: row.run,
+          at: row.at,
+          tool: row.tool,
+          platform: row.platform,
+          verdict: null,
+          readings: []
+        }
+        this.measurements.set(row.subject, entry)
+      }
+      const metric = row.metric.replace(/^.*[/#]/, '')
+      entry.readings.push({
+        metric,
+        iri: row.metric,
+        // A metric with no label in the vocabulary is shown by its local name.
+        // The reading is the fact; a missing label is a gap in vocabs/, and
+        // hiding the measurement would be the wrong way to report it.
+        label: row.metricLabel ?? metric,
+        about: row.metricComment ?? null,
+        value: row.value,
+        unit: row.metricUnit ?? null,
+        note: row.comment ?? null
+      })
+      if (metric === 'ValidationResult') entry.verdict = row.value
+    }
+
     const rows = await this.client.select(this.queries.get('plugin/text-view', {}))
     this.documents = new Map(rows.map(row => [row.plugin, {
       iri: row.plugin,
@@ -174,18 +214,32 @@ export class SearchService {
    * Build the SPARQL conditions for a facet filter.
    * @returns {string|null} null when no facets were requested
    */
-  #filterConditions ({ format, role, category, vendor, source, pricing, licence }) {
+  #filterConditions ({ format, role, category, vendor, source, pricing, licence, measured }) {
     const conditions = []
-    if (format) conditions.push(`?plugin ${iri(NAMESPACES.trn + 'format')} ${iri(NAMESPACES.trn + format)} .`)
-    if (role) conditions.push(`?plugin ${iri(NAMESPACES.trn + 'role')} ${iri(NAMESPACES.trn + role)} .`)
-    if (category) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'category')} ${iri(`${NAMESPACES.pu}category/${category}`)} .`)
-    if (vendor) conditions.push(`?plugin ${iri(NAMESPACES.trn + 'vendor')} ${literal(vendor)} .`)
+    // Properties of the plugin, in the graph the plugin came from. `?g` is
+    // bound by the query, so reusing it here is what keeps a facet from
+    // matching across two sources by accident.
+    const own = pattern => conditions.push(`GRAPH ?g { ${pattern} }`)
+    if (format) own(`?plugin ${iri(NAMESPACES.trn + 'format')} ${iri(NAMESPACES.trn + format)}`)
+    if (role) own(`?plugin ${iri(NAMESPACES.trn + 'role')} ${iri(NAMESPACES.trn + role)}`)
+    if (category) own(`?plugin ${iri(NAMESPACES.pu + 'category')} ${iri(`${NAMESPACES.pu}category/${category}`)}`)
+    if (vendor) own(`?plugin ${iri(NAMESPACES.trn + 'vendor')} ${literal(vendor)}`)
     // The availability facets. Values are local names of pu: individuals —
     // OpenSource, Free — so a URL reads as a question rather than an IRI.
-    if (source) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'sourceAvailability')} ${iri(NAMESPACES.pu + source)} .`)
-    if (pricing) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'pricing')} ${iri(NAMESPACES.pu + pricing)} .`)
-    if (licence) conditions.push(`?plugin ${iri(NAMESPACES.pu + 'licenceId')} ${literal(licence)} .`)
-    return conditions.length ? conditions.join('\n    ') : null
+    if (source) own(`?plugin ${iri(NAMESPACES.pu + 'sourceAvailability')} ${iri(NAMESPACES.pu + source)}`)
+    if (pricing) own(`?plugin ${iri(NAMESPACES.pu + 'pricing')} ${iri(NAMESPACES.pu + pricing)}`)
+    if (licence) own(`?plugin ${iri(NAMESPACES.pu + 'licenceId')} ${literal(licence)}`)
+    // A verdict from the profiler, which lives in its own run graph and not in
+    // the plugin's. A plugin measured twice matches if any run says so; which
+    // reading is shown on the page is a separate question, and that one is the
+    // newest.
+    if (measured) {
+      conditions.push(
+        `GRAPH ?measurements { ?measurement ${iri(NAMESPACES.pu + 'subject')} ?plugin ; ` +
+        `${iri(NAMESPACES.pu + 'metric')} ${iri(NAMESPACES.pu + 'ValidationResult')} ; ` +
+        `${iri(NAMESPACES.pu + 'value')} ${literal(measured)} }`)
+    }
+    return conditions.length ? conditions.join('\n  ') : null
   }
 
   /** The set of plugin IRIs passing a facet filter, or null for no filter. */
@@ -281,6 +335,11 @@ export class SearchService {
     }
   }
 
+  /** The most recent profiler run for one plugin, or null. */
+  measured (pluginIri) {
+    return this.measurements.get(pluginIri) ?? null
+  }
+
   /** One category concept, or null. */
   concept (slug) {
     return this.categories.get(slug) ?? null
@@ -293,6 +352,21 @@ export class SearchService {
     for (const row of rows) {
       grouped[row.facet] ??= []
       grouped[row.facet].push({ value: row.value, count: Number(row.count) })
+    }
+
+    // The measured facet is counted from what was loaded rather than from a
+    // seventh UNION in the facet query: the readings are in memory already,
+    // and they are the only facet whose values live outside the plugin's own
+    // graph. It appears only when something has actually been measured, so it
+    // does not advertise an empty filter.
+    const verdicts = new Map()
+    for (const entry of this.measurements.values()) {
+      if (entry.verdict) verdicts.set(entry.verdict, (verdicts.get(entry.verdict) ?? 0) + 1)
+    }
+    if (verdicts.size > 0) {
+      grouped.measured = [...verdicts]
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
     }
     return grouped
   }

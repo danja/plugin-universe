@@ -7,7 +7,8 @@ import logger from 'loglevel'
 import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
-  renderSearchPage, renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage
+  renderSearchPage, renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage,
+  renderContributionsPage
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
@@ -209,7 +210,8 @@ export function createServer ({
             vendor: params.get('vendor') || null,
             source: params.get('source') || null,
             pricing: params.get('pricing') || null,
-            licence: params.get('licence') || null
+            licence: params.get('licence') || null,
+            measured: params.get('measured') || null
           }
           // One rule: a query is ranked and capped, because relevance past the
           // first screen is noise; anything else is a browse — most recently
@@ -265,14 +267,17 @@ export function createServer ({
             vendor: params.get('vendor'),
             source: params.get('source'),
             pricing: params.get('pricing'),
-            licence: params.get('licence')
+            licence: params.get('licence'),
+            measured: params.get('measured')
           }
           const limit = Math.min(
             Number(params.get('limit')) || RETRIEVAL_CONFIG.defaultPageSize,
             RETRIEVAL_CONFIG.maxPageSize
           )
           if (!q && !Object.values(facets).some(Boolean)) {
-            return send(response, 400, { error: 'Provide q, or at least one of format, role, category, vendor, source, pricing, licence' })
+            return send(response, 400, {
+              error: 'Provide q, or at least one of format, role, category, vendor, source, pricing, licence, measured'
+            })
           }
           const outcome = q
             ? await search.search(q, { facets, limit })
@@ -337,6 +342,20 @@ export function createServer ({
         case '/about/crawler': {
           const page = await loadPage(path, projectRoot)
           return sendText(response, 200, renderDocPage(page, viewer), 'text/html; charset=utf-8')
+        }
+
+        case '/contributions': {
+          if (!auth || !corrections) return send(response, 404, { error: 'Contributions are not enabled' })
+          // 401, not 404: unlike the moderation queue this is not a role
+          // anyone might not have — it is simply nobody's page until you sign
+          // in, and saying so is the useful answer.
+          if (!viewer.account) return send(response, 401, { error: 'Sign in to see your contributions' })
+          const rows = await corrections.byAccount(viewer.account.iri)
+          return sendText(response, 200, renderContributionsPage(rows, {
+            viewer,
+            correctable: CORRECTABLE,
+            trustLevel: viewer.account.trustLevel
+          }), 'text/html; charset=utf-8')
         }
 
         case '/moderation': {
@@ -469,7 +488,7 @@ export function createServer ({
                 csrfToken: auth.session.csrfToken(account.iri),
                 correctable: CORRECTABLE,
                 ...extra
-              }), 'text/html; charset=utf-8')
+              }, search.measured(pluginIri)), 'text/html; charset=utf-8')
 
             try {
               const result = await corrections.submit({
@@ -504,7 +523,11 @@ export function createServer ({
               case 'jsonld':
                 return sendText(response, 200, JSON.stringify(pluginJsonLd(doc), null, 2), 'application/ld+json')
               case 'json':
-                return send(response, 200, { ...doc, licence: LICENCE })
+                return send(response, 200, {
+                  ...doc,
+                  measured: search.measured(iri),
+                  licence: LICENCE
+                })
               default:
                 return sendText(response, 200, renderPluginPage(doc, viewer,
                   corrections
@@ -513,7 +536,8 @@ export function createServer ({
                         csrfToken: viewer.account ? auth.session.csrfToken(viewer.account.iri) : null,
                         correctable: CORRECTABLE
                       }
-                    : null), 'text/html; charset=utf-8')
+                    : null,
+                  search.measured(iri)), 'text/html; charset=utf-8')
             }
           }
           return send(response, 404, { error: 'No such endpoint', path })

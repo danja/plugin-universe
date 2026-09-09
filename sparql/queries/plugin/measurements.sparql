@@ -1,0 +1,38 @@
+# What the profiler measured, per plugin.
+#
+# Loaded once at startup beside the sources and the category scheme. The
+# profiler has been writing these since Phase 2 and nothing read them, which is
+# the third instance in MISTAKES.md of data collected and never displayed —
+# and therefore never checked.
+#
+# Metric labels come from the vocabulary rather than a table in JavaScript, so
+# a metric added to vocabs/plugin-universe.ttl arrives with its own name and
+# its own explanation. A metric with no label is still returned: the reading is
+# the fact, and a missing label is a gap in the vocabulary, not a reason to
+# hide a measurement.
+#
+# Each run writes its own graph, so a plugin measured twice has two readings
+# per metric. Both are returned with their times; deciding which one to believe
+# is the caller's, and it is the newest.
+SELECT ?subject ?metric ?value ?comment ?tool ?platform ?at ?run ?metricLabel ?metricComment ?metricUnit
+WHERE {
+  GRAPH ?measurements {
+    ?measurement a pu:Measurement ;
+                 pu:subject ?subject ;
+                 pu:metric ?metric ;
+                 pu:value ?value ;
+                 pu:tool ?tool ;
+                 pu:platform ?platform ;
+                 pu:harvestRun ?run ;
+                 prov:generatedAtTime ?at .
+    OPTIONAL { ?measurement rdfs:comment ?comment }
+  }
+  OPTIONAL {
+    GRAPH ?vocabulary {
+      ?metric rdfs:label ?metricLabel .
+      OPTIONAL { ?metric rdfs:comment ?metricComment }
+      OPTIONAL { ?metric units:unit ?metricUnit }
+    }
+  }
+}
+ORDER BY ?subject ?at

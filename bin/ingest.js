@@ -218,6 +218,37 @@ const alignment = await pipeline.writeTurtleFile('vocabs/alignment.ttl', {
 })
 console.log(`alignment   →  ${alignment.graph}  (${alignment.tripleCount} triples)`)
 
+// The ontologies themselves, into the store.
+//
+// They were served from disk at /ns/<name>.ttl and were not in the graph at
+// all, so every `pu:` and `trn:` IRI in the published data resolved to a
+// document that the endpoint holding the data could not read. A query could
+// not ask what a term meant, and the profiler's metric labels — which the
+// vocabulary defines and nothing else does — were unavailable to the code that
+// needed to display them.
+//
+// One graph per document, because each is a document with its own provenance,
+// and because dropping one to reload it should not disturb the others.
+// vocabs/shapes.ttl is deliberately absent: SHACL shapes are how the store is
+// checked, not part of what it describes.
+for (const [file, id, comment] of [
+  ['vocabs/plugin-universe.ttl', 'ontology-plugin-universe',
+    'The pu: vocabulary: measurements, packaging, catalogue administration'],
+  ['vocabs/trn-extensions.ttl', 'ontology-trn-extensions',
+    'This project\'s additions to trn:, proposed upstream to the transmission repository'],
+  ['vocabs/trn-profile.ttl', 'ontology-trn-profile',
+    'The trn: plugin profile vocabulary, shared with transmission, downspout and valis']
+]) {
+  const written = await pipeline.writeTurtleFile(file, {
+    kind: 'alignment',
+    id,
+    licence: 'CC0-1.0',
+    derivedFrom: `${config.get('baseUri')}${id}`,
+    comment
+  })
+  console.log(`ontology    →  ${written.graph}  (${written.tripleCount} triples)`)
+}
+
 if (skipEmbeddings) {
   console.log('\nSkipping embeddings (--skip-embeddings).')
   process.exit(0)

@@ -3,7 +3,7 @@
 ## Public-facing
 
 * [About](about.md) — what the project is, who it is for, and the licence. Becomes /about
-* [Contributor terms](contributor-terms.md) — **draft, needs legal review before submissions open**
+* [Contributor terms](contributor-terms.md) — in force; revisit before the site is promoted
 * [Crawler](crawler.md) — what the harvester does and how to stop it. Becomes /about/crawler, which the user agent already points at
 
 ## Standing documents

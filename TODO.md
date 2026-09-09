@@ -115,8 +115,18 @@ the measurement model, per-run graphs. `node bin/profile.js --path <built bundle
   built downspout VST3s be measured at all.
 * **CPU load** needs a host that runs audio through the plugin — `lv2bm`, or an
   in-house one. `pu:CpuLoad` is defined and nothing produces it yet.
-* surface measurements on the plugin profile page, and as a search facet
-  ("passes validation", "under 2% CPU")
+* ~~surface measurements on the plugin profile page, and as a search facet~~ — done. The
+  readings now appear on the plugin page with the tool, host and date beside them, in the JSON
+  representation, and as a `measured=<verdict>` filter and facet. Showing them found two
+  defects in minutes, which is the argument for showing data: a scan time rendered as a bare
+  "364" when only the vocabulary knew it meant milliseconds, and `pu:Latency` carrying a
+  boolean while the vocabulary defined it as a count of samples.
+  * The **facet has no dropdown in the search form** yet, deliberately: 7 measured plugins out
+    of 752 is not a control worth putting in front of everyone. The filter works by URL and the
+    facet is in `/facets`. Add the dropdown when coverage justifies it.
+  * `pu:Latency` is now defined as the boolean a *scan* can establish — whether the plugin
+    declares latency at all — and `pu:LatencySamples` is the number a running host would
+    report. Nothing produces the latter yet; it needs the same host that CPU load does.
 * reproducibility: two runs of the same plugin on the same host, within a stated
   tolerance. The plan calls for this to be tested rather than assumed.
 * the scan currently matches a plugin by `owl:sameAs` to its LV2 IRI, so it only
@@ -146,10 +156,14 @@ Next, in order:
 
 * **wiki pages** with revisions as graph resources — the CC BY-SA half, still untouched. The
   `-prose` graph is registered and empty.
-* **a contributions page** per account, so a person can see what they proposed — and the account
-  bar has nowhere to point at present except the moderation queue.
-* **contributor terms need legal review** before submissions are opened to anyone but the
-  maintainer. `docs/contributor-terms.md` is marked draft.
+* ~~**a contributions page** per account~~ — done, at `/contributions`, linked from the account
+  bar. Shows every suggestion with its status, the decision date, and how far a new contributor
+  is from the trust threshold. Their own only: a pending correction sits in the personal-data
+  graph and carries the contributor's own words about why they think something is wrong.
+* ~~contributor terms need legal review~~ — a second opinion judged them adequate to open
+  contributions on (2026-09-09). Not a lawyer's sign-off, and `docs/contributor-terms.md` says
+  so; it is due another look **before the site is promoted**, which is when the exposure
+  changes. Contributions are no longer blocked.
 
 ## Phase 3 — the plan
 
@@ -164,10 +178,10 @@ Two things to settle before writing code:
   `GITHUB_CLIENT_SECRET`, plus a `SESSION_SECRET` for the cookie HMAC. The callback URL is
   `https://plugin-universe.com/auth/callback`, so it cannot be registered until DNS and TLS
   are live.
-* ~~**Contributor terms** drafted~~ — [docs/contributor-terms.md](docs/contributor-terms.md).
-  **Still needs review by a lawyer before submissions open.** It is the one document in this
-  repository with legal effect, and it is currently one person's plain-language statement of
-  intent. The intent is settled; the wording is not verified.
+* ~~**Contributor terms** drafted~~ — [docs/contributor-terms.md](docs/contributor-terms.md),
+  and as of 2026-09-09 in force: a second opinion judged them good enough to open contributions
+  on. Still the one document in this repository with legal effect, so it is due a proper review
+  **before the site is promoted**.
 * an [About page](docs/about.md) is drafted too. Both are written to be served at
   `/about` and `/terms` once there is a route for them.
 
@@ -192,6 +206,18 @@ place in this project where the rules bite hardest:
     by the flag rather than by anyone remembering at publication time.
   - Links rot. A link-out graph needs re-checking on a schedule and a way to record a dead link,
     or the catalogue slowly fills with 404s that look like data.
+
+## Found while surfacing the measurements
+
+* ~~**The project's own vocabularies were not in the store.**~~ `vocabs/plugin-universe.ttl`,
+  `trn-extensions.ttl` and `trn-profile.ttl` were served from disk at `/ns/<name>.ttl` and were
+  absent from the graph entirely, so every `pu:` and `trn:` IRI in the published data resolved
+  to a document the endpoint holding that data could not read. A SPARQL query could not ask
+  what a term meant — which is how the profiler's metric labels, defined in the vocabulary and
+  nowhere else, were unavailable to the code that had to display them. `bin/ingest.js` now
+  loads all three, one graph each. **This needs a re-ingest on the server to take effect.**
+* `vocabs/shapes.ttl` is deliberately still not loaded: SHACL shapes are how the store is
+  checked, not part of what it describes.
 
 ## Recurring — not a phase, a habit
 

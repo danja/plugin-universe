@@ -340,6 +340,31 @@ export class Corrections {
       } ORDER BY ?at LIMIT ${Number(limit)}`)
   }
 
+  /**
+   * Everything one account has proposed, newest first.
+   *
+   * Their own contributions only. A pending correction is in the personal-data
+   * graph and carries a person's own words about why they think something is
+   * wrong; that is theirs to see, not a public record. What becomes public when
+   * a correction is accepted is the fact, in their CC0 graph, attributed to
+   * them — and that is already visible on the plugin page.
+   */
+  async byAccount (accountIri, limit = 100) {
+    return this.client.select(`
+      SELECT ?correction ?subject ?predicate ?value ?rationale ?status ?at ?reviewedAt WHERE {
+        GRAPH ${iri(this.queueGraph)} {
+          ?correction ${iri(prov + 'wasAttributedTo')} ${iri(accountIri)} ;
+                      ${iri(pu + 'correctionStatus')} ?status ;
+                      ${iri(pu + 'correctionSubject')} ?subject ;
+                      ${iri(pu + 'correctionPredicate')} ?predicate ;
+                      ${iri(pu + 'proposedValue')} ?value ;
+                      ${iri(prov + 'generatedAtTime')} ?at .
+          OPTIONAL { ?correction ${iri(pu + 'rationale')} ?rationale }
+          OPTIONAL { ?correction ${iri(pu + 'reviewedAt')} ?reviewedAt }
+        }
+      } ORDER BY DESC(?at) LIMIT ${Number(limit)}`)
+  }
+
   /** How many of this account's corrections have been accepted. */
   async acceptedCount (accountIri) {
     const rows = await this.client.select(`

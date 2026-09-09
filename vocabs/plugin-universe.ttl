@@ -6,6 +6,7 @@
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix prov:    <http://www.w3.org/ns/prov#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix units:   <http://lv2plug.in/ns/extensions/units#> .
 
 pu: a owl:Ontology ;
     rdfs:label "Plugin Universe vocabulary" ;
@@ -156,10 +157,15 @@ pu:Measurement a owl:Class ; rdfs:label "Measurement" ;
 
 pu:Metric a owl:Class ; rdfs:label "Metric" .
 
-pu:CpuLoad          a pu:Metric ; rdfs:label "CPU load" ;
-    rdfs:comment "Fraction of one core consumed at the stated block size and sample rate." .
-pu:Latency          a pu:Metric ; rdfs:label "Reported latency" ; rdfs:comment "In samples." .
-pu:ScanTime         a pu:Metric ; rdfs:label "Scan time" ; rdfs:comment "Milliseconds to enumerate the plugin." .
+pu:CpuLoad          a pu:Metric ; rdfs:label "CPU load" ; units:unit units:pc ;
+    rdfs:comment "Percentage of one core consumed at the stated block size and sample rate." .
+pu:Latency          a pu:Metric ; rdfs:label "Reports latency" ;
+    rdfs:comment "Whether the plugin declares latency to its host. Boolean, because this is what a scan can establish: a static scan sees that a latency port exists, not what the plugin reports through it at run time." ;
+    rdfs:seeAlso pu:LatencySamples .
+pu:LatencySamples   a pu:Metric ; rdfs:label "Latency" ; units:unit units:frame ;
+    rdfs:comment "Latency in samples, as reported by the plugin while running. Needs a host that actually instantiates it, so nothing produces this yet; pu:Latency is the scan-time counterpart that only says whether latency is declared at all." .
+pu:ScanTime         a pu:Metric ; rdfs:label "Scan time" ; units:unit units:ms ;
+    rdfs:comment "Time to enumerate the plugin." .
 pu:ValidationResult a pu:Metric ; rdfs:label "Validation result" ;
     rdfs:comment "Verdict from a format validator: pass, fail or crash." .
 pu:DenormalBehaviour a pu:Metric ; rdfs:label "Denormal behaviour" .

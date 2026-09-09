@@ -1,9 +1,13 @@
 # Contributor terms
 
-**Status: draft.** These terms have not been reviewed by a lawyer. They say
-plainly what is intended, and that intention is settled — but before
-contributions are opened to the public they should be read by someone qualified,
-because this document has legal effect and the rest of the repository does not.
+**Status: in force, and due another look before this site is promoted.** These
+terms have had a second opinion and were judged adequate to open contributions
+on. That is not the same as a lawyer's sign-off, and it is recorded that way
+deliberately: the intention below is settled and stated plainly, the wording has
+been read by someone other than its author, and neither of those is a formal
+review. Before this site is promoted — advertised, or carrying paid placement —
+it should get one, because this document has legal effect and the rest of the
+repository does not.
 
 ---
 

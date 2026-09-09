@@ -1,4 +1,5 @@
 import { TRUST } from '../auth/Accounts.js'
+import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // One-way: the HTML pages embed the JSON-LD, the serialisations know nothing
 // about HTML.
@@ -66,6 +67,9 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .pager .disabled { color:var(--line); }
 .pager .page { color:var(--muted); }
 .scope { font-style:italic; }
+.measured table { margin:.4rem 0 .6rem; }
+.badge-warn { background:#7a3b12; color:#ffd9b3; }
+.muted { color:var(--muted); }
 .tags strong { color:var(--muted); font-weight:600; margin-right:.3rem; }
 .result h2 { font-size:1.02rem; margin:0 0 .2rem; font-weight:600; }
 .result h2 a { color:var(--accent); text-decoration:none; }
@@ -114,6 +118,49 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 .correct label { display:flex; flex-direction:column; gap:.2rem; font-size:.8rem; color:var(--muted); }
 .correct input[type=text] { padding:.4rem .5rem; font-size:.9rem; border:1px solid var(--line);
                             border-radius:6px; background:var(--bg); color:var(--fg); min-width:16rem; }
+
+/* ── Narrow screens ────────────────────────────────────────────────────────
+   A phone is not a small desktop. Three things were wrong on one and each is
+   a different mistake:
+
+   - 15px body text is a density choice that suits a wide window and reads as
+     cramped on a handset held at arm's length. Bigger, not smaller.
+   - The account bar is absolutely positioned in the header's top-right corner.
+     That was fine when it held a login link; it now holds two links and a
+     button, and on a narrow screen it sat on top of the title.
+   - min-width:16rem on the correction input is 256px, which overflows a
+     360px viewport once the page padding is counted — and an overflowing form
+     field drags the whole page sideways.
+
+   The breakpoint is in rem so it follows the reader's own text size rather
+   than assuming a device width. */
+@media (max-width: 40rem) {
+  body { font-size:16.5px; }
+  .wrap { padding:1.25rem 1rem 3rem; }
+  header { padding-bottom:.8rem; margin-bottom:1.2rem; }
+  /* Out of the corner and into the flow, above the title where it cannot
+     collide with it. */
+  .account { position:static; justify-content:flex-start; flex-wrap:wrap;
+             margin:0 0 .8rem; font-size:.88rem; }
+  h1 { font-size:1.5rem; }
+  .tagline { font-size:.95rem; }
+  /* One control per row: four dropdowns sharing a line on a handset are four
+     controls nobody can hit. */
+  form { gap:.45rem; }
+  input[type=search], select, form > button { flex:1 1 100%; width:100%; font-size:1rem; }
+  .correct { gap:.45rem; }
+  .correct label, .correct input[type=text], .correct select, .correct button { width:100%; }
+  .correct input[type=text] { min-width:0; }
+  .shot-thumb { width:56px; height:56px; flex:0 0 56px; }
+  .result.has-shot { gap:.7rem; }
+  .prov { padding:.7rem .8rem; }
+  /* A wide table is the other way a page ends up scrolling sideways. Let the
+     headings wrap, and give anything still too wide its own scroll rather than
+     the document's. */
+  .prose th { white-space:normal; }
+  table { display:block; overflow-x:auto; }
+  .pager { gap:.5rem; font-size:.9rem; }
+}
 .correct button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
 .correct button.secondary { background:none; color:var(--muted); border:1px solid var(--line); }
 .err { color:#b3261e; font-size:.88rem; }
@@ -141,6 +188,7 @@ function accountBar (account, signInEnabled) {
     : ''
   return `<p class="account">
     ${escape(account.login)}
+    <a href="/contributions">Your contributions</a>
     ${moderating}
     <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
   </p>`
@@ -331,7 +379,7 @@ ${browsing ? pager({ total, offset: browsing.offset, limit: browsing.limit, para
   })
 }
 
-export function renderPluginPage (doc, viewer = {}, contribution = null) {
+export function renderPluginPage (doc, viewer = {}, contribution = null, measured = null) {
   const rows = [
     ['Vendor', doc.vendor],
     ['Formats', (doc.formats ?? []).join(', ')],
@@ -356,6 +404,7 @@ ${doc.homepage ? `<tr><th>Homepage</th><td><a href="${escape(doc.homepage)}" rel
 ${rows.map(([k, v]) => `<tr><th>${escape(k)}</th><td>${escape(v)}</td></tr>`).join('\n')}
 <tr><th>IRI</th><td><code>${escape(doc.iri)}</code></td></tr>
 </table>
+${renderMeasurements(measured)}
 ${renderProvenance(doc)}
 ${contribution ? renderCorrectionForm(doc, contribution) : ''}
 <p class="meta">Also available as
@@ -374,6 +423,54 @@ ${contribution ? renderCorrectionForm(doc, contribution) : ''}
  * why, and then decide. Each decision is its own form with its own token, so a
  * stale page cannot accept something the moderator has not looked at.
  */
+/**
+ * What one person has proposed, and what became of it.
+ *
+ * Their own contributions only, and only to them. A pending correction sits in
+ * the personal-data graph with the contributor's own words about why they think
+ * something is wrong — theirs to see, not a public record. The part that
+ * becomes public on acceptance is the fact itself, attributed to them on the
+ * plugin page.
+ *
+ * Without this page a contributor suggests something and it vanishes: no
+ * acknowledgement, no queue position, no way to know a moderator declined it.
+ * That is the state the correction form shipped in.
+ */
+export function renderContributionsPage (rows, { viewer = {}, correctable = {}, trustLevel = null }) {
+  const label = predicate => correctable[predicate]?.label ?? predicate.replace(/^.*[/#]/, '')
+  const badge = status => `<span class="badge badge-${status === 'accepted' ? 'src' : status === 'rejected' ? 'warn' : 'price'}">${escape(status)}</span>`
+
+  const items = rows.map(row => {
+    const slug = row.subject.split('/').pop()
+    return `<div class="result">
+  <h2><a href="/plugin/${escape(slug)}">${escape(slug)}</a> ${badge(row.status)}</h2>
+  <p class="desc">${escape(label(row.predicate))} → <strong>${escape(row.value)}</strong></p>
+  ${row.rationale ? `<p class="tags">${escape(row.rationale)}</p>` : ''}
+  <p class="tags">Suggested ${escape(String(row.at).slice(0, 10))}${row.reviewedAt ? `, decided ${escape(String(row.reviewedAt).slice(0, 10))}` : ''}.</p>
+</div>`
+  }).join('\n')
+
+  const counts = rows.reduce((tally, row) => ({ ...tally, [row.status]: (tally[row.status] ?? 0) + 1 }), {})
+  const standing = trustLevel === 'new'
+    ? `<p class="meta">${counts.accepted ?? 0} of your suggestions have been accepted. ` +
+      `After ${CONTRIBUTION_CONFIG.acceptedBeforeTrusted}, later ones go live as soon as you make them.</p>`
+    : '<p class="meta">Your corrections are applied as soon as you make them.</p>'
+
+  const body = `
+<p class="meta"><a href="/">← search</a></p>
+<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">Your contributions</h2>
+${rows.length === 0
+    ? '<p class="empty">Nothing yet. Every plugin page has a “suggest a correction” form.</p>'
+    : `${standing}\n${items}`}
+<p class="tags">Facts you contribute are dedicated to the public domain under CC0, as set out in
+  the <a href="/terms">contributor terms</a>. Nothing here is shown to anyone else.</p>
+`
+  return layout('Your contributions — Plugin Universe', body, {
+    description: 'Corrections you have suggested to the Plugin Universe catalogue.',
+    ...viewer
+  })
+}
+
 export function renderModerationPage (pending, { csrfToken, message, viewer = {} }) {
   const rows = pending.map(item => `
   <div class="result">
@@ -422,6 +519,72 @@ ${html}
  * resolve to something. A list of what is in the category is both the useful
  * answer for a person and the honest one for a machine.
  */
+/**
+ * What the profiler measured, if anything has.
+ *
+ * The profiler has been writing these into the store since Phase 2 and nothing
+ * displayed them — the third instance in MISTAKES.md of data collected, never
+ * shown, and therefore never checked. Every one of the previous three was
+ * wrong in some way that became obvious the moment a person could see it.
+ *
+ * The tool, the machine and the date are shown beside the readings rather than
+ * tucked away, because a measurement without them is not a measurement: "20
+ * ports" is a fact about a binary on a particular host on a particular day, and
+ * the next run may disagree.
+ */
+export function renderMeasurements (measured) {
+  if (!measured || measured.readings.length === 0) return ''
+  const verdict = measured.verdict
+    ? `<span class="badge badge-${verdictBadge(measured.verdict)}">${escape(measured.verdict)}</span>`
+    : ''
+  const rows = measured.readings
+    .filter(reading => reading.metric !== 'ValidationResult')
+    .map(reading => `<tr><th${reading.about ? ` title="${escape(reading.about)}"` : ''}>${escape(reading.label)}</th>` +
+      `<td>${escape(readingValue(reading))}${reading.note ? ` <span class="muted">— ${escape(reading.note)}</span>` : ''}</td></tr>`)
+    .join('\n')
+
+  return `<div class="prov measured">
+  <h3>Measured ${verdict}</h3>
+  <table>
+${rows}
+  </table>
+  <p class="tags">By <code>${escape(measured.tool)}</code> on ${escape(measured.platform)},
+    ${escape(String(measured.at).slice(0, 10))}. One run on one machine — a reading here describes
+    that binary on that host, not the plugin in the abstract.</p>
+</div>`
+}
+
+/**
+ * Units whose LV2 local name is not how a person writes them.
+ *
+ * The authority for a unit is its IRI in the LV2 units vocabulary, which this
+ * catalogue does not hold a copy of — so the local name is used, and it is the
+ * conventional symbol for every unit here except this one. Kept as an
+ * exception list rather than a table of every unit, so it stays small and its
+ * absence of an entry means "the local name is right".
+ */
+const UNIT_SYMBOL = Object.freeze({ pc: '%' })
+
+/**
+ * One reading, as a person reads it.
+ *
+ * A bare number with no unit is how "364" came to sit on a page meaning
+ * milliseconds, and a raw `false` is how a boolean metric came to read as a
+ * measurement that had failed.
+ */
+function readingValue (reading) {
+  if (reading.value === 'true') return 'yes'
+  if (reading.value === 'false') return 'no'
+  if (!reading.unit) return reading.value
+  const name = reading.unit.replace(/^.*[/#]/, '')
+  return `${reading.value} ${UNIT_SYMBOL[name] ?? name}`
+}
+
+/** Verdict to badge class. Anything other than a pass reads as a warning. */
+function verdictBadge (verdict) {
+  return verdict === 'ok' ? 'src' : 'warn'
+}
+
 /** A list of sibling category links, or nothing. */
 function categoryLinks (label, slugs) {
   if (!slugs || slugs.length === 0) return ''
