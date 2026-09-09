@@ -38,7 +38,12 @@ export const RETRIEVAL_CONFIG = {
 
   // Results returned to a caller that does not ask for a specific page size.
   defaultPageSize: 20,
-  maxPageSize: 100
+  maxPageSize: 100,
+
+  // The front-page listing, shown when nobody has searched for anything yet.
+  // Ten because it is a sample meant to show what the catalogue holds and to
+  // be scanned in one screen, not a way to read 645 plugins ten at a time.
+  browsePageSize: 10
 }
 
 /**

@@ -39,9 +39,14 @@ function scalarTerm (value) {
 /**
  * @param {object} plugin - a normalised plugin record
  * @param {string} pluginIri - the minted catalogue IRI
+ * @param {object} [options]
+ * @param {Date|null} [options.created] - when this plugin was first seen by the
+ *   catalogue. Supplied by the pipeline, which reads the previous value before
+ *   the re-harvest drops the graph; a plugin the catalogue has not seen before
+ *   gets the time of this run.
  * @returns {string[]} triples, each a complete statement
  */
-export function serialisePlugin (plugin, pluginIri) {
+export function serialisePlugin (plugin, pluginIri, { created = null } = {}) {
   const s = iri(pluginIri)
   const triples = []
   const add = (predicate, object) => {
@@ -70,6 +75,10 @@ export function serialisePlugin (plugin, pluginIri) {
   // sameAs. Only a genuine upstream IRI for the plugin itself earns sameAs.
   add(rdfs + 'seeAlso', plugin.seeAlso ? iri(plugin.seeAlso) : null)
   add(foaf + 'depiction', plugin.image ? iri(plugin.image) : null)
+  // First seen, not released. No source states a release date the others agree
+  // with; this one is a fact about the catalogue and it is one this catalogue
+  // is authoritative for.
+  add(dcterms + 'created', created ? typedLiteral(created) : null)
   add(pu + 'audioPreview', plugin.audioPreview ? iri(plugin.audioPreview) : null)
   add(pu + 'donateUrl', plugin.donateUrl ? iri(plugin.donateUrl) : null)
   add(pu + 'downloadCount',

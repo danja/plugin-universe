@@ -1,5 +1,8 @@
+import { TRUST } from '../auth/Accounts.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
-import { iri, literal } from '../store/SPARQLHelper.js'
+// One-way: the HTML pages embed the JSON-LD, the serialisations know nothing
+// about HTML.
+import { linkable, pluginJsonLd } from './serialise.js'
 
 /**
  * HTML and RDF rendering for the public pages.
@@ -47,6 +50,21 @@ select, button { padding:.6rem .7rem; font-size:.9rem; border:1px solid var(--li
 button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
 .meta { color:var(--muted); font-size:.85rem; margin:.5rem 0 1.5rem; }
 .result { padding:.9rem 0; border-bottom:1px solid var(--line); }
+.result.has-shot { display:flex; gap:.9rem; align-items:flex-start; }
+.result-body { min-width:0; flex:1; }
+/* A sized box whether or not the image arrives: a third-party URL that 404s
+   must not collapse the row or shift the text under it. */
+.shot { background:var(--line); border-radius:4px; object-fit:cover; display:block; }
+.shot-thumb { width:72px; height:72px; flex:0 0 72px; }
+.shot-full { width:100%; max-width:320px; height:auto; aspect-ratio:1; margin:.6rem 0; }
+.shot-figure { margin:.6rem 0; max-width:320px; }
+.shot-figure figcaption { font-size:.75rem; color:var(--muted); margin-top:.3rem; }
+.pager { display:flex; gap:1rem; align-items:baseline; justify-content:space-between;
+         margin:1.2rem 0 .4rem; font-size:.85rem; }
+.pager a { color:var(--accent); text-decoration:none; }
+.pager a:hover { text-decoration:underline; }
+.pager .disabled { color:var(--line); }
+.pager .page { color:var(--muted); }
 .result h2 { font-size:1.02rem; margin:0 0 .2rem; font-weight:600; }
 .result h2 a { color:var(--accent); text-decoration:none; }
 .result h2 a:hover { text-decoration:underline; }
@@ -95,6 +113,7 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 .correct input[type=text] { padding:.4rem .5rem; font-size:.9rem; border:1px solid var(--line);
                             border-radius:6px; background:var(--bg); color:var(--fg); min-width:16rem; }
 .correct button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
+.correct button.secondary { background:none; color:var(--muted); border:1px solid var(--line); }
 .err { color:#b3261e; font-size:.88rem; }
 .ok { color:var(--accent); font-size:.88rem; font-weight:600; }
 @media (prefers-color-scheme: dark) { .err { color:#f2b8b5; } }
@@ -112,8 +131,15 @@ function accountBar (account, signInEnabled) {
   if (!account) {
     return '<p class="account"><a href="/auth/login">Sign in with GitHub</a></p>'
   }
+  // The moderation queue is linked here or it is not reachable at all. A route
+  // with no link is the same defect as a link with no route, and this project
+  // has already shipped one of those.
+  const moderating = account.trustLevel === TRUST.MODERATOR
+    ? '<a href="/moderation">Moderation</a>'
+    : ''
   return `<p class="account">
     ${escape(account.login)}
+    ${moderating}
     <form method="post" action="/auth/logout"><button type="submit">Sign out</button></form>
   </p>`
 }
@@ -171,18 +197,110 @@ function availabilityBadges (r) {
   return badges.join('')
 }
 
+/**
+ * The image a source published of a plugin, or nothing.
+ *
+ * These are third-party URLs — almost all of them the Open Audio Stack
+ * registry's — so the page hotlinks rather than re-hosting, and says so on the
+ * profile page. Three things follow from that and none of them is optional:
+ *
+ * - **https only.** An http image on an https page is mixed content and the
+ *   browser blocks it silently. A URL that cannot be one is not rendered.
+ * - **`referrerpolicy="no-referrer"`**, so viewing a plugin page does not tell
+ *   a third party which plugin the reader was looking at.
+ * - **`loading="lazy"` with explicit dimensions**, because a page of 25 results
+ *   is otherwise 25 requests to somebody else's server before the text renders.
+ *
+ * `alt` is the plugin name rather than "image of X": a screen reader announces
+ * the role already, and the name is the useful part.
+ */
+export function pluginImage (doc, { size = 'thumb' } = {}) {
+  if (!doc?.image) return ''
+  let url
+  try {
+    url = new URL(doc.image)
+  } catch {
+    return ''
+  }
+  if (url.protocol !== 'https:') return ''
+  const box = size === 'full' ? 320 : 72
+  return `<img class="shot shot-${escape(size)}" src="${escape(doc.image)}" alt="${escape(doc.name ?? '')}"` +
+    ` width="${box}" height="${box}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+}
+
+/**
+ * The profile-page image, with the attribution attached to it.
+ *
+ * Attached, not merely nearby: the note first lived in the provenance block,
+ * which renders only when there is provenance to show — so a plugin with an
+ * image and no recorded source displayed a hotlinked third-party image with
+ * nothing saying whose it was. Here the caption cannot render without the
+ * image or the image without the caption.
+ */
+function pluginFigure (doc) {
+  const shot = pluginImage(doc, { size: 'full' })
+  if (!shot) return ''
+  let host = ''
+  try {
+    host = new URL(doc.image).host
+  } catch {
+    return ''
+  }
+  return `<figure class="shot-figure">
+  ${shot}
+  <figcaption>Image served by the source, ${escape(host)} — not copied here, and its author's.</figcaption>
+</figure>`
+}
+
 function resultItem (r) {
   const tags = [...(r.formats ?? []), ...(r.categories ?? [])]
   const slug = r.iri?.split('/').pop() ?? ''
-  return `<div class="result">
+  const shot = pluginImage(r)
+  return `<div class="result${shot ? ' has-shot' : ''}">
+  ${shot}
+  <div class="result-body">
   ${r.score !== undefined ? `<span class="score">${r.score.toFixed(3)}</span>` : ''}
   <h2><a href="/plugin/${escape(slug)}">${escape(r.name)}</a>${r.vendor ? ` <span class="vendor">— ${escape(r.vendor)}</span>` : ''}</h2>
   ${r.description ? `<p class="desc">${escape(r.description.split('\n')[0].slice(0, 220))}</p>` : ''}
   <p class="tags">${availabilityBadges(r)}${tags.map(t => `<span class="tag">${escape(t)}</span>`).join('')}</p>
+  </div>
 </div>`
 }
 
-export function renderSearchPage ({ query, facets, results, total, corpus, elapsedMs, facetValues, viewer = {} }) {
+/**
+ * Previous/next links for a listing.
+ *
+ * Built by editing the current query string rather than by assembling one, so
+ * a facet the reader chose survives paging. Rendered as links, not buttons:
+ * page two of the catalogue is a place, it should be linkable and it should
+ * work with the back button.
+ */
+export function pager ({ total, offset, limit, params = {} }) {
+  if (total <= limit) return ''
+  const at = position => {
+    const query = new URLSearchParams(
+      Object.entries(params).filter(([, value]) => value !== null && value !== undefined && value !== '')
+    )
+    if (position > 0) query.set('from', String(position))
+    else query.delete('from')
+    const string = query.toString()
+    return `/${string ? `?${string}` : ''}`
+  }
+  const page = Math.floor(offset / limit) + 1
+  const pages = Math.ceil(total / limit)
+  const previous = offset > 0
+    ? `<a href="${escape(at(Math.max(0, offset - limit)))}" rel="prev">← newer</a>`
+    : '<span class="disabled">← newer</span>'
+  const next = offset + limit < total
+    ? `<a href="${escape(at(offset + limit))}" rel="next">older →</a>`
+    : '<span class="disabled">older →</span>'
+  return `<nav class="pager">${previous}<span class="page">page ${page} of ${pages}</span>${next}</nav>`
+}
+
+export function renderSearchPage ({
+  query, facets, results, total, corpus, elapsedMs, facetValues, viewer = {},
+  browsing = null
+}) {
   const options = (name, values, selected) => `<select name="${name}">
     <option value="">${name}: any</option>
     ${(values ?? []).map(v => `<option value="${escape(v.value)}"${v.value === selected ? ' selected' : ''}>${escape(v.value)} (${v.count})</option>`).join('')}
@@ -199,44 +317,16 @@ export function renderSearchPage ({ query, facets, results, total, corpus, elaps
 </form>
 ${query || Object.values(facets).some(Boolean)
     ? `<p class="meta">${total} of ${corpus} plugins${elapsedMs !== undefined ? `, ${elapsedMs} ms` : ''}</p>`
-    : `<p class="meta">${corpus} plugins indexed. Search by what a plugin does, not just its name.</p>`}
+    : `<p class="meta">${corpus} plugins indexed. Search by what a plugin does, not just its name.${browsing ? ' Most recently added first:' : ''}</p>`}
 ${results.length
     ? results.map(resultItem).join('\n')
     : (query ? '<p class="empty">Nothing matched.</p>' : '')}
+${browsing ? pager({ total, offset: browsing.offset, limit: browsing.limit, params: { q: query, ...facets } }) : ''}
 `
   return layout(query ? `${query} — Plugin Universe` : 'Plugin Universe', body, {
     description: 'An open, machine-readable database of DAW plugins with semantic search.',
     ...viewer
   })
-}
-
-/**
- * schema.org JSON-LD for a plugin page. This is what makes the catalogue
- * legible to search engines without them parsing the RDF.
- */
-export function pluginJsonLd (doc) {
-  const keywords = [...(doc.formats ?? []), ...(doc.categories ?? []), ...(doc.tags ?? [])].join(', ')
-  const subCategory = doc.categories?.join(', ')
-
-  // Keys are added only when there is something to say. An `author: undefined`
-  // survives in the object even though JSON.stringify drops it, and a consumer
-  // reading the object directly would see a property that is not there.
-  const ld = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    '@id': doc.iri,
-    name: doc.name,
-    applicationCategory: 'MultimediaApplication',
-    license: 'https://creativecommons.org/publicdomain/zero/1.0/'
-  }
-  if (doc.description) ld.description = doc.description
-  if (subCategory) ld.applicationSubCategory = subCategory
-  if (doc.vendor) ld.author = { '@type': 'Organization', name: doc.vendor }
-  if (doc.homepage) ld.url = doc.homepage
-  if (doc.seeAlso) ld.sameAs = doc.seeAlso
-  if (linkable(doc.provenance?.derivedFrom)) ld.isBasedOn = doc.provenance.derivedFrom
-  if (keywords) ld.keywords = keywords
-  return ld
 }
 
 export function renderPluginPage (doc, viewer = {}, contribution = null) {
@@ -257,6 +347,7 @@ export function renderPluginPage (doc, viewer = {}, contribution = null) {
 <p class="meta"><a href="/">← search</a></p>
 <h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">${escape(doc.name)}</h2>
 ${doc.vendor ? `<p class="tagline">${escape(doc.vendor)}</p>` : ''}
+${pluginFigure(doc)}
 ${doc.description ? `<p class="desc">${escape(doc.description)}</p>` : ''}
 <table>
 ${doc.homepage ? `<tr><th>Homepage</th><td><a href="${escape(doc.homepage)}" rel="nofollow noopener">${escape(doc.homepage)}</a></td></tr>` : ''}
@@ -272,6 +363,38 @@ ${contribution ? renderCorrectionForm(doc, contribution) : ''}
 <script type="application/ld+json">${JSON.stringify(pluginJsonLd(doc), null, 2)}</script>
 `
   return layout(`${doc.name} — Plugin Universe`, body, { description: doc.description ?? '', ...viewer })
+}
+
+/**
+ * The moderation queue.
+ *
+ * Deliberately plain: a moderator wants to see what was proposed, by whom, and
+ * why, and then decide. Each decision is its own form with its own token, so a
+ * stale page cannot accept something the moderator has not looked at.
+ */
+export function renderModerationPage (pending, { csrfToken, message, viewer = {} }) {
+  const rows = pending.map(item => `
+  <div class="result">
+    <h2>${escape(item.predicate.replace(/^.*[#/]/, ''))} &rarr; ${escape(String(item.value).slice(0, 120))}</h2>
+    <p class="desc">on <a href="${escape(item.subject.replace(NAMESPACES.pu, '/'))}">${escape(item.subject.split('/').pop())}</a>
+       by ${escape(item.by.split('/').pop())}</p>
+    ${item.rationale ? `<p class="desc">&ldquo;${escape(item.rationale)}&rdquo;</p>` : ''}
+    <form method="post" action="/moderation" class="correct">
+      <input type="hidden" name="csrf" value="${escape(csrfToken)}">
+      <input type="hidden" name="correction" value="${escape(item.correction)}">
+      <button type="submit" name="decision" value="accept">Accept</button>
+      <button type="submit" name="decision" value="reject" class="secondary">Reject</button>
+    </form>
+  </div>`).join('\n')
+
+  return layout('Moderation — Plugin Universe', `
+<p class="meta"><a href="/">← search</a></p>
+<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">Moderation queue</h2>
+${message ? `<p class="ok">${escape(message)}</p>` : ''}
+<p class="meta">${pending.length} correction${pending.length === 1 ? '' : 's'} awaiting review.
+  Accepting writes the fact to the contributor's public-domain graph and counts towards their trust.</p>
+${pending.length ? rows : '<p class="empty">Nothing waiting.</p>'}
+`, { description: 'Corrections awaiting review.', ...viewer })
 }
 
 /**
@@ -309,25 +432,6 @@ ${results.map(resultItem).join('\n')}
     description: `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
     ...viewer
   })
-}
-
-/** Turtle for one category concept and its members. */
-export function categoryTurtle (slug, results) {
-  const concept = `${NAMESPACES.pu}category/${slug}`
-  const lines = [
-    `@prefix pu: <${NAMESPACES.pu}> .`,
-    `@prefix skos: <${NAMESPACES.skos}> .`,
-    '',
-    `${iri(concept)}`,
-    '    a skos:Concept ;',
-    `    skos:inScheme ${iri(`${NAMESPACES.pu}categories`)} ;`,
-    `    skos:prefLabel ${literal(slug)} .`,
-    ''
-  ]
-  for (const result of results) {
-    lines.push(`${iri(result.iri)} pu:category ${iri(concept)} .`)
-  }
-  return lines.join('\n')
 }
 
 /**
@@ -379,15 +483,6 @@ export function renderCorrectionForm (doc, { account, csrfToken, correctable, er
  * trusted rather than checked. It is also how the sources get credited, which
  * the operating principle requires whether or not their licence compels it.
  */
-/** Only an http(s) URL is rendered as a link; anything else is shown as text. */
-function linkable (value) {
-  if (!value) return false
-  try {
-    return /^https?:$/.test(new URL(value).protocol)
-  } catch {
-    return false
-  }
-}
 
 export function renderProvenance (doc) {
   const source = doc.provenance
@@ -412,38 +507,6 @@ export function renderProvenance (doc) {
   </p>
   <p class="tags">Graph <code>${escape(source?.graph ?? 'unknown')}</code>. Catalogue data is CC0; the plugin's own licence is its author's.</p>
 </div>`
-}
-
-/** Turtle for one plugin, for content-negotiated dereferencing. */
-export function pluginTurtle (doc) {
-  const lines = [
-    `@prefix trn: <${NAMESPACES.trn}> .`,
-    `@prefix pu: <${NAMESPACES.pu}> .`,
-    `@prefix rdfs: <${NAMESPACES.rdfs}> .`,
-    `@prefix dcterms: <${NAMESPACES.dcterms}> .`,
-    `@prefix foaf: <${NAMESPACES.foaf}> .`,
-    `@prefix prov: <${NAMESPACES.prov}> .`,
-    '',
-    `${iri(doc.iri)}`,
-    `    a trn:PluginProfile ;`,
-    `    rdfs:label ${literal(doc.name)} ;`
-  ]
-  if (doc.vendor) lines.push(`    trn:vendor ${literal(doc.vendor)} ;`)
-  if (doc.description) lines.push(`    rdfs:comment ${literal(doc.description)} ;`)
-  if (doc.homepage) lines.push(`    foaf:homepage ${iri(doc.homepage)} ;`)
-  if (doc.seeAlso) lines.push(`    rdfs:seeAlso ${iri(doc.seeAlso)} ;`)
-  if (linkable(doc.provenance?.derivedFrom)) {
-    lines.push(`    prov:wasDerivedFrom ${iri(doc.provenance.derivedFrom)} ;`)
-  }
-  for (const format of doc.formats ?? []) lines.push(`    trn:format trn:${format} ;`)
-  // Category IRIs are written out in full: a Turtle prefixed name may not
-  // contain a slash, so pu:category/midi does not parse.
-  for (const category of doc.categories ?? []) {
-    lines.push(`    pu:category ${iri(`${NAMESPACES.pu}category/${category}`)} ;`)
-  }
-  for (const tag of doc.tags ?? []) lines.push(`    pu:tag ${literal(tag)} ;`)
-  lines.push('    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> .')
-  return lines.join('\n')
 }
 
 export { escape }

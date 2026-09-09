@@ -1,5 +1,9 @@
 # TODO
 
+## Recurring
+
+* check docs/todo-misc.md for any new items, fit these into the main TODO.md or phased plan as appropriate
+
 ## Done
 
 * ~~lists of data sources, forums, general resources~~ — [docs/resources.md](docs/resources.md)
@@ -56,6 +60,41 @@ permission. Each repository gets its own graph carrying its own licence.
   named by harvested plugins' `foaf:homepage`
 * the embedding step is incremental, so a GitHub sweep only embeds what it adds
 
+## Phase 1 follow-on — the front page and the taxonomy
+
+Search works; what surrounds it did not. Three items from `docs/todo-misc.md`, all of them
+Phase 1 territory rather than new phases, and two of them the same defect: data harvested and
+never displayed, therefore never verified (MISTAKES.md pattern 3).
+
+* ~~**plugin images**~~ — done. 560 of the 645 plugins had `foaf:depiction` from the OAS
+  registry and nothing rendered it. Now a thumbnail in each result and a captioned figure on the
+  profile page, in the JSON-LD as `schema:image` and in the Turtle as `foaf:depiction`.
+  Hotlinked rather than copied, so: https only (an http image on an https page is blocked as
+  mixed content, silently), `referrerpolicy="no-referrer"` so the image host is not told which
+  plugin a reader was looking at, lazy with fixed dimensions so a page of results is not 25
+  blocking requests to someone else's server, and a caption naming the host — attached to the
+  image rather than to the provenance block, which does not always render.
+* ~~**a browsable listing under the search box**~~ — done, with the vocabulary it needed.
+  `dcterms:created` now means *first seen by this catalogue* (no source states a release date the
+  others agree with). `IngestPipeline` reads the existing dates **before** the re-harvest drops
+  the graph and carries them across, because a date that resets every run would make "recently
+  added" a list of whatever was harvested last; `tests/store/first-seen.test.js` proves that over
+  three runs. Anything with no date sorts last, not first. One rule decides the front page: a
+  query is ranked and capped at 25, anything else — facets or nothing at all — is a paged browse,
+  10 per page from `RETRIEVAL_CONFIG.browsePageSize`, facets carried through the pager.
+  * **the existing 645 plugins have no date until they are re-harvested.** The first dated run
+    stamps everything it writes with that run's time, so ordering only becomes meaningful for
+    what is added after it — which is honest, because nobody knows when the rest arrived. Worth
+    doing as part of the GitHub sweep rather than as a separate pass.
+* **more SKOS in the taxonomy** — the scheme is 28 concepts using four predicates:
+  `prefLabel`, `broader`, `inScheme`, `rdf:type`. Missing, and each of them buys something
+  specific: `skos:altLabel` for synonyms ("reverb"/"reverberation"/"hall"), which feeds the
+  lexical index directly; `skos:definition`, so a category page says what it means;
+  `skos:closeMatch`/`exactMatch` to vendor categories, LV2 plugin classes and AUFX-O, which
+  CLAUDE.md already states as the design and which nothing yet asserts; `skos:related` for
+  cross-branch links. The mapping properties are the ones that matter — they are what make a
+  vendor's own category name resolve into this catalogue's scheme instead of being discarded.
+
 ## Phase 2 — the profiler — started
 
 Built and verified: the sandbox (`src/profiler/Sandbox.js`), the lilv scanner,
@@ -73,32 +112,34 @@ the measurement model, per-run graphs. `node bin/profile.js --path <built bundle
 * the scan currently matches a plugin by `owl:sameAs` to its LV2 IRI, so it only
   reaches LV2 plugins the catalogue already holds. VST3 needs a different key.
 
-## Phase 3 — people and pages — auth layer done
+## Phase 3 — people and pages — the correction loop closes
 
 Built and tested: `personal-data` licence flag, `src/auth/{Session,GitHubOAuth,Accounts,routes}.js`,
-the three routes, and the sign-in state in the header. 255 tests.
+the three routes, sign-in state in the header, and sign-in verified end to end in a real browser
+both locally and on the live server.
 
-**Not yet verified: one real browser round trip.** Everything up to the redirect to GitHub is
-exercised, and the callback's rejections are tested, but nobody has actually signed in. Run
-`SITE_ORIGIN=http://localhost:4100 node bin/serve.js`, click the link, and check that an account
-appears in `<graph:system/accounts>` and the header shows the login.
+~~contributions~~, ~~the two graphs per contributor~~, ~~CSRF~~, ~~the moderation queue UI~~,
+~~trust promotion~~, ~~rate limiting~~ — done. A signed-in reader suggests a correction from the
+plugin page; it is validated and queued or applied by trust level; a moderator accepts or rejects
+it at `/moderation`; an accepted one lands in `graph:user/<id>-facts` under CC0 without
+overwriting the harvested statement, and five acceptances promote the contributor to `trusted`,
+after which their corrections apply on arrival. Rejections stay in the queue marked rejected.
 
-~~contributions~~, ~~the two graphs per contributor~~, ~~CSRF~~ — done. A signed-in reader can
-suggest a correction from the plugin page; it is validated, queued or applied by trust level,
-and an accepted one lands in `graph:user/<id>-facts` under CC0 without overwriting the harvested
-statement.
+`bin/grant.js` makes the first moderator, from a shell on the server. There is deliberately no web
+route that does this.
+
+`tests/store/contributions.test.js` covers the whole loop against the live store — the threshold,
+the two decision paths, re-review of a decided correction, and the hourly limit counted from the
+store rather than from memory.
 
 Next, in order:
 
-* **the moderation queue UI.** `Corrections.pending()` exists and nothing displays it. Accept
-  and reject buttons, moderator-only, and the record of who decided.
-* **trust promotion.** `acceptedCount()` exists and nothing calls it; a contributor never
-  becomes trusted, so every correction queues forever. Five accepted is the threshold in
-  `config/preferences.js`.
-* **rate limiting.** `perAccountPerHour` is configured and unenforced.
 * **wiki pages** with revisions as graph resources — the CC BY-SA half, still untouched. The
   `-prose` graph is registered and empty.
-* **a contributions page** per account, so a person can see what they proposed.
+* **a contributions page** per account, so a person can see what they proposed — and the account
+  bar has nowhere to point at present except the moderation queue.
+* **contributor terms need legal review** before submissions are opened to anyone but the
+  maintainer. `docs/contributor-terms.md` is marked draft.
 
 ## Phase 3 — the plan
 
@@ -120,8 +161,47 @@ Two things to settle before writing code:
 * an [About page](docs/about.md) is drafted too. Both are written to be served at
   `/about` and `/terms` once there is a route for them.
 
+## Phase 5 — open data and link-out — not started
+
+[docs/plan.md §Phase 5](docs/plan.md) has the detail. One item from `docs/todo-misc.md` belongs
+here rather than earlier, because it is the conditional link-out deliverable and it is the one
+place in this project where the rules bite hardest:
+
+* **profile augmentation from the open web** — videos and reviews found by search, linked from
+  the plugin page. Constraints, none of them optional:
+  - **KVR is excluded from harvesting** (CLAUDE.md, resources.md §4). A *link* to a KVR review
+    page is not harvesting and is not excluded; copying a word of the review, a rating, or a
+    substantial part of their listing is. The line is: store the URL and our own label for it,
+    nothing of theirs.
+  - **A source gets a row in [resources.md §4](docs/resources.md) before a line of code**, as
+    every other source has. That review is where "link-out only" is written down and checked.
+  - **Do not scrape a search engine.** DuckDuckGo's HTML endpoint is scraping whatever it is
+    called, and working around a bot check is forbidden by rule. Use a sanctioned API — the
+    YouTube Data API for videos — or nothing.
+  - Such graphs are `proprietary-linkout`, non-redistributable, and excluded from the CC0 dump
+    by the flag rather than by anyone remembering at publication time.
+  - Links rot. A link-out graph needs re-checking on a schedule and a way to record a dead link,
+    or the catalogue slowly fills with 404s that look like data.
+
 ## Outstanding, not blocking
 
+* **rewrite README.md around the method, not the inventory.** The interesting claim this project
+  can make is how language-model techniques and Semantic Web techniques work together: embeddings
+  find what a person meant, the ontology says what the answer *is*, and each covers the other's
+  weakness — retrieval without hallucination, structure without hand-curation at scale. The
+  ontologies are the load-bearing part and should be the centre of it: `trn:` for behaviour,
+  `lv2:` for parameters, SKOS for the taxonomy, per-graph provenance and licensing as a
+  structural property rather than a policy. Worth writing once the taxonomy work above lands, so
+  it describes what is there.
+* **the default graph is not the same store everywhere.** `config/fuseki/assembler-tdb2.ttl`
+  sets `tdb2:unionDefaultGraph true`, so on the deployed store a query with no `GRAPH` clause
+  sees every named graph at once. The development endpoint this repo talks to was not created
+  from that assembler, so the same query there matches nothing — no error, just an empty result.
+  Nothing in the application is affected, because every query names its graph, and
+  `tests/rdf/QueryService.test.js` now asserts that so it stays true. What it does affect is
+  **the public SPARQL endpoint in Phase 5**: a stranger writing `SELECT * WHERE { ?s ?p ?o }`
+  gets everything or nothing depending on a setting they cannot see. Decide which it should be,
+  and publish the answer in the VoID description rather than leaving it to be discovered.
 * configure the PURL redirect from `http://purl.org/stuff/plugin-universe/` to plugin-universe.com,
   and record that configuration in this repo rather than only in the purl.org account
 * point plugin-universe.com DNS at a host; decide whether to also register the `.it` and redirect

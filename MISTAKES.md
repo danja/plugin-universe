@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Nineteen entries is past the point where anyone reads them all, so what follows
+Twenty-two entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -12,12 +12,13 @@ where the value is; this is the index.
 ## The patterns
 
 **1. Two files had to change together, and nothing connected them.**
-The most expensive pattern here, and the only one that has recurred four times.
+The most expensive pattern here, and the only one that has recurred five times.
 A licence list and the SHACL shape enumerating it; `docs/` being served and
 `.dockerignore` excluding it; a new test directory and the Vitest `include`
-list; a URL published in a user agent and the route that answers it. Each was
-found in production or by accident. **The fix that works is a test asserting the
-two agree** — the three that have one have not recurred. Also in
+list; a URL published in a user agent and the route that answers it; a route
+with no link to it. Each was found in production or by accident. **The fix that
+works is a test asserting the two agree** — the four that have one have not
+recurred. Also in
 [CLAUDE.md](CLAUDE.md) as a checklist, because it is a thing to check before
 finishing, not after.
 
@@ -52,6 +53,73 @@ by reading rather than by running. Reuse is why this project exists at all, but
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-09 — A search-and-replace that matched nothing, and a syntax check that could not tell
+
+**What was wrong.** `/moderation` returned
+`{"error": "renderModerationPage is not defined"}`. The route, the renderer and
+the styling were all correct; the import was not. The edit that was supposed to
+add `renderModerationPage` to the import list in `src/api/server.js` used a
+search string that did not appear in the file — the real text wrapped across
+different lines — so `.replace()` returned the file unchanged and reported
+nothing.
+
+**Why it survived a check.** `node --check src/api/server.js` passed. A missing
+import is not a syntax error: it is a `ReferenceError` raised the first time the
+line runs, which here was the first request to a route nobody had loaded yet.
+The check that was run could not, in principle, have caught this class of defect.
+
+**Prevention.** Every scripted replacement now asserts its search string was
+found (`assert old in s`) before writing. An edit that silently does nothing is
+worse than one that fails, because it reports success. Where the edit is a
+single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-09 — Two edit scripts in one command, and only the second ran
+
+**What was wrong.** A refactor was written as two Python blocks in a single
+Bash call: the first was to move three functions out of `src/api/render.js`,
+the second to fix up an import in the same file. The first aborted on a wrong
+assertion and wrote nothing. The second ran anyway, and replaced the import of
+`iri`/`literal` in a file that still used them. `render.js` was left importing
+something it did not have and not importing something it did.
+
+**Root cause.** Two dependent edits, two independent failure domains. An
+assertion in the first script cannot stop the second, because they are
+different processes. The safeguard that made the first script safe — assert
+before writing — was exactly what let the second one run on a file in a state
+it did not expect.
+
+**Prevention.** Dependent edits go in **one** script, so one assertion aborts
+all of them. Where they cannot, re-read and check the file between them rather
+than assuming the earlier edit landed.
+
+**Also, the same day and the same shape as the missing import above** — the
+extraction left `renderPluginPage` calling `pluginJsonLd`, which had moved to
+another module. That one cost nothing: the tests failed immediately and named
+the line. The difference between the two is not the mistake, it is whether
+anything was watching.
+
+---
+
+## 2026-09-09 — A route with nothing linking to it
+
+**What was wrong.** The moderation queue worked and was reachable only by typing
+the URL. `accountBar` had no link to it, so a moderator who did not already know
+the address had no way in.
+
+**Root cause.** The same pattern as the crawler user agent that advertised a
+route which 404d — pattern 1, in the other direction. A link and a route have to
+agree, and nothing connected them.
+
+**Prevention.** `tests/api/linked-routes.test.js` extracts the `case '/…'`
+labels and the `path.match(/…/)` regexes from `src/api/server.js` and asserts
+that every statically decidable `href`/`action` in `src/api/render.js` resolves
+to one of them. It reads the dispatcher rather than keeping a second list, and
+it asserts the predicate discriminates so it cannot pass by matching everything.
 
 ---
 

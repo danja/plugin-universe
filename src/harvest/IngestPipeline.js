@@ -102,6 +102,14 @@ export class IngestPipeline {
       )
     }
 
+    // Read before the drop, or there is nothing left to read. Re-harvesting is
+    // a graph swap, so a first-seen date written by a previous run is destroyed
+    // by the DROP below unless it is carried across — and a date that resets on
+    // every run makes "recently added" a list of whatever was harvested last,
+    // which is the opposite of what it claims.
+    const firstSeen = await this.#firstSeen()
+    const runTime = new Date()
+
     // Drop only now that the harvest has succeeded, then re-register so the
     // graph's provenance records this run rather than the previous one.
     await this.registry.drop(harvester.kind, harvester.id)
@@ -155,7 +163,9 @@ export class IngestPipeline {
       seen.set(pluginIri, plugin)
 
       minted.push({ iri: pluginIri, plugin })
-      groups.push(serialisePlugin(plugin, pluginIri))
+      groups.push(serialisePlugin(plugin, pluginIri, {
+        created: firstSeen.get(pluginIri) ?? runTime
+      }))
       for (const category of plugin.categories) categories.add(category)
     }
 
@@ -199,6 +209,26 @@ export class IngestPipeline {
       collisions,
       elapsedMs: Date.now() - started
     }
+  }
+
+  /**
+   * When each plugin already in the store was first seen, keyed by IRI.
+   *
+   * Across every graph, not just the one about to be replaced: the IRI is
+   * minted from the plugin's identity, not from its source, so a plugin that
+   * turns up in a second source is the same plugin and keeps its date.
+   */
+  async #firstSeen () {
+    const rows = await this.client.select(this.queries.get('plugin/first-seen', {}))
+    const dates = new Map()
+    for (const row of rows) {
+      const when = new Date(row.created)
+      if (Number.isNaN(when.getTime())) continue
+      // Oldest wins, in the case a plugin somehow carries two.
+      const existing = dates.get(row.plugin)
+      if (!existing || when < existing) dates.set(row.plugin, when)
+    }
+    return dates
   }
 
   /**

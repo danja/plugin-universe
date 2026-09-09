@@ -58,6 +58,18 @@ pu:PluginShape a sh:NodeShape ;
         sh:datatype xsd:string ;
     ] ;
     sh:property [
+        sh:path dcterms:created ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "A plugin is first seen once. Two dates mean a re-harvest wrote a new one instead of preserving the old, which would make 'recently added' a list of whatever was harvested last." ;
+    ] ;
+    sh:property [
+        sh:path foaf:depiction ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "An image is an IRI, not a string, and there is one of it." ;
+    ] ;
+    sh:property [
         sh:path pu:slug ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;

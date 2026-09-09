@@ -7,12 +7,13 @@ import logger from 'loglevel'
 import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
-  renderSearchPage, renderPluginPage, pluginJsonLd, pluginTurtle,
-  renderCategoryPage, categoryTurtle, renderDocPage
+  renderSearchPage, renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage
 } from './render.js'
+import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
 import { readForm, BodyError } from './body.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
+import { TRUST } from '../auth/Accounts.js'
 
 /**
  * The public read API.
@@ -58,6 +59,19 @@ export function negotiate (suffix, acceptHeader = '') {
   if (accept.includes('application/json')) return 'json'
   if (accept.includes('text/html')) return 'html'
   return 'html'
+}
+
+/**
+ * The `from` parameter of a listing, as a non-negative integer.
+ *
+ * Anything else is page one. A paging parameter is the easiest thing on a page
+ * for a stranger to put a negative number, a float or a word into, and none of
+ * those should reach `Array.slice` to be interpreted for us.
+ */
+export function pageOffset (params) {
+  const raw = Number(params.get('from'))
+  if (!Number.isFinite(raw) || raw < 0) return 0
+  return Math.min(Math.floor(raw), 100000)
 }
 
 function send (response, status, body) {
@@ -137,7 +151,8 @@ export function createServer ({
     // POST reaches the auth routes only. Everything else is still read-only,
     // and says so.
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
-    const isCorrectionPost = request.method === 'POST' && /^\/plugin\/[^/]+\/correct$/.test(url.pathname)
+    const isCorrectionPost = request.method === 'POST' &&
+      (/^\/plugin\/[^/]+\/correct$/.test(url.pathname) || url.pathname === '/moderation')
     if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost && !isCorrectionPost) {
       return send(response, 405, { error: 'This API is read-only' })
     }
@@ -164,18 +179,29 @@ export function createServer ({
             pricing: params.get('pricing') || null,
             licence: params.get('licence') || null
           }
-          const hasCriteria = Boolean(q) || Object.values(facets).some(Boolean)
-          const outcome = hasCriteria
-            ? (q ? await search.search(q, { facets, limit: 25 }) : await search.browse({ facets, limit: 25 }))
-            : { results: [], total: 0 }
+          // One rule: a query is ranked and capped, because relevance past the
+          // first screen is noise; anything else is a browse — most recently
+          // added first, a page at a time, facets or no facets. An unsearched
+          // front page that lists nothing tells a first-time visitor nothing
+          // about what is in here, and a facet chosen from the dropdown is a
+          // browse whether or not it is also a filter.
+          const browsing = q
+            ? null
+            : { limit: RETRIEVAL_CONFIG.browsePageSize, offset: pageOffset(params) }
+          const outcome = q
+            ? await search.search(q, { facets, limit: 25 })
+            : await search.browse({ ...browsing, facets, order: 'recent' })
           const html = renderSearchPage({
             query: q,
             facets,
             results: outcome.results,
             total: outcome.total,
             corpus: search.documents.size,
-            elapsedMs: hasCriteria ? Date.now() - started : undefined,
+            elapsedMs: (q || Object.values(facets).some(Boolean)) ? Date.now() - started : undefined,
             facetValues: await search.facets(),
+            // The offset the service actually used, which is not necessarily
+            // the one that was asked for.
+            browsing: browsing ? { ...browsing, offset: outcome.offset } : null,
             viewer
           })
           return sendText(response, 200, html, 'text/html; charset=utf-8')
@@ -233,8 +259,19 @@ export function createServer ({
         }
 
         case '/plugins': {
-          const outcome = await search.browse({ limit: Math.min(Number(params.get('limit')) || 50, RETRIEVAL_CONFIG.maxPageSize) })
-          return send(response, 200, { total: outcome.total, results: outcome.results, licence: LICENCE })
+          const outcome = await search.browse({
+            limit: Math.min(Number(params.get('limit')) || 50, RETRIEVAL_CONFIG.maxPageSize),
+            offset: pageOffset(params),
+            order: params.get('order') === 'recent' ? 'recent' : 'name'
+          })
+          return send(response, 200, {
+            total: outcome.total,
+            offset: outcome.offset,
+            order: outcome.order,
+            count: outcome.results.length,
+            results: outcome.results,
+            licence: LICENCE
+          })
         }
 
         case '/auth/login':
@@ -265,6 +302,49 @@ export function createServer ({
         case '/about/crawler': {
           const page = await loadPage(path, projectRoot)
           return sendText(response, 200, renderDocPage(page, viewer), 'text/html; charset=utf-8')
+        }
+
+        case '/moderation': {
+          if (!auth || !corrections) return send(response, 404, { error: 'Moderation is not enabled' })
+          const moderator = viewer.account
+          // Not 403 for a signed-out visitor: the existence of the queue is not
+          // a secret, but nor is it worth telling a stranger they lack a role.
+          if (!moderator || moderator.trustLevel !== TRUST.MODERATOR) {
+            return send(response, 404, { error: 'No such endpoint', path })
+          }
+
+          let message = null
+          if (request.method === 'POST') {
+            let form
+            try {
+              form = await readForm(request)
+            } catch (error) {
+              return send(response, error.status ?? 400, { error: error.message })
+            }
+            if (!auth.session.verifyCsrf(form.get('csrf'), moderator.iri)) {
+              return send(response, 403, { error: 'That page has expired. Reload and try again.' })
+            }
+            try {
+              const outcome = await corrections.review({
+                correctionIri: form.get('correction'),
+                moderator,
+                accept: form.get('decision') === 'accept',
+                accounts: auth.accounts
+              })
+              message = outcome.status === 'accepted'
+                ? `Accepted.${outcome.promoted ? ` ${outcome.contributor} is now trusted — their corrections go live from here.` : ''}`
+                : 'Rejected. Nothing was written to a public graph.'
+            } catch (error) {
+              if (!(error instanceof CorrectionError)) throw error
+              message = error.message
+            }
+          }
+
+          return sendText(response, 200, renderModerationPage(await corrections.pending(), {
+            csrfToken: auth.session.csrfToken(moderator.iri),
+            message,
+            viewer
+          }), 'text/html; charset=utf-8')
         }
 
         case '/ns': {

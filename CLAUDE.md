@@ -24,7 +24,8 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
   fetching), `Normaliser` (where vocabulary defects are fixed), `PluginSerialiser`,
   `IngestPipeline`
 - `src/search/` — `SearchService` (hybrid retrieval), `LexicalIndex` (IDF-weighted lexical signal)
-- `src/api/` — `server.js` (read-only JSON + HTML, content negotiation), `render.js`
+- `src/api/` — `server.js` (routing, read-only JSON + HTML, content negotiation), `render.js`
+  (HTML), `serialise.js` (Turtle and JSON-LD), `pages.js` (the prose whitelist), `body.js`
 - `bin/` — `ingest.js`, `discover.js`, `search.js`, `serve.js`, `validate.js`
 - `src/rdf/` — `NamespaceManager` (the single prefix registry), `URIMinter`
 - `src/store/` — `SPARQLClient`, `SPARQLHelper` (term formatting), `QueryService`
@@ -80,7 +81,7 @@ Read those before making structural changes.
 
 ## The recurring failure in this project
 
-Four times now, a change has been made in one file while a **second file that
+Five times now, a change has been made in one file while a **second file that
 had to change with it** was left alone. Nothing connected them, so nothing
 complained, and each was found in production or by accident:
 
@@ -90,11 +91,12 @@ complained, and each was found in production or by accident:
 | Served pages from `docs/` | `.dockerignore`, which excluded `docs` | 500 on three routes, everything else fine |
 | Added a test directory | the `include` list in `vitest.core.config.js` | tests written, never run — twice |
 | Set the crawler's user-agent URL | the route it promises | a contact page that 404s, already advertised to sources |
+| Added the `/moderation` route | the account bar that should link to it | a queue reachable only by typing the URL |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
 that two lists match is worth more than either list being carefully reviewed.
-The three that now have such a test have stopped recurring.
+The four that now have such a test have stopped recurring.
 
 Specifically, before finishing a change, check:
 
@@ -102,6 +104,26 @@ Specifically, before finishing a change, check:
 - Does `.dockerignore` exclude a path the app now reads at runtime?
 - Is a new `tests/<dir>/` in `vitest.core.config.js`?
 - Does a published URL — user agent, docs link, IRI — resolve to a route?
+- Does a new route have something linking to it?
+
+## Long files are a smell
+
+A source file that has grown long has usually stopped being one thing. Treat length as a signal
+to look, not as a rule to obey: the question is whether the file still has a single reason to
+change, and a long one rarely does.
+
+- **Check periodically**, not only when touching a file — `wc -l src/**/*.js | sort -n | tail`
+  takes a second and the answer drifts silently.
+- Roughly, past **~400 lines** a module is worth a look and past **~600** it almost always wants
+  splitting. Nothing is over 600 now; `src/api/render.js` (510) and `src/api/server.js` (485)
+  are the ones to watch.
+- Split along the seam that already exists — a route group, a serialisation format, one
+  harvester's quirks — not by line count. `render.js` crossed 600 and lost its Turtle and JSON-LD
+  to `src/api/serialise.js`, because those change when the graph model changes and the HTML
+  changes when the pages do: two reasons to change, two files. Cutting it at line 400 instead
+  would have said nothing about the code.
+- The test suites are the safety net for this, so a refactor that needs its tests rewritten to
+  pass is not a refactor. Move code, keep behaviour, and the existing tests should still hold.
 
 ## Working rules
 - API keys are sacred. They must not be shared.

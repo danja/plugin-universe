@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { VOCABULARIES } from '../../src/api/server.js'
-import { categoryTurtle } from '../../src/api/render.js'
+import { categoryTurtle } from '../../src/api/serialise.js'
 import { parseTurtle } from '../../src/harvest/TurtleReader.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 

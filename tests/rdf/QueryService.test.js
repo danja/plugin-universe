@@ -48,6 +48,25 @@ describe('QueryService', () => {
     expect(() => queries.template('graph/nonexistent')).toThrow(QueryError)
   })
 
+  it('names a GRAPH in every query, so none depends on the default-graph union', () => {
+    // `tdb2:unionDefaultGraph true` in config/fuseki/assembler-tdb2.ttl makes a
+    // query without a GRAPH clause see every named graph at once. A store that
+    // was not created from that assembler — any Fuseki dataset made by hand,
+    // including the one this repo's development endpoint runs against — sees
+    // nothing instead. Same query, same data, no error, empty result.
+    //
+    // Naming the graph makes the setting irrelevant to correctness, which is
+    // the only version of this that is safe to rely on. It is also required by
+    // the named-graph-per-source design: a query that does not say which graph
+    // it means has already lost the provenance the design exists to keep.
+    const silent = queries.list().filter(name => !/\bGRAPH\b/i.test(queries.template(name)))
+    expect(
+      silent,
+      `${silent.join(', ')} has no GRAPH clause. It will return everything on a store with ` +
+      'unionDefaultGraph and nothing on a store without it, with no error either way.'
+    ).toEqual([])
+  })
+
   it('every query on disk declares only placeholders and known prefixes', () => {
     for (const name of queries.list()) {
       const template = queries.template(name)

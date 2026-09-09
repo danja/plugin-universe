@@ -1,0 +1,14 @@
+# When each plugin was first seen by this catalogue.
+#
+# Read before a re-harvest drops a source graph, so that the date survives the
+# swap. `dcterms:created` here means "first appeared in this catalogue", not
+# "released by its author" — the sources rarely say the latter and never
+# agree about it. Read across every graph rather than one: a plugin that moves
+# between sources keeps its IRI, so it should keep its date.
+SELECT ?plugin ?created
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile ;
+            dcterms:created ?created .
+  }
+}

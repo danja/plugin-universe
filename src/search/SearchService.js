@@ -44,6 +44,28 @@ export function fuse (lexical, vector) {
   return lexical * RETRIEVAL_CONFIG.lexicalWeight + vector * RETRIEVAL_CONFIG.vectorWeight
 }
 
+/** Alphabetical, the default order for a browse. */
+export function byName (a, b) {
+  return a.name.localeCompare(b.name)
+}
+
+/**
+ * Most recently added first, ties broken by name.
+ *
+ * A plugin with no `dcterms:created` sorts **last**. An absent date means the
+ * plugin was harvested before the catalogue recorded dates, which is the
+ * opposite of new; treating it as `now` — or as the epoch and reversing —
+ * would put the entire pre-existing corpus at the top of a list titled
+ * "recently added". Dates are xsd:dateTime strings, which sort correctly as
+ * strings, so no parsing is needed to compare two of them.
+ */
+export function byRecency (a, b) {
+  if (a.created && b.created) return b.created.localeCompare(a.created) || byName(a, b)
+  if (a.created) return -1
+  if (b.created) return 1
+  return byName(a, b)
+}
+
 export class SearchService {
   /**
    * @param {object} deps
@@ -92,6 +114,8 @@ export class SearchService {
       name: row.name,
       homepage: row.homepage ?? null,
       seeAlso: row.seeAlso ?? null,
+      image: row.image ?? null,
+      created: row.created ?? null,
       licenceId: row.licenceId ?? null,
       sourceAvailability: row.sourceAvailability ? row.sourceAvailability.replace(/^.*\//, '') : null,
       pricing: row.pricing ? row.pricing.replace(/^.*\//, '') : null,
@@ -197,12 +221,37 @@ export class SearchService {
   }
 
   /** Facets alone, no query text. */
-  async browse ({ facets = {}, limit = RETRIEVAL_CONFIG.defaultPageSize } = {}) {
+  /**
+   * Browse without a query: facets, an order, and a page.
+   *
+   * `order` is `name` or `recent`. Recent is by `dcterms:created`, which the
+   * ingest pipeline sets when a plugin is first seen and preserves across a
+   * re-harvest. A plugin with no date sorts last rather than first — an absent
+   * date means "harvested before this catalogue recorded dates", which is the
+   * opposite of new, and treating a missing value as `now` would put the whole
+   * pre-existing corpus at the top of a list titled "recently added".
+   *
+   * Paged with an offset rather than a cursor: the corpus is a few hundred
+   * plugins held in memory and sorted per request, so the cost is the sort and
+   * a cursor would buy nothing.
+   */
+  async browse ({ facets = {}, limit = RETRIEVAL_CONFIG.defaultPageSize, offset = 0, order = 'name' } = {}) {
     const allowed = await this.#filterSet(facets)
+    const compare = order === 'recent' ? byRecency : byName
     const results = [...this.documents.values()]
       .filter(doc => !allowed || allowed.has(doc.iri))
-      .sort((a, b) => a.name.localeCompare(b.name))
-    return { results: results.slice(0, limit), total: results.length }
+      .sort(compare)
+    // Clamped to the last page rather than left to run off the end: `?from=`
+    // is a number in a URL and `from=1e99` should show the oldest plugins, not
+    // an empty page reporting "page 10001 of 65".
+    const lastPage = Math.max(0, Math.floor(Math.max(0, results.length - 1) / limit) * limit)
+    const from = Math.min(Math.max(0, offset), lastPage)
+    return {
+      results: results.slice(from, from + limit),
+      total: results.length,
+      offset: from,
+      order
+    }
   }
 
   /** Facet values and their counts, driven by the data. */

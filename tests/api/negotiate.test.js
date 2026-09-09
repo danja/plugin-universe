@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { negotiate } from '../../src/api/server.js'
-import { pluginJsonLd, pluginTurtle, escape } from '../../src/api/render.js'
+import { escape } from '../../src/api/render.js'
+import { pluginJsonLd, pluginTurtle } from '../../src/api/serialise.js'
 import { parseTurtle } from '../../src/harvest/TurtleReader.js'
 
 const doc = {

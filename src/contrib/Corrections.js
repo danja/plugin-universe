@@ -116,22 +116,26 @@ export function valueTerm (kind, value) {
 }
 
 export class Corrections {
-  constructor (client, { registry = new GraphRegistry(client), minter = new URIMinter() } = {}) {
+  constructor (client, {
+    registry = new GraphRegistry(client), minter = new URIMinter(), graphId = 'corrections'
+  } = {}) {
     if (!client) throw new CorrectionError('Corrections needs a SPARQLClient')
     this.client = client
     this.registry = registry
     this.minter = minter
     // Proposals live in the system graph with the accounts, because a pending
     // correction is about a person as much as about a plugin. Only an accepted
-    // one reaches the contributor's public graph.
-    this.queueGraph = GraphRegistry.graphIri('system', 'corrections')
+    // one reaches the contributor's public graph. The id is a parameter for the
+    // same reason it is on Accounts: the queue holds a contributor's own words.
+    this.graphId = graphId
+    this.queueGraph = GraphRegistry.graphIri('system', graphId)
   }
 
   async ensureGraph () {
-    if (await this.registry.isRegistered('system', 'corrections')) return this.queueGraph
+    if (await this.registry.isRegistered('system', this.graphId)) return this.queueGraph
     return this.registry.register({
       kind: 'system',
-      id: 'corrections',
+      id: this.graphId,
       // Proposals carry a contributor's identity and their words about why, so
       // the queue is personal data until a correction is accepted and its
       // factual part moves to a CC0 graph.
@@ -182,6 +186,17 @@ export class Corrections {
     if (!account) throw new CorrectionError('Sign in to suggest a correction.')
     if (account.suspended) throw new CorrectionError('This account is suspended.')
 
+    // Generous for a person, useless for a script. Counted from the store
+    // rather than kept in memory, so it survives a restart and cannot be reset
+    // by making the app forget.
+    const recent = await this.recentCount(account.iri, now)
+    if (recent >= CONTRIBUTION_CONFIG.perAccountPerHour) {
+      throw new CorrectionError(
+        `That is ${CONTRIBUTION_CONFIG.perAccountPerHour} suggestions in an hour, which is the limit. ` +
+        'Please come back shortly.'
+      )
+    }
+
     const correction = validate({ subject, predicate, value, rationale })
     const trusted = account.trustLevel === TRUST.TRUSTED || account.trustLevel === TRUST.MODERATOR
     const status = trusted ? STATUS.ACCEPTED : STATUS.PENDING
@@ -231,6 +246,82 @@ export class Corrections {
       } }
       WHERE { GRAPH ${iri(this.queueGraph)} { ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ?s } }`)
     return graphs.facts
+  }
+
+  /** How many corrections this account has made in the last hour. */
+  async recentCount (accountIri, now = new Date()) {
+    const since = new Date(now.getTime() - 60 * 60 * 1000)
+    const rows = await this.client.select(`
+      SELECT (COUNT(*) AS ?n) WHERE {
+        GRAPH ${iri(this.queueGraph)} {
+          ?c ${iri(prov + 'wasAttributedTo')} ${iri(accountIri)} ;
+             ${iri(prov + 'generatedAtTime')} ?at .
+          FILTER(?at > ${typedLiteral(since)})
+        }
+      }`)
+    return Number(rows[0]?.n ?? 0)
+  }
+
+  /**
+   * Accept or reject a pending correction.
+   *
+   * Accepting writes the fact into the contributor's CC0 graph and may promote
+   * them: past the threshold their later corrections go live on arrival, which
+   * is what makes the reviewer's work shrink rather than accumulate.
+   *
+   * Rejecting writes nothing to any public graph. The proposal stays in the
+   * queue marked rejected, so the record of what was asked for and declined
+   * survives — a queue that forgets its rejections invites the same suggestion
+   * every week.
+   */
+  async review ({ correctionIri, moderator, accept, accounts }, now = new Date()) {
+    if (!moderator || moderator.trustLevel !== TRUST.MODERATOR) {
+      throw new CorrectionError('Only a moderator can review corrections.')
+    }
+    const rows = await this.client.select(`
+      SELECT ?subject ?predicate ?value ?by WHERE {
+        GRAPH ${iri(this.queueGraph)} {
+          ${iri(correctionIri)} ${iri(pu + 'correctionSubject')} ?subject ;
+                                ${iri(pu + 'correctionPredicate')} ?predicate ;
+                                ${iri(pu + 'proposedValue')} ?value ;
+                                ${iri(pu + 'correctionStatus')} ${literal(STATUS.PENDING)} ;
+                                ${iri(prov + 'wasAttributedTo')} ?by .
+        }
+      } LIMIT 1`)
+    const row = rows[0]
+    if (!row) throw new CorrectionError('That correction is not pending; it may already have been decided.')
+
+    if (!accept) {
+      await this.#setStatus(correctionIri, STATUS.REJECTED, moderator, now)
+      return { status: STATUS.REJECTED, promoted: false }
+    }
+
+    const contributor = await accounts.find(row.by)
+    if (!contributor) throw new CorrectionError('The contributor no longer has an account.')
+
+    // Re-validated on the way out as well as on the way in. The whitelist may
+    // have changed since it was proposed, and an accepted correction writes
+    // directly into a public graph.
+    const validated = validate({
+      subject: row.subject, predicate: row.predicate, value: row.value
+    })
+    await this.apply(correctionIri, validated, contributor, now)
+    await this.#setStatus(correctionIri, STATUS.ACCEPTED, moderator, now)
+
+    const promoted = await accounts.promoteIfEarned(
+      contributor, await this.acceptedCount(contributor.iri))
+    return { status: STATUS.ACCEPTED, promoted, contributor: contributor.login }
+  }
+
+  async #setStatus (correctionIri, status, moderator, now) {
+    await this.client.update(`
+      DELETE { GRAPH ${iri(this.queueGraph)} { ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ?old } }
+      INSERT { GRAPH ${iri(this.queueGraph)} {
+        ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ${literal(status)} ;
+                              ${iri(pu + 'reviewedBy')} ${iri(moderator.iri)} ;
+                              ${iri(pu + 'reviewedAt')} ${typedLiteral(now)} .
+      } }
+      WHERE { GRAPH ${iri(this.queueGraph)} { ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ?old } }`)
   }
 
   /** Corrections awaiting review, oldest first — a queue, not a list. */
