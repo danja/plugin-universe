@@ -17,7 +17,6 @@ const rdfs = NAMESPACES.rdfs
 const dcterms = NAMESPACES.dcterms
 const foaf = NAMESPACES.foaf
 const owl = NAMESPACES.owl
-const skos = NAMESPACES.skos
 
 let blankCounter = 0
 function blank (prefix) {
@@ -205,63 +204,6 @@ export function serialisePackages (plugin, pluginIri) {
       for (const artefact of file.artefacts ?? []) emitFile(pu + 'containsArtefact', literal(artefact))
       for (const architecture of file.architectures ?? []) emitFile(pu + 'architecture', literal(architecture))
       for (const system of file.systems ?? []) emitFile(pu + 'operatingSystem', literal(system))
-    }
-  }
-  return triples
-}
-
-/** The SKOS concept scheme, emitted once into the alignment graph. */
-export function serialiseCategoryScheme (categories) {
-  const scheme = `${pu}categories`
-  const triples = [
-    `${iri(scheme)} ${iri(rdf + 'type')} ${iri(skos + 'ConceptScheme')} .`,
-    `${iri(scheme)} ${iri(rdfs + 'label')} ${literal('Plugin Universe categories')} .`
-  ]
-  const broader = {
-    compressor: 'dynamics',
-    limiter: 'dynamics',
-    dynamics: 'effect',
-    reverb: 'effect',
-    delay: 'effect',
-    distortion: 'effect',
-    saturation: 'distortion',
-    modulation: 'effect',
-    eq: 'effect',
-    filter: 'effect',
-    spatial: 'effect',
-    oscillator: 'instrument',
-    synth: 'instrument',
-    granular: 'synth',
-    sampler: 'instrument',
-    generator: 'instrument',
-    drums: 'instrument',
-    bass: 'instrument',
-    piano: 'instrument',
-    organ: 'instrument',
-    sequencer: 'midi',
-    amp: 'guitar',
-    analysis: 'utility',
-    mixing: 'utility'
-  }
-  // Close the set over skos:broader before emitting. Without this a scheme can
-  // point at a concept it never declares, which is a dangling reference that
-  // only shows up when something tries to walk the hierarchy.
-  const closed = new Set(categories)
-  for (const category of categories) {
-    let parent = broader[category]
-    while (parent && !closed.has(parent)) {
-      closed.add(parent)
-      parent = broader[parent]
-    }
-  }
-
-  for (const category of [...closed].sort()) {
-    const concept = `${pu}category/${category}`
-    triples.push(`${iri(concept)} ${iri(rdf + 'type')} ${iri(skos + 'Concept')} .`)
-    triples.push(`${iri(concept)} ${iri(skos + 'inScheme')} ${iri(scheme)} .`)
-    triples.push(`${iri(concept)} ${iri(skos + 'prefLabel')} ${literal(category)} .`)
-    if (broader[category]) {
-      triples.push(`${iri(concept)} ${iri(skos + 'broader')} ${iri(`${pu}category/${broader[category]}`)} .`)
     }
   }
   return triples

@@ -33,7 +33,8 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
   `ShapeValidator` (SHACL, over `vocabs/shapes.ttl`)
 - `src/vectors/` — `VectorOperations`, `VectorIndex` (persisted FAISS index)
 - `src/embeddings/` — `EmbeddingService` and the composed text view
-- `vocabs/` — the ontologies; `sparql/queries/` — every query, by name
+- `vocabs/` — the ontologies, including `categories.ttl` (the SKOS category scheme, loaded by
+  `src/rdf/CategoryScheme.js`); `sparql/queries/` — every query, by name
 - `tests/fixtures/` — the corpus and queries behind the retrieval regression suite
 
 The full design is in `docs/architecture.md`; the phased implementation plan is in `docs/plan.md`.
@@ -216,6 +217,16 @@ them by design — preserve it with `owl:sameAs` rather than replacing it.
 
 Categories and tags are a `skos:ConceptScheme`, not an OWL class hierarchy. Vendor categories, LV2
 plugin classes and user tags map in as `skos:closeMatch`.
+
+The scheme lives in `vocabs/categories.ttl` and nowhere else — it was a JavaScript object literal
+of parent links once, which is why it had four predicates and no way to say what a category meant.
+Adding a category means adding a concept there with a definition and alternative labels; a bare
+label in the data is written but reported, and `tests/store/categories.test.js` fails if one goes
+undescribed. Alternative labels feed the **lexical** signal only. Do not add them to the composed
+text view: that would invalidate every stored embedding for a signal the lexical index already
+gives. Alignments to other vocabularies are asserted only where the target term has been
+verified — the LV2 classes here were checked against installed plugins, and AUFX-O effect types
+are absent because they have not been.
 
 ## Deployment
 

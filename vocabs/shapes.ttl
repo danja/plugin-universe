@@ -333,8 +333,44 @@ pu:ConceptShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:path skos:broader ;
+        sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
         sh:pattern "^http://purl\\.org/stuff/plugin-universe/category/[a-z0-9-]+$" ;
+    ] ;
+    sh:property [
+        sh:path skos:narrower ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/plugin-universe/category/[a-z0-9-]+$" ;
+    ] ;
+    sh:property [
+        sh:path skos:related ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/plugin-universe/category/[a-z0-9-]+$" ;
+        sh:message "A related concept is another category in this scheme. Anything outside it is a closeMatch, not a related." ;
+    ] ;
+    sh:property [
+        sh:path skos:altLabel ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "An alternative label is a non-empty string — it is what somebody might type instead of the preferred label." ;
+    ] ;
+    sh:property [
+        sh:path skos:definition ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        sh:path skos:scopeNote ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+    ] ;
+    sh:property [
+        # An alignment points outside this scheme by definition: a closeMatch to
+        # our own category would say a concept is close to itself.
+        sh:path skos:closeMatch ;
+        sh:nodeKind sh:IRI ;
+        sh:not [ sh:pattern "^http://purl\\.org/stuff/plugin-universe/category/" ] ;
+        sh:message "A closeMatch names the same idea in another vocabulary. Within this scheme, use broader, narrower or related." ;
     ] .
 
 ## ── Graph registration ──────────────────────────────────────────────────────

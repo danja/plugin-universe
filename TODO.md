@@ -86,14 +86,26 @@ never displayed, therefore never verified (MISTAKES.md pattern 3).
     stamps everything it writes with that run's time, so ordering only becomes meaningful for
     what is added after it — which is honest, because nobody knows when the rest arrived. Worth
     doing as part of the GitHub sweep rather than as a separate pass.
-* **more SKOS in the taxonomy** — the scheme is 28 concepts using four predicates:
-  `prefLabel`, `broader`, `inScheme`, `rdf:type`. Missing, and each of them buys something
-  specific: `skos:altLabel` for synonyms ("reverb"/"reverberation"/"hall"), which feeds the
-  lexical index directly; `skos:definition`, so a category page says what it means;
-  `skos:closeMatch`/`exactMatch` to vendor categories, LV2 plugin classes and AUFX-O, which
-  CLAUDE.md already states as the design and which nothing yet asserts; `skos:related` for
-  cross-branch links. The mapping properties are the ones that matter — they are what make a
-  vendor's own category name resolve into this catalogue's scheme instead of being discarded.
+* ~~**more SKOS in the taxonomy**~~ — done. The scheme was 28 concepts using four predicates,
+  because it was a JavaScript object literal of parent links inside `PluginSerialiser.js`. It is
+  now an ontology, [`vocabs/categories.ttl`](vocabs/categories.ttl), loaded by
+  `src/rdf/CategoryScheme.js`: 337 triples over the same 28 concepts, each with a definition,
+  alternative labels, and `skos:closeMatch` to the LV2 plugin classes — every one of which was
+  verified against the LV2 plugins installed on the development machine rather than assumed.
+  `lv2:EffectPlugin` is deliberately not asserted because it could not be confirmed, and
+  `pucat:amp` is `lv2:SimulatorPlugin` rather than `lv2:AmplifierPlugin`, which means a gain
+  stage — a false friend recorded in a `skos:scopeNote`.
+  * Alternative labels feed the **lexical** signal only, not the composed text the embeddings
+    are built from: adding them there would invalidate 645 stored vectors for a signal the
+    lexical index gives away free. "overdrive" now returns dm-SD1, dm-TubeScreamer and
+    Schrammel OJD; "brickwall" returns three limiters.
+  * Category pages show the definition, the synonyms, the parent, the children, related
+    categories and the LV2 alignment; `/category/<slug>.ttl` serves the whole concept rather
+    than a stub.
+  * **AUFX-O effect-type alignment is still not asserted.** `vocabs/alignment.ttl` maps
+    structure and stops at terms that could be confirmed; the same rule applied here, so
+    `aufx:` equivalents for reverb, delay and so on await a pass that can check the published
+    ontology.
 
 ## Phase 2 — the profiler — started
 

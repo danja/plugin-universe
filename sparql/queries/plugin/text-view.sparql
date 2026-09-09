@@ -12,6 +12,7 @@ SELECT ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?image ?created 
        (GROUP_CONCAT(DISTINCT ?formatLabel; separator=", ") AS ?formats)
        (GROUP_CONCAT(DISTINCT ?tag; separator=", ") AS ?tags)
        (GROUP_CONCAT(DISTINCT ?portName; separator=", ") AS ?parameters)
+       (GROUP_CONCAT(DISTINCT ?altLabel; separator=", ") AS ?categoryAltLabels)
        (GROUP_CONCAT(DISTINCT ?caution; separator=" ") AS ?cautions)
 WHERE {
   GRAPH ?g {
@@ -31,6 +32,22 @@ WHERE {
     OPTIONAL { ?plugin pu:category ?cat    BIND(REPLACE(STR(?cat), "^.*/", "") AS ?categoryLabel) }
     OPTIONAL { ?plugin pu:tag ?tag }
     OPTIONAL { ?plugin lv2:port ?port . ?port lv2:name ?portName }
+    # What else a category is called, from the concept scheme in its own graph.
+    # These feed the lexical signal only, so that searching "reverberation" or
+    # "echo" reaches the same plugins as "reverb" or "delay". Deliberately not
+    # part of the composed text the embeddings are built from: adding them there
+    # would invalidate every stored vector for a signal the lexical index gives
+    # away free.
+    #
+    # The category is re-matched here rather than reusing ?cat from the OPTIONAL
+    # above. Sharing it looked equivalent and was not: for a plugin with no
+    # category ?cat is unbound, so the join was unconstrained and every plugin
+    # without a category collected all 134 alt labels in the scheme — becoming
+    # lexically matchable by every synonym in the taxonomy.
+    OPTIONAL {
+      ?plugin pu:category ?altCat .
+      GRAPH ?scheme { ?altCat skos:altLabel ?altLabel }
+    }
   }
 }
 GROUP BY ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?image ?created ?licenceId ?sourceAvailability ?pricing

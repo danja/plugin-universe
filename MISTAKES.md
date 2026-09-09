@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-two entries is past the point where anyone reads them all, so what follows
+Twenty-three entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -75,6 +75,41 @@ The check that was run could not, in principle, have caught this class of defect
 found (`assert old in s`) before writing. An edit that silently does nothing is
 worse than one that fails, because it reports success. Where the edit is a
 single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-09 — An unbound variable made every synonym match every uncategorised plugin
+
+**What was wrong.** Category synonyms (`skos:altLabel`) were joined into the
+plugin text view so that searching "echo" would reach a delay. The join reused
+`?cat`, bound in a sibling `OPTIONAL` a few lines above:
+
+```sparql
+OPTIONAL { ?plugin pu:category ?cat  BIND(...) }
+...
+OPTIONAL { GRAPH ?scheme { ?cat skos:altLabel ?altLabel } }
+```
+
+For a plugin **with no category** `?cat` is unbound, so the second pattern is
+unconstrained and matches every alternative label in the scheme. Those plugins
+collected all 134 synonyms in the taxonomy and became lexically matchable by
+every word in it. Searching "brickwall" returned a water-sound generator above
+three actual limiters.
+
+**Why it survived.** The query ran, returned exactly 645 rows, and the first
+plugin inspected had precisely the labels of its own category. The failure was
+in the rows that were *not* sampled — the two with no category at all. The
+symptom was visible in a statistic that had been printed and not read: "max alt
+labels 134" in a corpus whose median was 10.
+
+**Prevention.** The join re-matches the category inside the OPTIONAL rather
+than borrowing a variable from a neighbouring one. `tests/store/categories.test.js`
+asserts the invariant directly — a plugin with no category has no alternative
+labels, and every label a plugin has belongs to one of its own categories.
+
+**The general lesson**, which is pattern 2 again: a number that does not fit
+the distribution is a finding. "min 3, max 134, median 10" was printed in the
+same output that was used to declare the join correct.
 
 ---
 

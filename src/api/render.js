@@ -65,6 +65,8 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .pager a:hover { text-decoration:underline; }
 .pager .disabled { color:var(--line); }
 .pager .page { color:var(--muted); }
+.scope { font-style:italic; }
+.tags strong { color:var(--muted); font-weight:600; margin-right:.3rem; }
 .result h2 { font-size:1.02rem; margin:0 0 .2rem; font-weight:600; }
 .result h2 a { color:var(--accent); text-decoration:none; }
 .result h2 a:hover { text-decoration:underline; }
@@ -420,16 +422,44 @@ ${html}
  * resolve to something. A list of what is in the category is both the useful
  * answer for a person and the honest one for a machine.
  */
-export function renderCategoryPage (slug, results, total, viewer = {}) {
+/** A list of sibling category links, or nothing. */
+function categoryLinks (label, slugs) {
+  if (!slugs || slugs.length === 0) return ''
+  return `<p class="tags"><strong>${escape(label)}</strong> ` +
+    slugs.map(slug => `<a class="tag" href="/category/${escape(slug)}">${escape(slug)}</a>`).join(' ') +
+    '</p>'
+}
+
+/**
+ * One category: what it means, what else it is called, and where it sits.
+ *
+ * The scheme carried a label and a parent link and nothing else for as long as
+ * it was a JavaScript object literal. Now that it is an ontology there is
+ * something to show, and showing it is also how it gets checked — a definition
+ * nobody reads is a definition nobody notices is wrong.
+ */
+export function renderCategoryPage (slug, results, total, viewer = {}, concept = null) {
   const body = `
 <p class="meta"><a href="/">← search</a></p>
-<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">${escape(slug)}</h2>
+<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">${escape(concept?.prefLabel ?? slug)}</h2>
+${concept?.definition ? `<p class="desc">${escape(concept.definition)}</p>` : ''}
+${concept?.scopeNote ? `<p class="meta scope">${escape(concept.scopeNote)}</p>` : ''}
+${concept?.altLabels?.length
+    ? `<p class="tags"><strong>Also called</strong> ${concept.altLabels.map(l => `<span class="tag">${escape(l)}</span>`).join(' ')}</p>`
+    : ''}
+${categoryLinks('Part of', concept?.broader ? [concept.broader] : null)}
+${categoryLinks('Includes', concept?.narrower)}
+${categoryLinks('Related', concept?.related)}
+${concept?.closeMatches?.length
+    ? `<p class="tags"><strong>Elsewhere</strong> ${concept.closeMatches.map(m => `<code>${escape(m.replace('http://lv2plug.in/ns/lv2core#', 'lv2:'))}</code>`).join(' ')}</p>`
+    : ''}
 <p class="meta">${total} plugin${total === 1 ? '' : 's'} in this category.
   Also as <a href="${escape(`/category/${slug}`)}.ttl">Turtle</a>.</p>
 ${results.map(resultItem).join('\n')}
 `
-  return layout(`${slug} — Plugin Universe`, body, {
-    description: `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
+  return layout(`${concept?.prefLabel ?? slug} — Plugin Universe`, body, {
+    description: concept?.definition ??
+      `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
     ...viewer
   })
 }

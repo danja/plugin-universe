@@ -377,20 +377,23 @@ export function createServer ({
             if (!known) return send(response, 404, { error: 'No such category', category: slug })
 
             const outcome = await search.browse({ facets: { category: slug }, limit: 200 })
+            const concept = search.concept(slug)
             if (negotiate(category[2], request.headers.accept) === 'turtle') {
-              return sendText(response, 200, categoryTurtle(slug, outcome.results), 'text/turtle; charset=utf-8')
+              return sendText(response, 200, categoryTurtle(slug, outcome.results, concept), 'text/turtle; charset=utf-8')
             }
             if (category[2] === '.json') {
               return send(response, 200, {
                 category: slug,
                 iri: `${NAMESPACES.pu}category/${slug}`,
+                concept,
                 total: outcome.total,
                 results: outcome.results,
                 licence: LICENCE
               })
             }
             return sendText(response, 200,
-              renderCategoryPage(slug, outcome.results, outcome.total, viewer), 'text/html; charset=utf-8')
+              renderCategoryPage(slug, outcome.results, outcome.total, viewer, concept),
+              'text/html; charset=utf-8')
           }
 
           // Suggesting a correction. The only route that writes catalogue data

@@ -3,7 +3,8 @@ import GraphRegistry from '../store/GraphRegistry.js'
 import QueryService from '../store/QueryService.js'
 import URIMinter from '../rdf/URIMinter.js'
 import { insertDataQuery, iri, literal } from '../store/SPARQLHelper.js'
-import { serialisePlugin, serialiseCategoryScheme, resetBlankCounter } from './PluginSerialiser.js'
+import { serialisePlugin, resetBlankCounter } from './PluginSerialiser.js'
+import CategoryScheme from '../rdf/CategoryScheme.js'
 import { parseTurtleFile } from './TurtleReader.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 
@@ -251,20 +252,34 @@ export class IngestPipeline {
    * Write the category concept scheme into the alignment graph. Called once
    * after the harvesters, with the union of every category in the store.
    */
-  async writeCategoryScheme (categories) {
+  async writeCategoryScheme (categories, { file = 'vocabs/categories.ttl' } = {}) {
+    const scheme = await CategoryScheme.load(file)
+    const used = [...categories].sort()
+
     await this.registry.drop('alignment', 'categories')
     const graph = await this.registry.register({
       kind: 'alignment',
       id: 'categories',
       licence: 'CC0-1.0',
       derivedFrom: `${NAMESPACES.pu}categories`,
-      comment: 'SKOS concept scheme for plugin categories, derived from harvested roles and LV2 classes'
+      comment: 'SKOS concept scheme for plugin categories, from vocabs/categories.ttl'
     })
-    const triples = serialiseCategoryScheme([...categories].sort())
+    const triples = scheme.triples(used)
     // The scheme has no blank nodes, but it goes through the same path so
     // there is only one way to write into a graph.
     const written = await this.#writeGrouped(graph, triples.map(triple => [triple]))
-    return { graph, tripleCount: written }
+    // A category in the data that the vocabulary does not describe is written
+    // with a label and nothing else. Reported rather than dropped: it is a real
+    // facet value that plugins are using, and the vocabulary is what needs
+    // extending, not the data that needs discarding.
+    const undescribed = scheme.undescribed(used)
+    if (undescribed.length > 0) {
+      logger.warn(
+        `[ingest] ${undescribed.length} categories are in the data but not in ${file}: ` +
+        `${undescribed.join(', ')}. They have a label and no definition, synonyms or alignment.`
+      )
+    }
+    return { graph, tripleCount: written, undescribed, unused: scheme.unused(used) }
   }
 
   /**

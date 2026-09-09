@@ -86,6 +86,8 @@ export class SearchService {
     this.documents = new Map()
     /** @type {Map<string, object>} graph IRI to its provenance and licence */
     this.sources = new Map()
+    /** @type {Map<string, object>} category slug to its concept */
+    this.categories = new Map()
     this.lexical = new LexicalIndex()
   }
 
@@ -108,6 +110,28 @@ export class SearchService {
       })
     }
 
+    // The category scheme, 28 concepts, loaded once: a category page and a
+    // category document both want the same few facts about one concept, and
+    // joining for them per request would be a query to answer a lookup.
+    this.categories = new Map()
+    const prefix = `${NAMESPACES.pu}category/`
+    const list = value => (value ? value.split('|').filter(Boolean) : [])
+    for (const row of await this.client.select(this.queries.get('plugin/concept-scheme', {}))) {
+      if (!row.concept.startsWith(prefix)) continue
+      this.categories.set(row.concept.slice(prefix.length), {
+        slug: row.concept.slice(prefix.length),
+        iri: row.concept,
+        prefLabel: row.prefLabel,
+        definition: row.definition ?? null,
+        scopeNote: row.scopeNote ?? null,
+        broader: row.broader ? row.broader.slice(prefix.length) : null,
+        altLabels: list(row.altLabels).sort(),
+        narrower: list(row.narrowerConcepts).map(c => c.slice(prefix.length)).sort(),
+        related: list(row.relatedConcepts).map(c => c.slice(prefix.length)).sort(),
+        closeMatches: list(row.closeMatches).sort()
+      })
+    }
+
     const rows = await this.client.select(this.queries.get('plugin/text-view', {}))
     this.documents = new Map(rows.map(row => [row.plugin, {
       iri: row.plugin,
@@ -124,6 +148,9 @@ export class SearchService {
       description: row.description ?? null,
       roles: row.roles ? row.roles.split(', ').filter(Boolean) : [],
       categories: row.categories ? row.categories.split(', ').filter(Boolean) : [],
+      // Synonyms for the plugin's categories. Searched, not displayed: they
+      // exist so that a person typing "echo" finds a delay.
+      categoryAltLabels: row.categoryAltLabels ? row.categoryAltLabels.split(', ').filter(Boolean) : [],
       formats: row.formats ? row.formats.split(', ').filter(Boolean) : [],
       tags: row.tags ? row.tags.split(', ').filter(Boolean) : [],
       parameters: row.parameters ? row.parameters.split(', ').filter(Boolean) : [],
@@ -252,6 +279,11 @@ export class SearchService {
       offset: from,
       order
     }
+  }
+
+  /** One category concept, or null. */
+  concept (slug) {
+    return this.categories.get(slug) ?? null
   }
 
   /** Facet values and their counts, driven by the data. */

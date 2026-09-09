@@ -93,20 +93,29 @@ export function pluginTurtle (doc) {
 }
 
 /** Turtle for one category concept and its members. */
-export function categoryTurtle (slug, results) {
-  const concept = `${NAMESPACES.pu}category/${slug}`
+export function categoryTurtle (slug, results, concept = null) {
+  const iriOf = `${NAMESPACES.pu}category/${slug}`
+  const category = value => iri(`${NAMESPACES.pu}category/${value}`)
   const lines = [
     `@prefix pu: <${NAMESPACES.pu}> .`,
     `@prefix skos: <${NAMESPACES.skos}> .`,
     '',
-    `${iri(concept)}`,
+    `${iri(iriOf)}`,
     '    a skos:Concept ;',
-    `    skos:inScheme ${iri(`${NAMESPACES.pu}categories`)} ;`,
-    `    skos:prefLabel ${literal(slug)} .`,
-    ''
+    `    skos:inScheme ${iri(`${NAMESPACES.pu}categories`)} ;`
   ]
+  // Everything the scheme holds about this concept, so that dereferencing the
+  // IRI returns the concept rather than a stub of it.
+  for (const label of concept?.altLabels ?? []) lines.push(`    skos:altLabel ${literal(label)} ;`)
+  if (concept?.definition) lines.push(`    skos:definition ${literal(concept.definition)} ;`)
+  if (concept?.scopeNote) lines.push(`    skos:scopeNote ${literal(concept.scopeNote)} ;`)
+  if (concept?.broader) lines.push(`    skos:broader ${category(concept.broader)} ;`)
+  for (const narrower of concept?.narrower ?? []) lines.push(`    skos:narrower ${category(narrower)} ;`)
+  for (const related of concept?.related ?? []) lines.push(`    skos:related ${category(related)} ;`)
+  for (const match of concept?.closeMatches ?? []) lines.push(`    skos:closeMatch ${iri(match)} ;`)
+  lines.push(`    skos:prefLabel ${literal(concept?.prefLabel ?? slug)} .`, '')
   for (const result of results) {
-    lines.push(`${iri(result.iri)} pu:category ${iri(concept)} .`)
+    lines.push(`${iri(result.iri)} pu:category ${iri(iriOf)} .`)
   }
   return lines.join('\n')
 }

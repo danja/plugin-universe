@@ -48,6 +48,10 @@ export class LexicalIndex {
         ...tokenise(doc.description),
         ...(doc.roles ?? []).flatMap(tokenise),
         ...(doc.categories ?? []).flatMap(tokenise),
+        // A category's alternative labels, so "reverberation" reaches a reverb.
+        // In the body rather than the name field: a synonym of a category is
+        // weaker evidence than the plugin's own name and must not outrank it.
+        ...(doc.categoryAltLabels ?? []).flatMap(tokenise),
         ...(doc.tags ?? []).flatMap(tokenise),
         ...(doc.parameters ?? []).flatMap(tokenise)
       ])

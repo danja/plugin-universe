@@ -1,0 +1,27 @@
+# The category concept scheme as the store holds it.
+#
+# Loaded once at startup beside the source provenance: 28 concepts, and every
+# category page and category document needs the same handful of facts about
+# one of them. Narrower is asserted at ingest rather than inferred, because
+# nothing in the store infers, and a category page that wants its children has
+# to be able to ask for them.
+SELECT ?concept ?prefLabel ?definition ?scopeNote ?broader
+       (GROUP_CONCAT(DISTINCT ?altLabel;   separator="|") AS ?altLabels)
+       (GROUP_CONCAT(DISTINCT ?narrower;   separator="|") AS ?narrowerConcepts)
+       (GROUP_CONCAT(DISTINCT ?related;    separator="|") AS ?relatedConcepts)
+       (GROUP_CONCAT(DISTINCT ?closeMatch; separator="|") AS ?closeMatches)
+WHERE {
+  GRAPH ?g {
+    ?concept a skos:Concept ;
+             skos:prefLabel ?prefLabel .
+    OPTIONAL { ?concept skos:definition ?definition }
+    OPTIONAL { ?concept skos:scopeNote  ?scopeNote }
+    OPTIONAL { ?concept skos:broader    ?broader }
+    OPTIONAL { ?concept skos:altLabel   ?altLabel }
+    OPTIONAL { ?concept skos:narrower   ?narrower }
+    OPTIONAL { ?concept skos:related    ?related }
+    OPTIONAL { ?concept skos:closeMatch ?closeMatch }
+  }
+}
+GROUP BY ?concept ?prefLabel ?definition ?scopeNote ?broader
+ORDER BY ?prefLabel

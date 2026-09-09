@@ -1,0 +1,276 @@
+@prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix lv2:     <http://lv2plug.in/ns/lv2core#> .
+@prefix pu:      <http://purl.org/stuff/plugin-universe/> .
+@prefix pucat:   <http://purl.org/stuff/plugin-universe/category/> .
+
+## Plugin Universe category scheme
+##
+## The taxonomy this catalogue sorts plugins by. A SKOS concept scheme, not an
+## OWL class hierarchy: these are subject headings, and a plugin belongs to
+## several of them without that meaning anything about its type.
+##
+## This file is the source. It used to be a JavaScript object literal inside
+## PluginSerialiser.js holding nothing but parent links, which is why the scheme
+## in the store had four predicates and no way to say what a category meant or
+## what it was called elsewhere.
+##
+## Three things are recorded here that a bare hierarchy cannot hold:
+##
+##  - **skos:altLabel** — what a person might type instead. These feed the
+##    lexical signal, so searching "reverberation" or "echo" reaches the same
+##    plugins as "reverb" or "delay". They are deliberately words a *user*
+##    would use, not synonyms in the abstract.
+##  - **skos:definition** — the boundary. Categories are assigned by mapping
+##    from vendor tags and LV2 classes, and the mapping is only reviewable if
+##    somebody wrote down what the target means.
+##  - **skos:closeMatch** — the same idea in someone else's vocabulary, which
+##    is what lets an LV2 bundle's own class be honoured rather than discarded.
+##
+## On the LV2 alignments: every lv2: class named here was verified against the
+## LV2 plugins installed on the development machine. Classes that sound right
+## but were not attested are not asserted — `lv2:EffectPlugin` in particular
+## appears in some bundles in the wild and is not in the set that could be
+## confirmed, so `pucat:effect` has no LV2 match rather than a guessed one.
+##
+## On AUFX-O: vocabs/alignment.ttl maps this project's *structure* to AUFX-O and
+## deliberately stops at terms that could be confirmed. Effect-type alignment
+## (aufx: equivalents of reverb, delay, and so on) is not asserted here for the
+## same reason and is left for a pass that can check the published ontology.
+
+pu:categories a skos:ConceptScheme ;
+    rdfs:label "Plugin Universe categories" ;
+    dcterms:description "Subject headings for audio plugins, mapped from vendor tags, LV2 plugin classes and curated roles." ;
+    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> ;
+    skos:hasTopConcept pucat:effect , pucat:instrument , pucat:utility , pucat:midi , pucat:guitar .
+
+## ── Top concepts ────────────────────────────────────────────────────────────
+
+pucat:effect a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:topConceptOf pu:categories ;
+    skos:prefLabel "effect" ;
+    skos:altLabel "fx" , "audio effect" , "processor" , "insert" ;
+    skos:definition "Processes an incoming audio signal. The complement of an instrument, which generates one." .
+
+pucat:instrument a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:topConceptOf pu:categories ;
+    skos:prefLabel "instrument" ;
+    skos:altLabel "virtual instrument" , "sound source" , "vsti" , "sound generator" ;
+    skos:definition "Generates audio, usually in response to notes. The complement of an effect." ;
+    skos:closeMatch lv2:InstrumentPlugin .
+
+pucat:utility a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:topConceptOf pu:categories ;
+    skos:prefLabel "utility" ;
+    skos:altLabel "tool" , "helper" , "routing" , "housekeeping" ;
+    skos:definition "Does a job in the signal path without being heard: routing, gain staging, format conversion, metering." ;
+    skos:closeMatch lv2:UtilityPlugin .
+
+pucat:midi a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:topConceptOf pu:categories ;
+    skos:prefLabel "midi" ;
+    skos:altLabel "midi effect" , "note effect" , "midi processor" ;
+    skos:definition "Operates on notes and control messages rather than on audio." ;
+    skos:closeMatch lv2:MIDIPlugin .
+
+pucat:guitar a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:topConceptOf pu:categories ;
+    skos:prefLabel "guitar" ;
+    skos:altLabel "pedal" , "stompbox" , "cabinet" , "guitar effect" ;
+    skos:definition "Built for electric guitar or bass: amp and cabinet simulation, and the pedal-shaped effects that go with them." ;
+    skos:related pucat:amp , pucat:distortion .
+
+## ── Effects ─────────────────────────────────────────────────────────────────
+
+pucat:dynamics a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "dynamics" ;
+    skos:altLabel "dynamic range" , "gate" , "expander" , "envelope shaper" ;
+    skos:definition "Changes level as a function of level: compression, limiting, gating, expansion." ;
+    skos:broader pucat:effect ;
+    skos:closeMatch lv2:DynamicsPlugin .
+
+pucat:compressor a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "compressor" ;
+    skos:altLabel "compression" , "comp" , "bus compressor" , "glue" ;
+    skos:definition "Reduces dynamic range by attenuating signal above a threshold." ;
+    skos:broader pucat:dynamics ;
+    skos:related pucat:limiter ;
+    skos:closeMatch lv2:CompressorPlugin .
+
+pucat:limiter a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "limiter" ;
+    skos:altLabel "limiting" , "brickwall" , "maximiser" , "maximizer" ;
+    skos:definition "Compression at a ratio high enough that the output does not exceed a ceiling." ;
+    skos:broader pucat:dynamics ;
+    skos:closeMatch lv2:LimiterPlugin .
+
+pucat:reverb a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "reverb" ;
+    skos:altLabel "reverberation" , "hall" , "room" , "plate" , "spring" , "convolution" , "ambience" , "space" ;
+    skos:definition "Simulates the reflections of a space, real or invented." ;
+    skos:broader pucat:effect ;
+    skos:related pucat:spatial ;
+    skos:closeMatch lv2:ReverbPlugin .
+
+pucat:delay a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "delay" ;
+    skos:altLabel "echo" , "tape delay" , "ping pong" , "slapback" ;
+    skos:definition "Repeats the signal after a measured interval, usually with feedback." ;
+    skos:broader pucat:effect ;
+    skos:related pucat:reverb ;
+    skos:closeMatch lv2:DelayPlugin .
+
+pucat:distortion a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "distortion" ;
+    skos:altLabel "overdrive" , "fuzz" , "drive" , "clipping" , "bitcrusher" ;
+    skos:definition "Adds harmonics by non-linear processing, from gentle colouration to deliberate destruction." ;
+    skos:broader pucat:effect ;
+    skos:closeMatch lv2:DistortionPlugin .
+
+pucat:saturation a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "saturation" ;
+    skos:altLabel "warmth" , "tape saturation" , "analogue warmth" , "analog warmth" , "exciter" , "harmonic exciter" ;
+    skos:definition "Distortion mild enough to be heard as colour rather than as an effect — tape, tube and transformer emulation." ;
+    skos:broader pucat:distortion ;
+    skos:closeMatch lv2:WaveshaperPlugin .
+
+pucat:modulation a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "modulation" ;
+    skos:altLabel "chorus" , "flanger" , "phaser" , "tremolo" , "vibrato" , "lfo" ;
+    skos:definition "Varies a parameter over time, usually pitch or delay, usually periodically." ;
+    skos:broader pucat:effect ;
+    skos:closeMatch lv2:ModulatorPlugin .
+
+pucat:eq a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "eq" ;
+    skos:altLabel "equaliser" , "equalizer" , "tone control" , "shelf" , "parametric" ;
+    skos:definition "Adjusts level per frequency band." ;
+    skos:broader pucat:effect ;
+    skos:related pucat:filter ;
+    skos:closeMatch lv2:EQPlugin , lv2:ParaEQPlugin , lv2:MultiEQPlugin .
+
+pucat:filter a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "filter" ;
+    skos:altLabel "lowpass" , "highpass" , "bandpass" , "cutoff" , "resonance" , "wah" ;
+    skos:definition "Attenuates part of the spectrum, typically with a movable cutoff and resonance." ;
+    skos:broader pucat:effect ;
+    skos:related pucat:eq ;
+    skos:closeMatch lv2:FilterPlugin , lv2:LowpassPlugin , lv2:HighpassPlugin , lv2:BandpassPlugin .
+
+pucat:spatial a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "spatial" ;
+    skos:altLabel "stereo" , "panner" , "imaging" , "width" , "surround" , "binaural" ;
+    skos:definition "Places or widens a signal in the stereo or surround field." ;
+    skos:broader pucat:effect ;
+    skos:closeMatch lv2:SpatialPlugin .
+
+pucat:amp a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "amp" ;
+    skos:altLabel "amp sim" , "amplifier simulation" , "cabinet simulation" , "head" , "combo" ;
+    skos:definition "Simulates a guitar or bass amplifier and its cabinet." ;
+    skos:scopeNote "Not lv2:AmplifierPlugin, which means a gain stage — a false friend worth stating, since the names match and the meanings do not. lv2:SimulatorPlugin is the closer LV2 class." ;
+    skos:broader pucat:guitar ;
+    skos:closeMatch lv2:SimulatorPlugin .
+
+## ── Instruments ─────────────────────────────────────────────────────────────
+
+pucat:synth a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "synth" ;
+    skos:altLabel "synthesiser" , "synthesizer" , "subtractive" , "fm" , "wavetable" , "additive" ;
+    skos:definition "Generates sound from oscillators or algorithms rather than from recordings." ;
+    skos:broader pucat:instrument .
+
+pucat:granular a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "granular" ;
+    skos:altLabel "granular synthesis" , "grain" , "texture" ;
+    skos:definition "Builds sound from many short fragments of a source." ;
+    skos:broader pucat:synth ;
+    skos:related pucat:sampler .
+
+pucat:sampler a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "sampler" ;
+    skos:altLabel "sample player" , "rompler" , "sample library" , "soundfont" ;
+    skos:definition "Plays back recorded audio, mapped across pitch and velocity." ;
+    skos:broader pucat:instrument .
+
+pucat:generator a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "generator" ;
+    skos:altLabel "tone generator" , "noise" , "signal generator" , "test tone" ;
+    skos:definition "Produces a signal without being played: tones, noise, test signals." ;
+    skos:broader pucat:instrument ;
+    skos:closeMatch lv2:GeneratorPlugin , lv2:OscillatorPlugin .
+
+pucat:drums a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "drums" ;
+    skos:altLabel "drum machine" , "percussion" , "beat" , "kit" , "808" ;
+    skos:definition "Drum and percussion instruments, whether sampled or synthesised." ;
+    skos:broader pucat:instrument .
+
+pucat:bass a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "bass" ;
+    skos:altLabel "bass guitar" , "sub" , "bassline" , "808 bass" ;
+    skos:definition "Instruments for the bass register, sampled or synthesised." ;
+    skos:broader pucat:instrument .
+
+pucat:piano a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "piano" ;
+    skos:altLabel "keys" , "electric piano" , "rhodes" , "wurlitzer" , "keyboard" ;
+    skos:definition "Piano and electric piano instruments." ;
+    skos:broader pucat:instrument .
+
+pucat:organ a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "organ" ;
+    skos:altLabel "hammond" , "drawbar" , "tonewheel" , "leslie" ;
+    skos:definition "Organ instruments, and the rotary speakers that go with them." ;
+    skos:broader pucat:instrument .
+
+## ── Utility and MIDI ────────────────────────────────────────────────────────
+
+pucat:analysis a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "analysis" ;
+    skos:altLabel "analyser" , "analyzer" , "spectrum" , "meter" , "metering" , "oscilloscope" , "tuner" , "loudness" ;
+    skos:definition "Measures and displays the signal without changing it." ;
+    skos:broader pucat:utility ;
+    skos:closeMatch lv2:AnalyserPlugin .
+
+pucat:mixing a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "mixing" ;
+    skos:altLabel "mixer" , "bus" , "console" , "summing" ;
+    skos:definition "Combines or routes several signals." ;
+    skos:broader pucat:utility ;
+    skos:closeMatch lv2:MixerPlugin .
+
+pucat:sequencer a skos:Concept ;
+    skos:inScheme pu:categories ;
+    skos:prefLabel "sequencer" ;
+    skos:altLabel "step sequencer" , "arpeggiator" , "arp" , "pattern" , "euclidean" ;
+    skos:definition "Generates note sequences rather than notes played by hand." ;
+    skos:broader pucat:midi .
