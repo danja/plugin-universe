@@ -1,0 +1,38 @@
+# Plugin Universe — an open, machine-readable catalogue of audio plugins.
+# https://plugin-universe.com
+#
+# The catalogue data is CC0. It is meant to be read, indexed, mirrored and
+# built on, so this file is permissive on purpose. What it excludes is what
+# costs a crawler and this server effort for nothing.
+#
+# Contact and crawler policy: https://plugin-universe.com/about/crawler
+# This project runs a crawler of its own and holds itself to the same terms it
+# asks of others; if anything here is unclear, the address above is a person.
+
+User-agent: *
+Allow: /
+
+# Search results are an unbounded URL space: every distinct query string is
+# another page that exists only because it was asked for. Nothing there is not
+# already reachable from a plugin page or a category.
+Disallow: /search
+Disallow: /*?q=
+
+# Faceted browsing is combinatorial for the same reason — seven facets against
+# seventy-odd pages. Plain paging of the front listing is allowed, and between
+# that and the category pages every plugin in the catalogue is reachable.
+Disallow: /*?
+Allow: /*?from=
+
+# The sign-in flow. Nothing to index, and following it mints state a crawler
+# has no use for.
+Disallow: /auth/
+
+# A courtesy, not a limit — this runs on one small server. Crawlers that ignore
+# Crawl-delay are not doing anything wrong; the rate here is trivially served.
+Crawl-delay: 1
+
+# On automated and AI crawlers: they are not excluded, and that is deliberate
+# rather than an oversight. The point of publishing a CC0 catalogue with
+# content-negotiated RDF and an agent-facing API is to be read by machines. If
+# that judgement should change, it is one User-agent block in this file.

@@ -19,7 +19,7 @@ import path from 'path'
  * — which is the same failure with the directory itself forgotten.
  */
 
-const CONFIGS = ['vitest.core.config.js', 'vitest.store.config.js']
+const CONFIGS = ['vitest.core.config.js', 'vitest.store.config.js', 'vitest.live.config.js']
 
 /** The `tests/<dir>/` prefixes a config's include globs cover. */
 function coveredDirectories (configFile) {
@@ -64,11 +64,25 @@ describe('the test suites cover every test', () => {
       .toEqual([])
   })
 
-  it('keeps the core and store suites disjoint', () => {
-    // The split is the point: core must stay runnable with nothing running.
-    const core = new Set(coveredDirectories('vitest.core.config.js'))
-    const store = coveredDirectories('vitest.store.config.js')
-    const both = store.filter(dir => core.has(dir))
-    expect(both, `tests/${both.join(', ')} is in both suites`).toEqual([])
+  it('keeps the suites disjoint', () => {
+    // The split is the point: core must stay runnable with nothing running,
+    // and the live suite must not be reachable from a run that was meant to
+    // stay on this machine.
+    for (const [a, b] of [
+      ['vitest.core.config.js', 'vitest.store.config.js'],
+      ['vitest.core.config.js', 'vitest.live.config.js'],
+      ['vitest.store.config.js', 'vitest.live.config.js']
+    ]) {
+      const first = new Set(coveredDirectories(a))
+      const both = coveredDirectories(b).filter(dir => first.has(dir))
+      expect(both, `tests/${both.join(', ')} is in both ${a} and ${b}`).toEqual([])
+    }
+  })
+
+  it('keeps the live tests out of the catch-all configuration', () => {
+    // vitest.config.js includes tests/**, which would sweep the live suite into
+    // `npm run test:all` and fire requests at production from a local run.
+    const config = fs.readFileSync('vitest.config.js', 'utf8')
+    expect(config, 'vitest.config.js does not exclude tests/live/').toMatch(/exclude:[\s\S]*tests\/live/)
   })
 })

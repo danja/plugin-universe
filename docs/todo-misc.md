@@ -12,3 +12,5 @@ this file is the inbox, not the record.
 * create company/developer profiles, so such paid users can advertise themselves
 
 * text data should be stored in markdown format : where appropriate use templating and the marked library for rendering
+
+* layout on small screen is good, but large screen only shows as a narrow column in the middle. We need a hamburger menu and/or suitable content in the side columns

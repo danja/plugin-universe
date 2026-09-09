@@ -11,6 +11,7 @@
   "scripts": {
     "test": "vitest run --config vitest.core.config.js",
     "test:store": "vitest run --config vitest.store.config.js",
+    "test:live": "vitest run --config vitest.live.config.js",
     "test:all": "vitest run",
     "test:watch": "vitest",
     "store:up": "docker compose up -d fuseki",

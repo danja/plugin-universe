@@ -137,9 +137,12 @@ change, and a long one rarely does.
 
 - ES modules throughout. Node ≥ 20.
 - Scripts are run from the repository root.
-- Vitest, with separate core / sparql / integration configurations. Mocking is only allowed for
-  trivial arithmetic-style unit checks; every other test must assume the live services defined in
-  `config/config.json` are reachable and interact with them directly.
+- Vitest, with separate core / store / live configurations. `npm test` is core (no services),
+  `npm run test:store` needs Fuseki and Ollama, `npm run test:live` tests the **deployed site**
+  over the internet and is never part of a sweep — `tests/rdf/suite-coverage.test.js` binds each
+  test directory to the configuration that runs it and keeps the three disjoint.
+- Mocking is only allowed for trivial arithmetic-style unit checks; every other test must assume
+  the live services defined in `config/config.json` are reachable and interact with them directly.
 - SPARQL queries live in files under `sparql/queries/<category>/<name>.sparql`, loaded by name
   through `QueryService`. Prefixes come from `NamespaceManager`, so a query cannot use a prefix the
   code does not know about. Placeholders are `${name}` and every one must be supplied — an unfilled

@@ -108,6 +108,51 @@ docker compose run --rm app node bin/validate.js
 
 ---
 
+## 3a. Check the deployment from outside — `npm run test:live`
+
+There is now a suite that tests **the deployed site** rather than a copy of it:
+
+```sh
+npm run test:live                                    # against plugin-universe.com
+LIVE_BASE_URL=https://staging.example npm run test:live   # or anywhere else
+```
+
+27 checks, about five seconds, a couple of dozen requests with the project's own
+user agent. It is deliberately not part of `npm test`: a red build should mean
+the code is wrong, not that somebody else's DNS is.
+
+It covers the class of failure that cannot happen locally — a container that was
+never rebuilt, an ingest run on the wrong machine, a redirect, a certificate, a
+reverse-proxy rule. In particular it checks from outside that **no Fuseki path
+answers**, which is the worst mistake available in this deployment, and it
+follows the full PURL chain through purl.org and hyperdata.it to confirm content
+negotiation survives all four redirects.
+
+Several checks fail specifically if the code was deployed and the **ingest was
+not** — the enriched category scheme, the synonym search, the first-seen dates.
+That state looks perfectly healthy from every other angle, which is why it is
+worth a test.
+
+**Run it after every deploy.** When I ran it, 27 of 27 passed, so §1–§3 are
+confirmed done rather than assumed: 752 plugins, index and corpus in step,
+sign-in enabled, the scheme and the dates both present.
+
+**It is now 28, and one of them fails until you deploy again.** `/robots.txt`
+exists in the repository and is served by the app, but the running container
+predates it, so the live check for it 404s. That is the suite doing its job —
+it is the difference between "committed" and "deployed", which is exactly the
+gap this suite is for. Redeploy as in §1 and it goes green:
+
+```sh
+cd /home/github/plugin-universe && git pull
+docker compose build app && docker compose up -d app
+```
+
+No ingest needed for this one — `robots.txt` is a file in the image, not data.
+
+- [x] live suite passing except the robots.txt check
+- [ ] redeployed, and `npm run test:live` fully green
+
 ## 4. The GitHub sweep
 
 Built, tested, and never run at scale — this host's connection makes it
@@ -229,6 +274,30 @@ docker compose run --rm app node bin/grant.js --list
 queue is reachable from the account bar in the header.
 
 ---
+
+## Found by the live check
+
+* ~~**There is no `/robots.txt`**~~ — written, served by the app at
+  `/robots.txt`, and pending a redeploy. It is permissive by intent: the
+  catalogue is CC0 and meant to be indexed. What it excludes is the unbounded
+  URL space — search results and faceted browsing — while leaving plain paging
+  of the front listing crawlable, so every plugin stays reachable. It does not
+  exclude AI or automated crawlers, deliberately: publishing content-negotiated
+  RDF and an agent-facing API and then blocking machines would be incoherent.
+  **That is a judgement, not a technicality — it is one `User-agent` block to
+  reverse if you disagree.** It also names no unlisted path: a `Disallow` line
+  is public, so listing `/moderation` would undo the reason it answers 404.
+  * **No `Sitemap:` line yet**, because there is no sitemap and a robots.txt
+    pointing at a 404 is the same defect as a user agent advertising a contact
+    page that does not exist. A sitemap is worth having for 752 plugin pages —
+    say the word.
+* **`sparql.plugin-universe.com` returns 404 and `mcp.` does not resolve.** Both
+  are Phase 5 and neither is wrong yet — worth knowing that the DNS for one
+  exists and the other does not, so there is no half-configured subdomain
+  quietly serving the main site.
+* Everything else checked clean: HSTS, `nosniff`, `strict-origin-when-cross-origin`,
+  CORS open on the JSON, `GET /auth/logout` refused with 405, an unauthenticated
+  correction refused with 401, `/moderation` invisible at 404.
 
 ## Housekeeping, no hurry
 

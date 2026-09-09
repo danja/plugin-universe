@@ -110,6 +110,19 @@ export const VOCABULARIES = Object.freeze({
   shapes: 'vocabs/shapes.ttl'
 })
 
+/**
+ * Files served verbatim from the repository, by exact path.
+ *
+ * A whitelist by name rather than a static directory: "serve whatever is at the
+ * root" is one stray file away from serving something that was never meant to
+ * leave the machine. Their existence is checked at startup, for the same reason
+ * the prose pages are — `docs/` was excluded by `.dockerignore` once and the
+ * only symptom was three routes returning 500 in production.
+ */
+export const STATIC_FILES = Object.freeze({
+  '/robots.txt': { file: 'robots.txt', type: 'text/plain; charset=utf-8' }
+})
+
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null, authProblem = null
 }) {
@@ -120,7 +133,7 @@ export function createServer ({
   // .dockerignore — and the symptom was a 500 on three routes while everything
   // else looked healthy. A container that will not start is far easier to
   // notice than one that is quietly broken in one corner.
-  const missing = Object.entries(PAGES)
+  const missing = [...Object.entries(PAGES), ...Object.entries(STATIC_FILES)]
     .filter(([, page]) => !fs.existsSync(pathJoin(projectRoot, page.file)))
     .map(([route, page]) => `${route} → ${page.file}`)
   if (missing.length > 0) {
@@ -345,6 +358,12 @@ export function createServer ({
             message,
             viewer
           }), 'text/html; charset=utf-8')
+        }
+
+        case '/robots.txt': {
+          const served = STATIC_FILES[path]
+          const body = await fs.promises.readFile(pathJoin(projectRoot, served.file), 'utf8')
+          return sendText(response, 200, body, served.type)
         }
 
         case '/ns': {
