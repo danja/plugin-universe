@@ -133,6 +133,21 @@ export class BackupBuilder {
   /** Read a backup's manifest, or say clearly why it cannot be used. */
   static async readManifest (directory) {
     const file = path.join(directory, 'MANIFEST.json')
+    // "No manifest" and "no such directory" are different problems and were
+    // reported as the same one. Inside a container the usual cause is the
+    // second: the backups live on the host and nothing mounted them.
+    if (!fs.existsSync(directory)) {
+      const parent = path.dirname(directory)
+      const siblings = fs.existsSync(parent)
+        ? fs.readdirSync(parent).filter(entry => !entry.startsWith('.')).sort().slice(-5)
+        : []
+      throw new BackupError(
+        `${directory} does not exist.` +
+        (siblings.length
+          ? ` ${parent} holds: ${siblings.join(', ')}`
+          : ` Neither does ${parent}. If this is running in a container, the backups are on the ` +
+            'host and need mounting: docker compose run --rm -v /var/backups/plugin-universe:/backups app …'))
+    }
     if (!fs.existsSync(file)) throw new BackupError(`${directory} has no MANIFEST.json; it is not a backup.`)
     const manifest = JSON.parse(await fs.promises.readFile(file, 'utf8'))
     if (manifest.format !== 'turtle-per-graph/1') {

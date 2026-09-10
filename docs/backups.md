@@ -136,12 +136,22 @@ Destructive, and it asks you to mean it. Naming the dataset rather than passing
 `--yes` is deliberate: a restore that a typo can trigger is a second way to lose
 the data it protects.
 
+Here, where the backups and the code are on the same machine:
+
 ```sh
 node bin/restore.js /chalet/plugin-universe-backups/essential/<stamp>
 # prints what it would DROP and rewrite, and does nothing
 
 node bin/restore.js <dir> --into plugin-universe
 node bin/restore.js <dir> --into plugin-universe --graph graph:system/accounts
+```
+
+On the server the app runs in a container and the backups do not, so they have
+to be mounted — and the path inside is `/backups`, not `/var/backups`:
+
+```sh
+docker compose run --rm -v /var/backups/plugin-universe:/backups \
+  app node bin/restore.js /backups/essential/<stamp>
 ```
 
 Each graph is dropped, reloaded, and **counted afterwards**; a count that does

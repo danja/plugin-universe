@@ -30,12 +30,19 @@ sudo /etc/cron.daily/plugin-universe-backup
 The second file carries `PU_BACKUP_GROUP=danny`. Without it the permissions hold
 only because you set them by hand, and tomorrow's backup undoes that.
 
-**Rehearse a restore on the server.** It touches nothing without `--into`:
+**Rehearse a restore on the server.** It touches nothing without `--into`.
+
+The backups are on the host and the app runs in a container, so they have to be
+mounted — the same `-v` the nightly job uses:
 
 ```sh
-docker compose run --rm app node bin/restore.js \
-  /var/backups/plugin-universe/essential/<stamp>
+ls /var/backups/plugin-universe/essential          # pick a full timestamp
+
+docker compose run --rm -v /var/backups/plugin-universe:/backups \
+  app node bin/restore.js /backups/essential/<stamp>
 ```
+
+Note the path is `/backups/...` inside the container, not `/var/backups/...`.
 
 Reading what it prints tells you whether the backup holds what you think. Doing
 it now means the first time you read that output is not during an incident.
