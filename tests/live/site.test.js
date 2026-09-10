@@ -373,15 +373,6 @@ describe.skipIf(!sparqlLive)('the public SPARQL endpoint', () => {
     expect(Number(results.results.bindings[0].n.value)).toBeGreaterThan(1000)
   })
 
-  it('holds no accounts and no pending contributions', async () => {
-    // The assertion this whole design exists for. Asked of the endpoint
-    // directly rather than inferred from what was loaded into it.
-    for (const graph of ['graph:system/accounts', 'graph:system/corrections']) {
-      const results = await (await ask(`SELECT * WHERE { GRAPH <${graph}> { ?s ?p ?o } } LIMIT 1`)).json()
-      expect(results.results.bindings.length, `${graph} is readable from the public endpoint`).toBe(0)
-    }
-  })
-
   it('exposes no way to write', async () => {
     // The dataset behind it has no update operation defined at all, so this
     // should fail at the proxy and again at Fuseki.
@@ -406,6 +397,49 @@ describe('the endpoint that is not there yet', () => {
     }
     expect(typeof sparqlLive).toBe('boolean')
   })
+})
+
+/**
+ * Personal data must not be readable from anywhere on the public internet.
+ *
+ * **Not gated on the endpoint being deployed.** This assertion was written
+ * inside the skipped block above, on the reasoning that there is nothing to
+ * check until the endpoint exists — and while it sat there skipped, an older
+ * nginx server block was proxying `sparql.` straight to the live catalogue and
+ * serving `graph:system/accounts` to anyone who asked for it by name.
+ *
+ * "The feature is not deployed" is not a reason to stop asking whether data is
+ * exposed. It is the state in which nobody is looking.
+ */
+describe('nothing anywhere serves personal data', () => {
+  // Every path a SPARQL endpoint has plausibly been mounted at on this host,
+  // whether or not this project put it there.
+  const CANDIDATES = [
+    'https://sparql.plugin-universe.com/public/query',
+    'https://sparql.plugin-universe.com/plugin-universe/query',
+    'https://sparql.plugin-universe.com/query',
+    `${BASE}/plugin-universe/query`,
+    `${BASE}/sparql`
+  ]
+  const PRIVATE = ['graph:system/accounts', 'graph:system/corrections']
+
+  it('returns no account or contribution data from any SPARQL path', async () => {
+    const exposed = []
+    for (const endpoint of CANDIDATES) {
+      for (const graph of PRIVATE) {
+        const query = `SELECT * WHERE { GRAPH <${graph}> { ?s ?p ?o } } LIMIT 1`
+        const response = await fetch(`${endpoint}?query=${encodeURIComponent(query)}`, {
+          headers: { 'User-Agent': AGENT, Accept: 'application/sparql-results+json' },
+          signal: AbortSignal.timeout(20000)
+        }).catch(() => null)
+        // Unreachable is the right answer, and so is a refusal.
+        if (!response || !response.ok) continue
+        const body = await response.json().catch(() => null)
+        if (body?.results?.bindings?.length > 0) exposed.push(`${endpoint} -> ${graph}`)
+      }
+    }
+    expect(exposed, `personal data is readable at: ${exposed.join(', ')}`).toEqual([])
+  }, 60000)
 })
 
 describe('the promises the catalogue makes to other people', () => {
