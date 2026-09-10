@@ -1,0 +1,58 @@
+# The catalogue as an installable registry: plugins that have a released
+# package, with the artefacts and checksums a package manager needs.
+#
+# One row per file, with the plugin and package repeated across the rows of the
+# same package. Architectures, operating systems and contained formats are
+# concatenated per file because a file has several of each and they belong
+# together.
+#
+# Every OPTIONAL is anchored to a variable its own group binds — ?package under
+# ?plugin, ?file under ?package. An OPTIONAL whose subject can be unbound joins
+# against everything, which is how a category's synonyms once attached
+# themselves to every plugin that had no category at all.
+SELECT ?g ?plugin ?registrySlug ?name ?vendor ?description ?licenceId ?homepage ?image
+       ?version ?released ?changes ?verified ?downloads
+       ?file ?downloadUrl ?sha256 ?fileSize ?fileKind
+       (GROUP_CONCAT(DISTINCT ?architecture;     separator="|") AS ?architectures)
+       (GROUP_CONCAT(DISTINCT ?operatingSystem;  separator="|") AS ?systems)
+       (GROUP_CONCAT(DISTINCT ?formatLabel;      separator="|") AS ?contains)
+       (GROUP_CONCAT(DISTINCT ?categoryLabel;    separator="|") AS ?categories)
+       (GROUP_CONCAT(DISTINCT ?tag;              separator="|") AS ?tags)
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile ;
+            rdfs:label ?name ;
+            pu:package ?package .
+    ?package pu:packageVersion ?version .
+
+    OPTIONAL { ?plugin pu:slug ?registrySlug }
+    OPTIONAL { ?plugin trn:vendor ?vendor }
+    OPTIONAL { ?plugin rdfs:comment ?description }
+    OPTIONAL { ?plugin pu:licenceId ?licenceId }
+    OPTIONAL { ?plugin foaf:homepage ?homepage }
+    OPTIONAL { ?plugin foaf:depiction ?image }
+    OPTIONAL { ?plugin pu:verified ?verified }
+    OPTIONAL { ?plugin pu:downloadCount ?downloads }
+    OPTIONAL { ?plugin pu:tag ?tag }
+    OPTIONAL { ?plugin pu:category ?category BIND(REPLACE(STR(?category), "^.*/", "") AS ?categoryLabel) }
+
+    OPTIONAL { ?package dcterms:issued ?released }
+    OPTIONAL { ?package rdfs:comment ?changes }
+
+    OPTIONAL {
+      ?package pu:packageFile ?file .
+      OPTIONAL { ?file pu:downloadUrl ?downloadUrl }
+      OPTIONAL { ?file pu:sha256 ?sha256 }
+      OPTIONAL { ?file pu:fileSize ?fileSize }
+      OPTIONAL { ?file pu:fileKind ?fileKind }
+      OPTIONAL { ?file pu:architecture ?architecture }
+      OPTIONAL { ?file pu:operatingSystem ?operatingSystem }
+      OPTIONAL { ?file pu:containsFormat ?format
+                 BIND(LCASE(REPLACE(STR(?format), "^.*/", "")) AS ?formatLabel) }
+    }
+  }
+}
+GROUP BY ?g ?plugin ?registrySlug ?name ?vendor ?description ?licenceId ?homepage ?image
+         ?version ?released ?changes ?verified ?downloads
+         ?file ?downloadUrl ?sha256 ?fileSize ?fileKind
+ORDER BY ?plugin ?version

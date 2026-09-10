@@ -284,8 +284,21 @@ foundations.
 * **Nothing serves the dumps yet.** They are written to `data/dumps`; deciding how they are
   published — nginx from disk is the obvious answer, since the app has no business streaming
   tens of megabytes — is in `docs/danja-todo.md`.
-* Still to do in this phase: the public SPARQL endpoint at `sparql.`, the MCP face, the
-  open-audio-stack-compatible JSON view, and contributing the user's own plugins upstream.
+* ~~**an open-audio-stack-compatible JSON view**~~ — `/registry/plugins/index.json`, built by
+  `src/api/registry.js`. Federation over competition: OwlPlug and StudioRack read that format,
+  so the catalogue answers in it rather than asking anyone to learn a new one. 559 entries,
+  1.4MB, with the checksums and download URLs a package manager needs.
+  * **The compatibility is demonstrated, not asserted.** `tests/store/registry.test.js` writes
+    the view and reads it back with this project's own `OpenAudioStackHarvester` — written
+    months earlier to consume the real registry and knowing nothing about this — and requires
+    at least 95% of entries to survive. A hand-written shape test could only have checked field
+    names against my own assumptions.
+  * Two rules decide what appears. **Only what is installable**: a plugin with no release is
+    omitted rather than given an invented version, because a registry entry promises an
+    artefact. **Only what may be republished**: the same licence flag that governs the public
+    dump governs this, since publishing in a second format is still publishing.
+* Still to do in this phase: the public SPARQL endpoint at `sparql.`, the MCP face, and
+  contributing the user's own plugins upstream.
 
 ### The conditional link-out deliverable
 

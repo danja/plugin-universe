@@ -9,10 +9,6 @@
   :root { --fg:#e8e6e3; --bg:#16181a; --muted:#9a9a9a; --line:#2e3236; --accent:#7fb8cd; }
 }
 * { box-sizing: border-box; }
-/* Nothing may make the document wider than the screen. A single overflowing
-   element is enough for a browser to lay the page out wide and scale it down,
-   which reads as "everything is too small" rather than as an overflow. */
-html, body { max-width: 100%; overflow-x: hidden; }
 body { margin:0; font:1rem/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
        color:var(--fg); background:var(--bg); }
 .wrap { max-width: 62rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }

@@ -15,6 +15,7 @@ import loadPage, { PAGES } from './pages.js'
 import { send, sendText, needsSignIn, JSON_HEADERS, LICENCE } from './respond.js'
 import { readForm, BodyError } from './body.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
+import buildRegistry from './registry.js'
 import wikiRoutes from '../wiki/routes.js'
 import { renderWikiBlock } from '../wiki/render.js'
 import { TRUST } from '../auth/Accounts.js'
@@ -407,6 +408,18 @@ export function createServer ({
           const served = STATIC_FILES[path]
           const body = await fs.promises.readFile(pathJoin(projectRoot, served.file), 'utf8')
           return sendText(response, 200, body, served.type)
+        }
+
+        // The catalogue as an Open Audio Stack registry, so the tooling that
+        // already reads that format can consume this one. Federation over
+        // competition, from docs/suggestions.md.
+        case '/registry/plugins/index.json': {
+          const rows = await search.client.select(search.queries.get('plugin/registry', {}))
+          const { index, withheld } = buildRegistry(rows, search.sources)
+          if (withheld.length > 0) {
+            logger.info(`[registry] ${withheld.length} plugin(s) withheld: not redistributable`)
+          }
+          return send(response, 200, index)
         }
 
         case '/ns': {

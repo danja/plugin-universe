@@ -381,6 +381,20 @@ describe('the promises the catalogue makes to other people', () => {
     }
   })
 
+  it('publishes an Open Audio Stack compatible registry', async () => {
+    // Federation over competition: the tooling that reads that format can read
+    // this catalogue without learning a new one.
+    const response = await get('/registry/plugins/index.json')
+    expect(response.status).toBe(200)
+    const index = await response.json()
+    const entries = Object.entries(index)
+    expect(entries.length).toBeGreaterThan(100)
+    for (const [slug, entry] of entries.slice(0, 20)) {
+      expect(entry.slug).toBe(slug)
+      expect(entry.versions[entry.version], `${slug} points at a missing version`).toBeTruthy()
+    }
+  })
+
   it('lets a browser call the API, and says the data is public domain', async () => {
     const response = await get('/search?q=reverb&limit=1')
     expect(response.headers.get('access-control-allow-origin')).toBe('*')

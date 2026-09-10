@@ -161,6 +161,27 @@ Two things need you:
 - [ ] decide how dumps are served
 - [ ] decide whether to publish a minimal attribution record
 
+## 3e. Worth telling the Open Audio Stack people about
+
+`/registry/plugins/index.json` now publishes the catalogue in their registry
+format — 559 entries with checksums and download URLs — so OwlPlug and
+StudioRack can consume it without changes. Our own harvester reads it back,
+which is the closest thing to a compatibility proof available without their
+tooling in the loop.
+
+Two things that would be worth doing with a person rather than by me:
+
+* **Tell them it exists.** The terms review picked their registry as the best
+  external source available, and contributing back rather than keeping a better
+  copy privately is the operating principle. A note pointing at the endpoint
+  costs nothing.
+* **Contribute your own plugins upstream** — downspout and flues are in this
+  catalogue and not in theirs, which is the wrong way round for a project whose
+  own documentation argues for federation.
+
+Worth checking with real tooling before announcing it: point OwlPlug at the URL
+and see whether it lists anything.
+
 ## 4. Blockers
 
 **`pluginval` is not installed anywhere.** A JUCE binary from Tracktion covering
