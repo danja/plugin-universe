@@ -7,6 +7,7 @@ import { serialisePlugin, resetBlankCounter } from './PluginSerialiser.js'
 import CategoryScheme from '../rdf/CategoryScheme.js'
 import { parseTurtleFile } from './TurtleReader.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import { termToSparql } from '../store/TurtleLoader.js'
 
 /**
  * Runs a harvester end to end: register the graph, drop what was there, write
@@ -302,20 +303,6 @@ export class IngestPipeline {
     const written = await this.#writeGrouped(graph, [...bySubject.values()])
     return { graph, tripleCount: written }
   }
-}
-
-/** An RDF/JS term as a SPARQL term. Blank node labels are preserved. */
-function termToSparql (term) {
-  if (term.termType === 'NamedNode') return iri(term.value)
-  if (term.termType === 'BlankNode') return `_:${term.value}`
-  if (term.termType === 'Literal') {
-    if (term.language) return `${literal(term.value)}@${term.language}`
-    if (term.datatype && term.datatype.value !== `${NAMESPACES.xsd}string`) {
-      return `${literal(term.value)}^^${iri(term.datatype.value)}`
-    }
-    return literal(term.value)
-  }
-  throw new IngestError(`Cannot write a ${term.termType} term`)
 }
 
 export default IngestPipeline

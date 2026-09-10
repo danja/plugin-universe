@@ -238,10 +238,16 @@ foundations.
   Curated first, then persisted in the store so signed-in contributors can add to them through
   the moderation queue that already exists. Resources are a natural `skos:` collection over
   the same category scheme rather than a new taxonomy.
-* **the wide-screen layout.** Small screens are right now; a large one shows a single narrow
-  column with empty space either side. Wants a hamburger or a sidebar with something worth
-  putting in it — facets, categories, recently added — rather than a wider measure, which would
-  make the prose harder to read, not easier.
+* ~~**the wide-screen layout**~~ — partly done, and worth another look with eyes on it. The
+  container went 52rem → 62rem, and a listing now flows into columns at 58rem and above, which
+  is where the empty space was going. Prose stays capped at 42rem, because a listing is a scan
+  and gains from width where a paragraph loses. A sidebar or a hamburger is still open, and is
+  an editorial question — what is worth putting beside the results — rather than a CSS one.
+* ~~**the mobile type scale**~~ — fixed, and the cause is worth remembering: `rem` is relative
+  to the **root** element, so an earlier fix that set `body { font-size }` moved the paragraph
+  text and left every `.8rem` caption at 12.8px. The scale now hangs off `:root`, which is the
+  only declaration that moves all of it. Search facets sit under the text box, two to a row on
+  a phone rather than four competing with it for one line.
 * ~~**text stored as Markdown, rendered with templating and marked**~~ — done for everything
   authored: wiki prose is Markdown in `pu:wikiText`, the standing documents are the
   repository's own files, and both render through `marked` into `templates/`. A plugin's
@@ -301,24 +307,42 @@ place in this project where the rules bite hardest:
   - Links rot. A link-out graph needs re-checking on a schedule and a way to record a dead link,
     or the catalogue slowly fills with 404s that look like data.
 
-## Backups — nothing else on this list matters as much
+## Backups — built, waiting to be installed
 
 Until Phase 3 the store held nothing that could not be rebuilt: drop it all, re-run the
 harvesters, and the catalogue comes back. That stopped being true the moment a stranger could
-write to it. Corrections, moderation decisions, trust levels, accounts and wiki revisions exist
-**only** in Fuseki. There is no second copy and no way to reconstruct them, and a contributor
-whose work is lost does not contribute twice.
+write to it. Measured on the live store, **203 triples are irreplaceable and 45,067 can be
+re-harvested** — accounts, corrections, moderation decisions, trust levels and wiki revisions
+exist only in Fuseki, and a contributor whose work is lost does not contribute twice.
 
-* **a daily, dated backup of every graph**, run on the server. `bin/dump.js` is not this: it
-  publishes what may be published and deliberately withholds accounts and pending corrections,
-  which are exactly the graphs that cannot be rebuilt. A backup wants everything, including the
-  withheld graphs, and wants to be restorable rather than readable.
-* **a one-off backup script** to run before anything risky — an ingest that drops graphs, a
-  Fuseki upgrade, a schema change.
-* **a restore script, and a test that it works.** An untested backup is a belief, not a backup.
-  Restoring into a scratch dataset and counting triples is the cheap version of proving it.
-* Retention and where they live: the server has one small disk, so dated backups need a
-  rotation policy and ideally somewhere off the machine.
+That ratio is the design. The part worth protecting hardest is 0.4% of the store, so the usual
+objection to frequent off-machine copies does not apply to it.
+
+* ~~a dated nightly backup on the server~~ — `deploy/backup/plugin-universe-backup.sh`, two
+  scopes: `full` kept 7 days for undoing a bad ingest, `essential` kept 90 for the part nothing
+  can rebuild.
+* ~~a one-off backup~~ — `node bin/backup.js [--scope essential]`, before anything risky: an
+  ingest that drops graphs, a Fuseki upgrade, a schema change.
+* ~~a restore script, and a test that it works~~ — `bin/restore.js`, which names what it would
+  drop and does nothing until you name the dataset back. Every graph is counted after loading
+  and a mismatch is an error rather than a success message.
+  `tests/store/backup.test.js` backs a graph up, destroys it, restores it and compares, on
+  every store run — including a blank node, because splitting one across two `INSERT DATA`
+  requests is a defect this project has already shipped.
+* ~~retention and where they live~~ — pulled to `/chalet/plugin-universe-backups` by
+  `deploy/backup/pull-backups.sh`, which runs **here** rather than pushing from the server, so
+  the server holds no credential for this machine. Runbook: [docs/backups.md](docs/backups.md).
+* `bin/dump.js` is **not** a backup and never was: it publishes what may be published and
+  withholds exactly the graphs that cannot be rebuilt.
+
+Still open, both stated in the runbook rather than silently skipped:
+
+* **encryption at rest**, if backups ever leave machines you own — these graphs hold personal
+  data.
+* **retention against erasure.** The contributor terms promise an account can be erased, and
+  erasure is a DROP of two graphs; a backup taken beforehand still holds them. Ninety days of
+  essential backups means up to ninety days before an erasure is complete everywhere. That is
+  defensible, it is not automatic, and an erasure request has to include the backups.
 
 ## Recurring — not a phase, a habit
 

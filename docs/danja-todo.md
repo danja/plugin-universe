@@ -170,21 +170,48 @@ in the profiler is waiting on anything.
 
 ---
 
-## 5. Backups — the thing on this list I would do first
+## 5. Backups — built, needs installing
 
-Until Phase 3 the store held nothing that could not be rebuilt: drop it, re-run
-the harvesters, and the catalogue comes back. That stopped being true when
-strangers could write to it. Accounts, corrections, moderation decisions, trust
-levels and wiki revisions exist **only** in Fuseki, in one container, on one
-disk, with no second copy. `bin/dump.js` is not a backup — it deliberately
-withholds exactly those graphs.
+Written and tested; the runbook is [backups.md](backups.md). Two commands to
+put it in service.
 
-Nothing about this needs a decision from you; it needs a place to put them. Tell
-me whether the backups live on the same disk, somewhere else on the host, or off
-the machine entirely, and I will write the daily job, the one-off script, the
-restore script, and a test that the restore actually works.
+**On the server**, nightly:
 
-- [ ] say where backups should live
+```sh
+sudo install -m 755 deploy/backup/plugin-universe-backup.sh \
+  /etc/cron.daily/plugin-universe-backup
+sudo /etc/cron.daily/plugin-universe-backup     # once, to check it works
+```
+
+**Here**, pulling to `/chalet/plugin-universe-backups/` (the directory exists):
+
+```sh
+export PU_SSH_HOST=hyperdata          # whatever your ssh alias is
+./deploy/backup/pull-backups.sh
+```
+
+Then a cron entry, in `docs/backups.md`.
+
+The pull runs from here rather than pushing from the server, so the server holds
+no credential for this machine — whatever compromises it cannot reach the
+copies. Only the `essential` scope crosses the wire by default: 203 triples
+against 45,000 rebuildable ones, because accounts, contributions and wiki
+revisions exist nowhere else and everything else is a copy of something public.
+
+`tests/store/backup.test.js` backs a graph up, destroys it, restores it and
+compares — on every store run. An untested backup is a belief.
+
+- [ ] install the nightly job on the server
+- [ ] run the pull here once, then add the cron entry
+- [ ] one deliberate whole-dataset restore rehearsal, before it is needed
+
+Two things I did **not** do, both noted in the runbook: no encryption at rest,
+since both ends are yours and the wire is SSH — revisit if backups ever leave
+for storage you do not own, because these graphs hold personal data. And
+retention is not tied to erasure: ninety days of essential backups means up to
+ninety days before an erasure the terms promise is complete everywhere. That is
+defensible, it is not automatic, and if someone asks to be erased the backups
+are part of the job.
 
 ## 6. Decisions that are yours
 

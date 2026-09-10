@@ -67,22 +67,31 @@ describe('on a narrow screen', () => {
     expect(narrow).toMatch(/min-width:\s*0/)
   })
 
-  it('does not shrink the body text', () => {
-    // The complaint was that it was too small, so this must not go the other
-    // way by accident.
-    const size = narrow.match(/body\s*\{[^}]*font-size:\s*([\d.]+)px/)
-    expect(size, 'no body font-size in the narrow block').toBeTruthy()
-    expect(Number(size[1])).toBeGreaterThanOrEqual(16)
+  it('raises the type scale at the root, which is the only place that moves it', () => {
+    // Setting body's font-size leaves every rem-sized caption exactly where it
+    // was, because rem is relative to the root element. That is what "too
+    // small on mobile" turned out to be: corrected paragraphs and 12.8px tags.
+    const root = narrow.match(/:root\s*\{[^}]*font-size:\s*([\d.]+)px/)
+    expect(root, 'the narrow block does not set :root font-size').toBeTruthy()
+    expect(Number(root[1])).toBeGreaterThan(16)
+  })
+
+  it('does not leave the small print at desktop proportions', () => {
+    // .8rem of anything is not a caption size on a handset.
+    const smallest = [...narrow.matchAll(/font-size:\s*([\d.]+)rem/g)].map(match => Number(match[1]))
+    expect(smallest.length).toBeGreaterThan(3)
+    expect(Math.min(...smallest), 'something is still under .85rem on a phone')
+      .toBeGreaterThanOrEqual(0.85)
   })
 
   it('gives a wide table its own scrollbar rather than the document\'s', () => {
     expect(narrow).toMatch(/table\s*\{[^}]*overflow-x:\s*auto/)
   })
 
-  it('breaks the search controls onto their own rows', () => {
-    // Four dropdowns sharing a line on a handset are four controls nobody can
-    // hit.
-    expect(narrow).toMatch(/select[^{]*\{[^}]*width:\s*100%/)
+  it('puts the facets two to a row rather than four across', () => {
+    // Four dropdowns sharing a line with a text field leaves every one of them
+    // too narrow to read its own values.
+    expect(narrow).toMatch(/\.facets select\s*\{[^}]*calc\(50%/)
   })
 })
 

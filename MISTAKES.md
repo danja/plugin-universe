@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-five entries is past the point where anyone reads them all, so what follows
+Twenty-six entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -75,6 +75,34 @@ The check that was run could not, in principle, have caught this class of defect
 found (`assert old in s`) before writing. An edit that silently does nothing is
 worse than one that fails, because it reports success. Where the edit is a
 single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-10 — Fixed the mobile type size by changing something that could not affect it
+
+**What was wrong.** Reported as "too small on mobile". The narrow-screen block
+set `body { font-size: 16.5px }`, up from 15px, and the report came back
+unchanged.
+
+**Root cause.** `rem` is relative to the **root** element, not to `body`.
+Almost every piece of text in this stylesheet is a fraction of a rem —
+`.tags` at `.8rem`, the footer at `.82rem`, `.score` at `.78rem` — so raising
+body's font-size moved the paragraph text and left the captions, badges,
+metadata lines and footer at 12.8px, 13.1px and 12.5px respectively. The half
+of the page a reader actually complains about was the half the fix could not
+reach.
+
+**Prevention.** The scale hangs off `:root` now, which is the one declaration
+that moves all of it, and the narrow block also raises the small print
+explicitly. `tests/api/responsive.test.js` asserts the root is what changes and
+that nothing in the block is left under `.85rem`.
+
+**The wider lesson.** The first fix was plausible, shipped, and did nothing —
+and I described it as done. Reasoning about CSS from the source is exactly as
+reliable as reasoning about a query from its text: it looks right until
+something measures it. There is no browser in this environment, so the arithmetic
+had to stand in — `.8 × 16 = 12.8px` would have shown the problem in one line
+before the first attempt, not after it.
 
 ---
 

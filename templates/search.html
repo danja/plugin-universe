@@ -1,8 +1,10 @@
 <form method="get" action="/">
-  <input type="search" name="q" value="{{query}}" placeholder="warm analogue bus compressor" autofocus>
-  {{{facets}}}
-  <button type="submit">Search</button>
+  <div class="search-row">
+    <input type="search" name="q" value="{{query}}" placeholder="warm analogue bus compressor" autofocus>
+    <button type="submit">Search</button>
+  </div>
+  <div class="facets">{{{facets}}}</div>
 </form>
 {{{summary}}}
-{{{results}}}
+<div class="results">{{{results}}}</div>
 {{{pager}}}
