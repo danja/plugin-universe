@@ -44,6 +44,11 @@ export const PAGES = Object.freeze({
     title: 'Contributor terms',
     description: 'What you agree to when you contribute: CC0 for facts, CC BY-SA for prose.'
   },
+  '/services': {
+    file: 'docs/services.md',
+    title: 'Services',
+    description: 'Every way the Plugin Universe catalogue can be read: web, JSON, RDF, SPARQL, a package registry and MCP.'
+  },
   '/about/mcp': {
     file: 'docs/mcp.md',
     title: 'The MCP endpoint',

@@ -526,8 +526,21 @@ describe('the promises the catalogue makes to other people', () => {
     expect(body).toBe(fs.readFileSync('robots.txt', 'utf8'))
   })
 
+  it('tells a reader how to get at the data, from the front page', async () => {
+    // An endpoint nobody can find is not an endpoint. /services is the one
+    // page that names all of them, and the front page points at it.
+    expect(front, 'the front page does not link /services').toContain('href="/services"')
+
+    const page = await (await get('/services')).text()
+    for (const endpoint of [
+      'sparql.plugin-universe.com', 'mcp.plugin-universe.com', '/registry/plugins/index.json'
+    ]) {
+      expect(page, `/services does not mention ${endpoint}`).toContain(endpoint)
+    }
+  })
+
   it('serves the prose pages', async () => {
-    for (const path of ['/about', '/terms', '/about/crawler']) {
+    for (const path of ['/about', '/terms', '/about/crawler', '/about/sparql', '/about/mcp', '/services']) {
       expect(await status(path), path).toBe(200)
     }
   })

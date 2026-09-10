@@ -65,6 +65,7 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .pager .disabled { color:var(--line); }
 .pager .page { color:var(--muted); }
 .scope { font-style:italic; }
+.services { color:var(--muted); font-size:.92rem; margin:-.6rem 0 1.2rem; }
 .measured table { margin:.4rem 0 .6rem; }
 .badge-warn { background:#7a3b12; color:#ffd9b3; }
 .muted { color:var(--muted); }

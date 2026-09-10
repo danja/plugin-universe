@@ -324,6 +324,12 @@ foundations.
     been a way to ask for accounts by name.
   * Every plugin record carries its provenance and licence, and every measurement carries the
     tool, host and date, so an agent quoting the catalogue can say where the claim came from.
+* ~~**a Services page**~~ — `/services`, linked from the front page and the footer. Every way
+  the catalogue can be read in one place: web, JSON API, content negotiation, SPARQL, the
+  Open Audio Stack registry, and MCP with install instructions for Claude Code and Codex —
+  both verified against their current documentation rather than written from memory.
+  * It says plainly that **no dump is published yet**, rather than implying one. That is
+    §3d in `docs/danja-todo.md` and it is a decision, not a missing feature.
 * Still to do in this phase: contributing the user's own plugins upstream to the Open Audio
   Stack registry.
 

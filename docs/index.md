@@ -23,6 +23,7 @@
 
 ## Working documents
 
+* [Services](services.md) — served at `/services`; every way the catalogue can be read
 * [The MCP endpoint](mcp.md) — served at `/about/mcp`; the catalogue as tools an agent can call
 * [The public SPARQL endpoint](sparql.md) — served at `/about/sparql`; why it is a separate dataset
 * [Backups](backups.md) — what is irreplaceable, what runs where, and how to restore

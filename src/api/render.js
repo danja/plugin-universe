@@ -193,6 +193,9 @@ export function renderSearchPage ({
         : `${corpus} plugins indexed. Search by what a plugin does, not just its name.` +
           `${browsing ? ' Most recently added first:' : ''}`
     }),
+    // Shown only on the unsearched front page: somebody who has typed a query
+    // is looking for a plugin, not for an endpoint.
+    services: templates.when(!searched, 'services-note', {}),
     results: results.length
       ? results.map(resultItem).join('\n')
       : templates.when(Boolean(query), 'empty', { text: 'Nothing matched.' }),
