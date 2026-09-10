@@ -20,24 +20,62 @@ deliberately withholds exactly those graphs.
 
 Built and tested. Two commands.
 
-```sh
-# on the server
-sudo install -m 755 deploy/backup/plugin-universe-backup.sh \
-  /etc/cron.daily/plugin-universe-backup
-sudo /etc/cron.daily/plugin-universe-backup     # once, to check
+**The server half is done** — the nightly job is installed and has run. There is
+now a dated copy on the server, which covers the ordinary case of undoing a bad
+ingest.
 
-# here — pulls to /chalet/plugin-universe-backups, which exists
+**The off-host half is not**, and it is the half that survives losing the
+machine. It needs SSH key access from here, which does not currently work:
+`hyperdata` is not resolvable from this machine and key auth to `hyperdata.it`
+is refused.
+
+**Here**, as `danny` rather than root — the pull only reads files, so it needs
+no privilege beyond that:
+
+```
+# ~/.ssh/config here
+Host hyperdata
+  HostName hyperdata.it
+  User danny
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+```sh
+ssh-copy-id hyperdata          # if that key is not on the server yet
 export PU_SSH_HOST=hyperdata
 ./deploy/backup/pull-backups.sh
 ```
 
-Then a cron entry; the runbook is [backups.md](backups.md). The pull runs from
-here rather than pushing from the server, so the server holds no credential for
-this machine and cannot reach the copies.
+**On the server**, once, so `danny` can read them. The backups hold accounts and
+contributions — the personal data every published dump withholds — so they are
+group-readable rather than world-readable:
 
-- [ ] nightly job installed on the server
-- [ ] pull run once here, then a cron entry
-- [ ] one deliberate whole-dataset restore rehearsal, before it is needed
+```sh
+sudo chgrp -R danny /var/backups/plugin-universe
+sudo chmod -R o-rwx,g+rX /var/backups/plugin-universe
+```
+
+and give the nightly job the group so it keeps them that way:
+
+```sh
+# in the cron environment, or edit the installed script's defaults
+PU_BACKUP_GROUP=danny
+```
+
+The pull runs from here rather than pushing from the server, so the server holds
+no credential for this machine and cannot reach or delete the copies — and the
+credential it does hold can only read backups. The runbook is
+[backups.md](backups.md).
+
+- [x] nightly job installed on the server, and run
+- [x] restore rehearsed — and it found a real defect, now fixed; see MISTAKES.md
+- [x] SSH key for `danny`; password auth disabled on the server
+- [x] pull run, verified, and a nightly cron entry installed here (07:17)
+- [ ] **`PU_BACKUP_GROUP=danny` for the server's nightly job**, once you have
+      pulled the updated script — otherwise tomorrow's backup writes files the
+      pull can read only by luck of the directory mode
+- [ ] rehearse a restore **on the server** too: `bin/restore.js <dir>` with no
+      `--into` prints what it would do and touches nothing
 
 ## 2. `pluginval` — the only real blocker
 

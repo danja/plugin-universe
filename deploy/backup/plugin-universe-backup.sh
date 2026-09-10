@@ -59,5 +59,26 @@ prune () {
 prune "$DEST/full" "$KEEP_FULL"
 prune "$DEST/essential" "$KEEP_ESSENTIAL"
 
+# These files hold accounts, contributions and wiki revisions — personal data.
+# The container writes them world-readable by default, which on a machine with
+# more than one login is a copy of the personal data this project takes care to
+# withhold from every published dump.
+#
+# So: no access for anyone else, and read access for one group, which is how a
+# non-root user pulls them without being root. Set PU_BACKUP_GROUP to a group
+# that user belongs to.
+chmod -R o-rwx "$DEST"
+if [ -n "${PU_BACKUP_GROUP:-}" ]; then
+  chgrp -R "$PU_BACKUP_GROUP" "$DEST"
+  chmod -R g+rX "$DEST"
+  # setgid, so tomorrow's backup inherits the group rather than needing this
+  # script to have run first.
+  find "$DEST" -type d -exec chmod g+s {} +
+else
+  echo "!! PU_BACKUP_GROUP is not set, so only the container user can read these."
+  echo "!! A non-root pull will fail. Set it to a group your pull user is in:"
+  echo "!!   PU_BACKUP_GROUP=danny /etc/cron.daily/plugin-universe-backup"
+fi
+
 echo "backup $STAMP complete"
 ls -1 "$DEST/essential" | tail -3

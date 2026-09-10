@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-eight entries is past the point where anyone reads them all, so what follows
+Twenty-nine entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -75,6 +75,47 @@ The check that was run could not, in principle, have caught this class of defect
 found (`assert old in s`) before writing. An edit that silently does nothing is
 worse than one that fails, because it reports success. Where the edit is a
 single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-10 — The restore returned the right number of triples and the wrong data
+
+**What was wrong.** The first whole-dataset restore rehearsal put back 45,114
+triples — exactly the number backed up, matching the manifest, and
+`bin/restore.js` reported success on every graph. `npm run validate` then found
+**208 SHACL violations**: 114 of 594 LV2 ports in `graph:source/flues` had lost
+their symbol, type and range, and 94 package files in the Open Audio Stack graph
+had lost theirs.
+
+**Root cause: the blank-node rule, reintroduced.** `loadTurtleIntoGraph`
+grouped triples **by subject**. A blank node appears twice — as the object of
+the triple that points at it, and as the subject of its own triples — so those
+two halves land in different groups. A blank node label is scoped to one
+`INSERT DATA` request, so whenever the two groups fell either side of a batch
+boundary the label stopped referring to the same node, and the node was cut in
+half. This is the same defect the ingest pipeline shipped once before, and it
+has its own entry in this file.
+
+**Why the checks missed it.** The count was right, which is the whole problem:
+splitting a node loses no triples, it only stops them being about the same
+thing. `bin/restore.js` counts after loading and refuses to report success on a
+mismatch, and the count matched. `tests/store/backup.test.js` did test a blank
+node — but the graph had **five triples**, so it never crossed a batch boundary
+of 500. It proved the mechanism on a toy.
+
+**Prevention.** Grouping is by connected component now: a subject and every
+blank node reachable from it travel as one unit, and `writeGrouped` writes an
+oversized unit whole. The test seeds 400 blank nodes — enough to cross several
+batches — and asserts directly that no blank node lost its properties. Reverting
+the fix makes it fail with "353 cut in half", so it is known to catch this and
+not merely to pass.
+
+**The lesson, which is the point of rehearsing at all.** A restore that reports
+success is not a restore that worked. The only reason this was found before it
+was needed is that the rehearsal validated afterwards instead of trusting the
+success message — and the only reason the rehearsal happened is that somebody
+asked for it. **Rehearse the restore, and check the data rather than the exit
+code.**
 
 ---
 

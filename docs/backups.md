@@ -47,14 +47,47 @@ the image which uid it runs as and hands the destination over. It asks rather
 than assuming 1001, because `APP_UID` is a build argument that can be overridden
 to match a host user.
 
+**Permissions, and who may read them.** These files hold accounts,
+contributions and wiki revisions — the personal data every published dump
+deliberately withholds. The container writes them world-readable, so the script
+strips that and grants read to one group instead:
+
+```sh
+PU_BACKUP_GROUP=danny sudo -E /etc/cron.daily/plugin-universe-backup
+```
+
+Or set it once in the cron environment. Directories are marked setgid, so
+tomorrow's backup inherits the group without the script having to run first.
+Without `PU_BACKUP_GROUP` only the container user can read them, the script says
+so, and a non-root pull will fail.
+
 If you installed an older copy of the script, either re-install it after pulling
 or do it once by hand:
 
 ```sh
 sudo chown -R 1001:1001 /var/backups/plugin-universe
+sudo chgrp -R danny /var/backups/plugin-universe
+sudo chmod -R o-rwx,g+rX /var/backups/plugin-universe
 ```
 
 ## Here
+
+This needs key authentication — it runs unattended, so a password prompt would
+mean it silently never runs. `hyperdata` is not a resolvable name from here;
+either use the real host or give it an alias:
+
+```
+# ~/.ssh/config
+Host hyperdata
+  HostName hyperdata.it
+  User danny
+  IdentityFile ~/.ssh/id_ed25519
+```
+
+The pull needs no privilege beyond reading those files — it is an `rsync` of a
+directory — so it logs in as an ordinary user. That is also why the group
+permission above exists rather than the pull running as root: a credential that
+can only read backups is a smaller thing to lose than one that can do anything.
 
 ```sh
 export PU_SSH_HOST=hyperdata
@@ -62,10 +95,36 @@ export PU_SSH_HOST=hyperdata
 ./deploy/backup/pull-backups.sh --full     # when there is a reason
 ```
 
-Into `/chalet/plugin-universe-backups/essential/<timestamp>/`. As a cron entry:
+The script checks it can reach the host without a password, and that the
+remote backup directory exists, before it starts — so a missing key says "there
+is no key" rather than producing an rsync protocol error.
+
+Into `/chalet/plugin-universe-backups/essential/<timestamp>/`. As a cron entry
+(installed):
 
 ```
-17 4 * * *  PU_SSH_HOST=hyperdata /chalet/github/plugin-universe/deploy/backup/pull-backups.sh
+PU_SSH_HOST=hyperdata
+17 7 * * * /chalet/github/plugin-universe/deploy/backup/pull-backups.sh \
+  >> ~/.local/state/plugin-universe/pull.log 2>&1 \
+  || echo "plugin-universe backup pull FAILED - see the log"
+```
+
+07:17, after the server's `cron.daily`. Output goes to the log; only a failure
+message reaches cron's mail, so a working job is silent and a broken one is not.
+
+The key must have **no passphrase** — cron has no agent, and a job that blocks
+on a prompt never runs and never says why. Check with:
+
+```sh
+ssh-keygen -y -P "" -f ~/.ssh/id_ed25519 >/dev/null && echo usable by cron
+```
+
+Worth testing the way cron will actually run it, rather than the way your shell
+does — no profile, minimal `PATH`, no agent:
+
+```sh
+env -i HOME="$HOME" PATH=/usr/bin:/bin SHELL=/bin/sh PU_SSH_HOST=hyperdata \
+  /chalet/github/plugin-universe/deploy/backup/pull-backups.sh
 ```
 
 The pull checks the manifest parses, that every file it names is present and
@@ -89,7 +148,10 @@ node bin/restore.js <dir> --into plugin-universe --graph graph:system/accounts
 ```
 
 Each graph is dropped, reloaded, and **counted afterwards**; a count that does
-not match the manifest is an error rather than a success message. The app loads
+not match the manifest is an error rather than a success message.
+
+**A matching count is not proof.** Run `npm run validate` after any restore: a
+correct count with wrong data is exactly the failure the first rehearsal found. The app loads
 its index at start, so restart it if plugin data changed.
 
 ## What is deliberately not done
@@ -103,6 +165,14 @@ account can be erased, and erasure is a DROP of two graphs — but a backup take
 before it still holds them. Ninety days of essential backups means up to ninety
 days before an erasure is complete everywhere. That is defensible and it is not
 automatic; if someone asks to be erased, the backups are part of the job.
+
+**The first rehearsal found a real defect**, which is the argument for doing it.
+A whole-dataset restore returned the correct triple count and silently cut 208
+blank nodes in half — LV2 ports and package files that lost their properties
+because a blank node label is scoped to one `INSERT DATA` and the loader grouped
+by subject rather than by connected component. `bin/restore.js` counted and
+reported success; only SHACL noticed. Fixed, and `npm run validate` after a
+restore is now part of the drill below.
 
 **The restore is not rehearsed on a schedule.** `tests/store/backup.test.js`
 proves the round trip on every store test run — back a graph up, destroy it,

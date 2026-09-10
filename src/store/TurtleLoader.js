@@ -56,17 +56,56 @@ export async function writeGrouped (client, graph, groups) {
   return written
 }
 
-/** Parse Turtle and load it into one graph, grouped by subject. */
+/**
+ * Parse Turtle and load it into one graph.
+ *
+ * Grouped by **connected component**, not by subject. Grouping by subject looks
+ * right and is not: a blank node appears as the object of one subject's triples
+ * and as the subject of its own, so the two halves land in different groups —
+ * and when those groups fall either side of a batch boundary, the label no
+ * longer refers to the same node. The node is silently cut in half.
+ *
+ * It is silent because the triple count is still correct. A restore of 6,981
+ * triples returned 6,981 triples, and 114 of 594 LV2 ports had lost their
+ * symbol, their type and their range. Only SHACL noticed.
+ *
+ * So a subject and every blank node reachable from it travel as one unit, and
+ * `writeGrouped` writes an oversized unit whole rather than splitting it.
+ */
 export async function loadTurtleIntoGraph (client, graph, turtle) {
   const dataset = await parseTurtle(turtle)
-  const bySubject = new Map()
-  for (const quad of dataset) {
-    const key = quad.subject.value
-    if (!bySubject.has(key)) bySubject.set(key, [])
-    bySubject.get(key).push(
+
+  // Union-find over term identifiers: a triple whose object is a blank node
+  // binds that node to its subject's component, transitively.
+  const parent = new Map()
+  const find = key => {
+    if (!parent.has(key)) parent.set(key, key)
+    while (parent.get(key) !== key) {
+      parent.set(key, parent.get(parent.get(key)))
+      key = parent.get(key)
+    }
+    return key
+  }
+  const union = (a, b) => {
+    const rootA = find(a)
+    const rootB = find(b)
+    if (rootA !== rootB) parent.set(rootB, rootA)
+  }
+
+  const quads = [...dataset]
+  for (const quad of quads) {
+    find(quad.subject.value)
+    if (quad.object.termType === 'BlankNode') union(quad.subject.value, quad.object.value)
+  }
+
+  const components = new Map()
+  for (const quad of quads) {
+    const root = find(quad.subject.value)
+    if (!components.has(root)) components.set(root, [])
+    components.get(root).push(
       `${termToSparql(quad.subject)} ${termToSparql(quad.predicate)} ${termToSparql(quad.object)} .`)
   }
-  return writeGrouped(client, graph, [...bySubject.values()])
+  return writeGrouped(client, graph, [...components.values()])
 }
 
 export default loadTurtleIntoGraph

@@ -40,6 +40,20 @@ async function seed () {
     `_:p1 ${iri(NAMESPACES.lv2 + 'symbol')} ${literal('gain')} .`,
     `_:p1 ${iri(NAMESPACES.lv2 + 'name')} ${literal('Gain')} .`
   ]))
+
+  // And enough blank nodes to cross a write batch, which is the only size at
+  // which the defect appears. The version of this test that used three triples
+  // passed while a real restore was cutting 114 of 594 ports in half: the
+  // triple count came back correct and only SHACL noticed. A test that proves
+  // a mechanism on a toy has proved it on a toy.
+  const many = []
+  for (let i = 0; i < 400; i++) {
+    many.push(
+      `${iri(subject)} ${iri(NAMESPACES.lv2 + 'port')} _:big${i} .`,
+      `_:big${i} ${iri(NAMESPACES.lv2 + 'symbol')} ${literal(`p${i}`)} .`,
+      `_:big${i} ${iri(NAMESPACES.lv2 + 'name')} ${literal(`Port ${i}`)} .`)
+  }
+  await client.update(insertDataQuery(SCRATCH, many))
 }
 
 const count = async graph => Number((await client.select(
@@ -123,7 +137,7 @@ describe('putting it back', () => {
   it('restores a graph that has been destroyed', async () => {
     // The assertion the whole thing exists for.
     const before = await count(SCRATCH)
-    expect(before).toBe(5)
+    expect(before).toBeGreaterThan(1000)
 
     await client.update(`DROP SILENT GRAPH ${iri(SCRATCH)}`)
     expect(await count(SCRATCH)).toBe(0)
@@ -133,17 +147,28 @@ describe('putting it back', () => {
     expect(await count(SCRATCH)).toBe(before)
   }, 120000)
 
-  it('brings the blank node back whole', async () => {
-    // Ports were being cut in half at a batch boundary once, and a restore is
-    // exactly the same write pattern.
+  it('brings every blank node back whole, including across batch boundaries', async () => {
+    // The real failure: a restore reported the right triple count while 114 of
+    // 594 ports had lost their symbol, type and range, because grouping by
+    // subject puts a blank node's own triples in a different group from the
+    // triple that points at it.
+    const [orphans] = await client.select(`
+      SELECT (COUNT(*) AS ?n) WHERE {
+        GRAPH ${iri(SCRATCH)} {
+          ${iri(subject)} ${iri(NAMESPACES.lv2 + 'port')} ?port .
+          FILTER NOT EXISTS { ?port ${iri(NAMESPACES.lv2 + 'symbol')} ?symbol }
+        }
+      }`)
+    expect(Number(orphans.n), 'blank nodes were cut in half by the restore').toBe(0)
+
     const [row] = await client.select(`
       SELECT ?symbol ?name WHERE {
         GRAPH ${iri(SCRATCH)} {
           ${iri(subject)} ${iri(NAMESPACES.lv2 + 'port')} ?port .
-          ?port ${iri(NAMESPACES.lv2 + 'symbol')} ?symbol ; ${iri(NAMESPACES.lv2 + 'name')} ?name .
+          ?port ${iri(NAMESPACES.lv2 + 'symbol')} ${literal('gain')} ; ${iri(NAMESPACES.lv2 + 'name')} ?name .
+          BIND("gain" AS ?symbol)
         }
       }`)
-    expect(row?.symbol).toBe('gain')
     expect(row?.name).toBe('Gain')
   })
 
