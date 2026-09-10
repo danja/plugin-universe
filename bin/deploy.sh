@@ -22,6 +22,27 @@ set -eu
 cd "$(dirname "$0")/.."
 
 if [ "${1:-}" != "--no-pull" ]; then
+  # Local modifications stop a pull with a message about "local changes being
+  # overwritten", which is accurate and unhelpful at the moment you read it.
+  # Say which files, and say which of them are safe to throw away.
+  DIRTY=$(git status --porcelain -- . | awk '$1 ~ /^(M|MM| M|A)/ { print $2 }')
+  if [ -n "$DIRTY" ]; then
+    echo "!!  These files differ from the committed version and would block the pull:"
+    for file in $DIRTY; do echo "!!    $file"; done
+    echo "!!"
+    case "$DIRTY" in
+      *package-lock.json*)
+        echo "!!  package-lock.json is generated. Running npm on the server rewrites it,"
+        echo "!!  and the image builds from the committed one with 'npm ci', so the local"
+        echo "!!  copy is not wanted:"
+        echo "!!    git restore package-lock.json"
+        echo "!!"
+        ;;
+    esac
+    echo "!!  Discard a file with 'git restore <file>', or commit it, then run this again."
+    exit 1
+  fi
+
   echo "==> git pull --ff-only"
   # --ff-only, so a diverged branch stops here rather than being merged by a
   # deploy script at whatever hour this is being run.
