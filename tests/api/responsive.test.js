@@ -31,7 +31,7 @@ const page = renderSearchPage({
 
 /** The contents of the narrow-screen media query. */
 function narrowBlock (html) {
-  const start = html.indexOf('@media (max-width: 40rem)')
+  const start = html.indexOf('@media (max-width: 48rem)')
   if (start === -1) return null
   let depth = 0
   for (let i = html.indexOf('{', start); i < html.length; i++) {
@@ -50,7 +50,7 @@ describe('every page', () => {
   })
 
   it('has a narrow-screen block at all', () => {
-    expect(narrowBlock(page), 'no @media (max-width: 40rem) in the stylesheet').toBeTruthy()
+    expect(narrowBlock(page), 'no @media (max-width: 48rem) in the stylesheet').toBeTruthy()
   })
 })
 
@@ -97,7 +97,7 @@ describe('on a narrow screen', () => {
 
 describe('what the desktop layout keeps', () => {
   it('still positions the account bar in the corner on a wide screen', () => {
-    const wide = page.slice(0, page.indexOf('@media (max-width: 40rem)'))
+    const wide = page.slice(0, page.indexOf('@media (max-width: 48rem)'))
     expect(wide).toMatch(/\.account\s*\{[^}]*position:absolute/)
   })
 

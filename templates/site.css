@@ -3,7 +3,7 @@
    every .8rem and .85rem in this sheet exactly where it was — which is how a
    phone ended up showing 12.8px captions while the base looked corrected. One
    knob here moves the whole scale together. */
-:root { font-size: 16px;
+:root { font-size: 17px;
         color-scheme: light dark; --fg:#1a1a1a; --bg:#fdfdfc; --muted:#666; --line:#e0dedb; --accent:#2b5f75; }
 @media (prefers-color-scheme: dark) {
   :root { --fg:#e8e6e3; --bg:#16181a; --muted:#9a9a9a; --line:#2e3236; --accent:#7fb8cd; }
@@ -13,11 +13,11 @@ body { margin:0; font:1rem/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sy
        color:var(--fg); background:var(--bg); }
 .wrap { max-width: 62rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 header { border-bottom:1px solid var(--line); padding-bottom:1rem; margin-bottom:1.5rem; position:relative; }
-.account { position:absolute; top:0; right:0; margin:0; font-size:.82rem; color:var(--muted);
+.account { position:absolute; top:0; right:0; margin:0; font-size:.9rem; color:var(--muted);
            display:flex; gap:.5rem; align-items:center; }
 .account a { color:var(--accent); }
 .account form { margin:0; }
-.account button { padding:.15rem .5rem; font-size:.78rem; background:none; color:var(--muted);
+.account button { padding:.15rem .5rem; font-size:.9rem; background:none; color:var(--muted);
                   border:1px solid var(--line); cursor:pointer; }
 .account button:hover { color:var(--fg); }
 h1 { font-size:1.35rem; margin:0 0 .2rem; letter-spacing:-0.01em; }
@@ -36,7 +36,7 @@ input[type=search] { flex:1 1 auto; min-width:0; padding:.6rem .75rem; font-size
 select, button { padding:.6rem .7rem; font-size:.9rem; border:1px solid var(--line); border-radius:6px;
                  background:var(--bg); color:var(--fg); }
 button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
-.meta { color:var(--muted); font-size:.85rem; margin:.5rem 0 1.5rem; }
+.meta { color:var(--muted); font-size:.9rem; margin:.5rem 0 1.5rem; }
 /* Results in columns once there is room for them. A catalogue listing is a
    scan rather than a read, so it gains from width where prose loses: the
    reading measure below stays capped whatever the window does. */
@@ -53,9 +53,9 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .shot-thumb { width:72px; height:72px; flex:0 0 72px; }
 .shot-full { width:100%; max-width:320px; height:auto; aspect-ratio:1; margin:.6rem 0; }
 .shot-figure { margin:.6rem 0; max-width:320px; }
-.shot-figure figcaption { font-size:.75rem; color:var(--muted); margin-top:.3rem; }
+.shot-figure figcaption { font-size:.9rem; color:var(--muted); margin-top:.3rem; }
 .pager { display:flex; gap:1rem; align-items:baseline; justify-content:space-between;
-         margin:1.2rem 0 .4rem; font-size:.85rem; }
+         margin:1.2rem 0 .4rem; font-size:.9rem; }
 .pager a { color:var(--accent); text-decoration:none; }
 .pager a:hover { text-decoration:underline; }
 .pager .disabled { color:var(--line); }
@@ -70,29 +70,29 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .result h2 a:hover { text-decoration:underline; }
 .vendor { color:var(--muted); font-weight:400; }
 .desc { margin:.25rem 0; }
-.tags { font-size:.8rem; color:var(--muted); }
+.tags { font-size:.9rem; color:var(--muted); }
 .tag { display:inline-block; border:1px solid var(--line); border-radius:99px; padding:.05rem .5rem; margin-right:.3rem; }
 .badge { display:inline-block; border-radius:99px; padding:.05rem .5rem; margin-right:.3rem; font-weight:600;
          border:1px solid var(--accent); color:var(--accent); }
 .badge-price { background:var(--accent); color:var(--bg); border-color:transparent; }
 .badge-src { border-style:dashed; }
-.score { float:right; font-variant-numeric:tabular-nums; font-size:.78rem; color:var(--muted); }
-table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.88rem; }
+.score { float:right; font-variant-numeric:tabular-nums; font-size:.9rem; color:var(--muted); }
+table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }
 th, td { text-align:left; padding:.35rem .6rem .35rem 0; border-bottom:1px solid var(--line); }
 th { color:var(--muted); font-weight:500; }
 .empty { color:var(--muted); padding:2rem 0; }
-footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; }
+footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }
 footer a { color:var(--accent); }
 .prov { margin:1.5rem 0; padding:.75rem 1rem; border:1px solid var(--line); border-radius:6px; background:color-mix(in srgb, var(--fg) 3%, transparent); }
 .prov h3 { font-size:.9rem; margin:0 0 .35rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
 .prov p { margin:.25rem 0; font-size:.9rem; }
 .prov a { color:var(--accent); }
-code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent); padding:.1em .35em; border-radius:3px; }
+code { font-size:.92em; background:color-mix(in srgb, var(--fg) 8%, transparent); padding:.1em .35em; border-radius:3px; }
 .prose { max-width:42rem; }
 .prose h1 { font-size:1.5rem; margin:0 0 .3rem; letter-spacing:-0.01em; }
 .prose h2 { font-size:1.15rem; margin:2rem 0 .4rem; padding-top:.6rem; border-top:1px solid var(--line); }
 .prose h3 { font-size:1rem; margin:1.4rem 0 .3rem; color:var(--muted); text-transform:uppercase;
-            letter-spacing:.04em; font-size:.82rem; }
+            letter-spacing:.04em; font-size:.9rem; }
 .prose p, .prose li { line-height:1.65; }
 .prose ul, .prose ol { padding-left:1.2rem; }
 .prose li { margin:.3rem 0; }
@@ -102,14 +102,14 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 .prose blockquote { margin:1rem 0; padding:.6rem 1rem; border-left:3px solid var(--accent);
                     background:color-mix(in srgb, var(--fg) 3%, transparent); color:var(--muted); }
 .prose blockquote p { margin:.2rem 0; }
-.prose table { font-size:.86rem; }
+.prose table { font-size:.9rem; }
 .prose th { white-space:nowrap; }
 .prose pre { background:color-mix(in srgb, var(--fg) 6%, transparent); padding:.7rem .9rem;
-             border-radius:6px; overflow-x:auto; font-size:.82rem; line-height:1.5; }
+             border-radius:6px; overflow-x:auto; font-size:.9rem; line-height:1.5; }
 .prose pre code { background:none; padding:0; }
 .prose h1 + p, .prose h2 + p { margin-top:.4rem; }
 .correct { display:flex; flex-wrap:wrap; gap:.5rem; align-items:flex-end; margin:.6rem 0; }
-.correct label { display:flex; flex-direction:column; gap:.2rem; font-size:.8rem; color:var(--muted); }
+.correct label { display:flex; flex-direction:column; gap:.2rem; font-size:.9rem; color:var(--muted); }
 .correct input[type=text] { padding:.4rem .5rem; font-size:.9rem; border:1px solid var(--line);
                             border-radius:6px; background:var(--bg); color:var(--fg); min-width:16rem; }
 
@@ -122,11 +122,13 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
    font-size corrected the paragraph text and left .8rem captions rendering at
    12.8px, which is what "too small on mobile" actually was.
 
-   The breakpoint is in rem so it follows the reader's own text size. Note that
+   The breakpoint is 48rem — 768px — rather than the 640px it was: a phone in
+   landscape and every tablet clear 640px and were falling back to the desktop
+   scale on a screen held at arm's length. Note that
    rem inside a media query is always the initial 16px, not the value declared
    below, so raising the root here cannot move its own breakpoint. */
-@media (max-width: 40rem) {
-  :root { font-size: 17.5px; }
+@media (max-width: 48rem) {
+  :root { font-size: 18px; }
   .wrap { padding:1.25rem 1rem 3rem; }
   header { padding-bottom:.8rem; margin-bottom:1.2rem; }
   /* Out of the header's top-right corner and into the flow, where it cannot
@@ -142,7 +144,7 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
   /* The small print stops being small print. These are the sizes a caption or
      a badge lands at on a handset, and .78rem of anything is not one of them. */
   .meta, .tags, .pager, footer, table, .prov p { font-size:.92rem; }
-  .score { font-size:.85rem; }
+  .score { font-size:.9rem; }
   .result h2 { font-size:1.08rem; }
   .correct label, .wiki-form label { font-size:.9rem; }
   .correct { gap:.45rem; }
@@ -159,8 +161,8 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 }
 .correct button { background:var(--accent); color:#fff; border-color:transparent; cursor:pointer; }
 .correct button.secondary { background:none; color:var(--muted); border:1px solid var(--line); }
-.err { color:#b3261e; font-size:.88rem; }
-.ok { color:var(--accent); font-size:.88rem; font-weight:600; }
+.err { color:#b3261e; font-size:.9rem; }
+.ok { color:var(--accent); font-size:.9rem; font-weight:600; }
 @media (prefers-color-scheme: dark) { .err { color:#f2b8b5; } }
 .page-title { font-size:1.3rem; margin:.5rem 0 .2rem; }
 .wiki { margin:1.5rem 0; padding:.9rem 1rem; border:1px solid var(--line); border-radius:6px; }
@@ -170,7 +172,7 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 .wiki-body { max-width:none; }
 .wiki-body > :first-child { margin-top:0; }
 .wiki-form { display:block; margin:1rem 0; }
-.wiki-form label { display:block; margin-bottom:.7rem; font-size:.85rem; color:var(--muted); }
+.wiki-form label { display:block; margin-bottom:.7rem; font-size:.9rem; color:var(--muted); }
 .wiki-form textarea { display:block; width:100%; margin-top:.25rem; padding:.6rem .7rem;
                       font:14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
                       border:1px solid var(--line); border-radius:6px;
@@ -178,7 +180,7 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 .wiki-form input[type=text] { display:block; width:100%; margin-top:.25rem; padding:.5rem .6rem;
                               border:1px solid var(--line); border-radius:6px;
                               background:var(--bg); color:var(--fg); }
-.wiki-form .cancel { margin-left:.8rem; font-size:.85rem; color:var(--muted); }
-.wiki-current { white-space:pre-wrap; max-height:18rem; overflow:auto; font-size:.82rem;
+.wiki-form .cancel { margin-left:.8rem; font-size:.9rem; color:var(--muted); }
+.wiki-current { white-space:pre-wrap; max-height:18rem; overflow:auto; font-size:.9rem;
                 background:color-mix(in srgb, var(--fg) 6%, transparent); padding:.6rem .8rem;
                 border-radius:6px; }

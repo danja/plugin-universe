@@ -104,6 +104,21 @@ something measures it. There is no browser in this environment, so the arithmeti
 had to stand in — `.8 × 16 = 12.8px` would have shown the problem in one line
 before the first attempt, not after it.
 
+**And the second fix was also insufficient**, reported again the same day. Two
+things were wrong that the first round did not look for. The breakpoint was
+`max-width: 40rem` — 640px — which a phone in landscape and *every* tablet
+clears, so those devices fell back to the desktop scale and got the 12.8px
+captions the fix was supposed to remove. And the base scale itself was the
+problem: `.78rem`, `.8rem`, `.82rem` are densities chosen for a laptop, and the
+narrow-screen block only ever papered over them below the breakpoint.
+
+The fix that should have been first: raise the **base** so nothing anywhere is
+under `.9rem`, raise the root, and set the breakpoint at 48rem. A special case
+bolted onto a bad default fails everywhere the special case does not reach —
+which is the same shape as the guards that went blind when their subject moved.
+**Three attempts at one bug, each correcting something real and none of them
+looking at the whole scale first.**
+
 ---
 
 ## 2026-09-10 — A person clicking "Edit" was shown raw JSON

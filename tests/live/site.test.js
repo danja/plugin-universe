@@ -318,6 +318,27 @@ describe('the pages are assembled from the templates that shipped', () => {
     expect(front).toContain(':root')
     expect(front).toContain('--accent')
   })
+
+  it('has the search controls in the arrangement that shipped', async () => {
+    // Structural, not cosmetic: the text box and button on one row, the facets
+    // in their own row beneath. This suite was green while none of the layout
+    // work was deployed, because nothing here asserted any of it — the same
+    // way it once went blind on links.
+    expect(front, 'no .search-row — the deployed markup predates it').toContain('class="search-row"')
+    expect(front, 'no .facets row — the deployed markup predates it').toContain('class="facets"')
+    expect(front, 'results are not wrapped, so they cannot flow into columns')
+      .toContain('class="results"')
+  })
+
+  it('scales its type from the root, where rem actually comes from', async () => {
+    // A stylesheet that sets only body's font-size leaves every rem-sized
+    // caption where it was. That was a real bug, fixed, and this is what
+    // proves the fix is the version being served.
+    const narrow = front.slice(front.indexOf('@media (max-width: 48rem)'))
+    expect(front, 'no narrow-screen block at all').toContain('@media (max-width: 48rem)')
+    expect(narrow.slice(0, 600), 'the narrow block does not raise :root')
+      .toMatch(/:root\s*\{[^}]*font-size/)
+  })
 })
 
 describe('the promises the catalogue makes to other people', () => {

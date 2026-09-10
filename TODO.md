@@ -243,11 +243,13 @@ foundations.
   is where the empty space was going. Prose stays capped at 42rem, because a listing is a scan
   and gains from width where a paragraph loses. A sidebar or a hamburger is still open, and is
   an editorial question — what is worth putting beside the results — rather than a CSS one.
-* ~~**the mobile type scale**~~ — fixed, and the cause is worth remembering: `rem` is relative
-  to the **root** element, so an earlier fix that set `body { font-size }` moved the paragraph
-  text and left every `.8rem` caption at 12.8px. The scale now hangs off `:root`, which is the
-  only declaration that moves all of it. Search facets sit under the text box, two to a row on
-  a phone rather than four competing with it for one line.
+* ~~**the mobile type scale**~~ — fixed on the third attempt, and the sequence is the lesson.
+  First `body { font-size }`, which cannot move a `rem`-sized caption because `rem` comes from
+  the root. Then `:root` inside `@media (max-width: 40rem)`, which fixed portrait phones and
+  left landscape phones and every tablet on the desktop scale, since they clear 640px. The
+  answer was the base: nothing anywhere is under `.9rem` now, the root is 17px rising to 18px,
+  and the breakpoint is 48rem. **A special case bolted onto a bad default fails everywhere the
+  special case does not reach.** Search facets sit under the text box, two to a row on a phone.
 * ~~**text stored as Markdown, rendered with templating and marked**~~ — done for everything
   authored: wiki prose is Markdown in `pu:wikiText`, the standing documents are the
   repository's own files, and both render through `marked` into `templates/`. A plugin's
