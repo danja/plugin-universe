@@ -8,7 +8,7 @@ import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
   renderSearchPage, renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage,
-  renderContributionsPage
+  renderContributionsPage, renderVocabularies
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
@@ -43,12 +43,30 @@ import { TRUST } from '../auth/Accounts.js'
  * from serving something else.
  */
 export const VOCABULARIES = Object.freeze({
-  'plugin-universe': 'vocabs/plugin-universe.ttl',
-  'trn-extensions': 'vocabs/trn-extensions.ttl',
-  'trn-profile': 'vocabs/trn-profile.ttl',
-  categories: 'vocabs/categories.ttl',
-  alignment: 'vocabs/alignment.ttl',
-  shapes: 'vocabs/shapes.ttl'
+  'plugin-universe': {
+    file: 'vocabs/plugin-universe.ttl',
+    description: 'The pu: terms: measurements, packaging, contributions and catalogue administration. Everything that had no home in an existing vocabulary.'
+  },
+  'trn-profile': {
+    file: 'vocabs/trn-profile.ttl',
+    description: 'The trn: plugin profile vocabulary — roles, signals, routing — shared with the transmission, downspout and valis projects.'
+  },
+  'trn-extensions': {
+    file: 'vocabs/trn-extensions.ttl',
+    description: 'This project\'s additions to trn:, kept separate because they are proposed upstream rather than forked.'
+  },
+  categories: {
+    file: 'vocabs/categories.ttl',
+    description: 'The category scheme: a SKOS concept scheme with definitions, alternative labels, and closeMatch links to LV2 plugin classes.'
+  },
+  alignment: {
+    file: 'vocabs/alignment.ttl',
+    description: 'skos:closeMatch mappings from trn:, lv2: and pu: to AUFX-O and schema.org, so this catalogue is legible to systems that use those.'
+  },
+  shapes: {
+    file: 'vocabs/shapes.ttl',
+    description: 'The SHACL shapes every graph is validated against before it is written. How the store is checked, rather than part of what it describes.'
+  }
 })
 
 /**
@@ -437,12 +455,18 @@ export function createServer ({
         }
 
         case '/ns': {
-          return send(response, 200, {
-            vocabularies: Object.keys(VOCABULARIES).map(name => ({
-              name, url: `/ns/${name}.ttl`
-            })),
-            licence: LICENCE
-          })
+          // Negotiated, like a plugin IRI. It is linked from the footer of
+          // every page, and a JSON blob is not an answer to a person who
+          // followed a link called "Vocabularies".
+          if (negotiate('', request.headers.accept) !== 'html') {
+            return send(response, 200, {
+              vocabularies: Object.entries(VOCABULARIES).map(([name, vocabulary]) => ({
+                name, url: `/ns/${name}.ttl`, description: vocabulary.description
+              })),
+              licence: LICENCE
+            })
+          }
+          return sendText(response, 200, renderVocabularies(VOCABULARIES, viewer), 'text/html; charset=utf-8')
         }
 
         default: {
@@ -450,7 +474,7 @@ export function createServer ({
           // IRIs in every published description resolve to.
           const vocab = path.match(/^\/ns\/([a-z0-9-]+)\.ttl$/)
           if (vocab) {
-            const file = VOCABULARIES[vocab[1]]
+            const file = VOCABULARIES[vocab[1]]?.file
             if (!file) return send(response, 404, { error: 'No such vocabulary', name: vocab[1] })
             const body = await fs.promises.readFile(isAbsolute(file) ? file : pathJoin(projectRoot, file), 'utf8')
             return sendText(response, 200, body, 'text/turtle; charset=utf-8')

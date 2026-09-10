@@ -124,7 +124,13 @@ function pluginFigure (doc) {
 
 function resultItem (r) {
   const image = pluginImage(r)
-  const tags = [...(r.formats ?? []), ...(r.categories ?? [])]
+  // Formats and categories both look like links and were not. A format goes to
+  // the filtered search, a category to its own page — which exists precisely so
+  // that a category IRI resolves to something.
+  const tags = [
+    ...(r.formats ?? []).map(value => ({ value, href: `/?format=${encodeURIComponent(value)}` })),
+    ...(r.categories ?? []).map(value => ({ value, href: `/category/${encodeURIComponent(value)}` }))
+  ]
   return templates.render('result', {
     shotClass: image ? ' has-shot' : '',
     image,
@@ -135,7 +141,7 @@ function resultItem (r) {
     description: templates.when(Boolean(r.description), 'description',
       { description: String(r.description ?? '').split('\n')[0].slice(0, 220) }),
     badges: availabilityBadges(r),
-    tags: templates.each('tag', tags, value => ({ value }))
+    tags: templates.each('tag-link', tags, tag => tag)
   })
 }
 
@@ -325,6 +331,27 @@ export function renderModerationPage (pending, { csrfToken, message, viewer = {}
  * visitor reads it as part of the site. Constrained to a narrower measure than
  * the search results, because these are paragraphs rather than a table.
  */
+/**
+ * The vocabulary index, for a person.
+ *
+ * `/ns` is linked from the footer of every page and returned a JSON list of
+ * filenames — an answer to a question nobody following that link was asking.
+ */
+export function renderVocabularies (vocabularies, viewer = {}) {
+  const body = templates.render('vocabularies', {
+    heading: templates.render('page-heading', { title: 'Vocabularies' }),
+    rows: templates.each('vocabulary-row', Object.entries(vocabularies), ([name, vocabulary]) => ({
+      name,
+      url: `/ns/${name}.ttl`,
+      description: vocabulary.description
+    }))
+  })
+  return layout('Vocabularies — Plugin Universe', body, {
+    description: 'The ontologies the Plugin Universe catalogue publishes its data in.',
+    ...viewer
+  })
+}
+
 export function renderDocPage ({ title, description, html }, viewer = {}) {
   return layout(`${title} — Plugin Universe`, templates.render('doc-page', { html }),
     { description, ...viewer })

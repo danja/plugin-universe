@@ -41,6 +41,19 @@ sudo /etc/cron.daily/plugin-universe-backup     # once, to check
 Writes to `/var/backups/plugin-universe/{essential,full}/<timestamp>/`.
 Override with `PU_BACKUP_DIR`, `PU_KEEP_FULL`, `PU_KEEP_ESSENTIAL`.
 
+**Ownership.** The container does not run as root, so a bind mount owned by root
+is one it cannot write to — `EACCES: permission denied, mkdir`. The script asks
+the image which uid it runs as and hands the destination over. It asks rather
+than assuming 1001, because `APP_UID` is a build argument that can be overridden
+to match a host user.
+
+If you installed an older copy of the script, either re-install it after pulling
+or do it once by hand:
+
+```sh
+sudo chown -R 1001:1001 /var/backups/plugin-universe
+```
+
 ## Here
 
 ```sh

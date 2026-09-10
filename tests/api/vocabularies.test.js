@@ -21,25 +21,35 @@ import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
 describe('the vocabulary documents', () => {
   it('names files that exist', () => {
-    for (const [name, file] of Object.entries(VOCABULARIES)) {
-      expect(fs.existsSync(path.resolve(file)), `${name} → ${file}`).toBe(true)
+    for (const [name, vocabulary] of Object.entries(VOCABULARIES)) {
+      expect(fs.existsSync(path.resolve(vocabulary.file)), `${name} → ${vocabulary.file}`).toBe(true)
     }
   })
 
   it('serves the namespace document that defines the pu: terms', () => {
-    expect(VOCABULARIES['plugin-universe']).toBe('vocabs/plugin-universe.ttl')
+    expect(VOCABULARIES['plugin-universe'].file).toBe('vocabs/plugin-universe.ttl')
   })
 
   it('offers only files under vocabs/, by name', () => {
-    for (const file of Object.values(VOCABULARIES)) {
+    for (const { file } of Object.values(VOCABULARIES)) {
       expect(file.startsWith('vocabs/')).toBe(true)
       expect(file).not.toContain('..')
     }
   })
 
+  it('says what each one is for', () => {
+    // /ns is linked from the footer of every page. A list of filenames is not
+    // an answer to somebody who followed a link called "Vocabularies", and a
+    // vocabulary added without a description would put one back.
+    for (const [name, vocabulary] of Object.entries(VOCABULARIES)) {
+      expect(vocabulary.description, `${name} has no description`).toBeTruthy()
+      expect(vocabulary.description.length, `${name}'s description is too thin`).toBeGreaterThan(40)
+    }
+  })
+
   it('serves Turtle that parses', async () => {
-    for (const [name, file] of Object.entries(VOCABULARIES)) {
-      const dataset = await parseTurtle(await fs.promises.readFile(path.resolve(file), 'utf8'))
+    for (const [name, vocabulary] of Object.entries(VOCABULARIES)) {
+      const dataset = await parseTurtle(await fs.promises.readFile(path.resolve(vocabulary.file), 'utf8'))
       expect(dataset.size, `${name} parsed to no triples`).toBeGreaterThan(0)
     }
   })

@@ -23,6 +23,21 @@ cd "$REPO"
 mkdir -p "$DEST/full" "$DEST/essential"
 STAMP=$(date -u +%Y-%m-%dT%H-%M-%S)
 
+# The container does not run as root, so a bind mount owned by root is a
+# directory it cannot write to — "EACCES: permission denied, mkdir". The
+# Dockerfile fixes the runtime uid for exactly this reason and documents it for
+# data/curation; this destination is created by this script, so it is this
+# script's job to hand it over.
+#
+# Asked of the image rather than assumed: APP_UID is a build argument and can be
+# overridden to match a host user, so 1001 is a default and not a fact.
+OWNER=$(docker compose run --rm --entrypoint sh app -c 'printf "%s:%s" "$(id -u)" "$(id -g)"' 2>/dev/null | tr -d '\r\n')
+if [ -z "$OWNER" ]; then
+  echo "!! could not ask the app image which user it runs as; not changing ownership" >&2
+else
+  chown -R "$OWNER" "$DEST"
+fi
+
 # `run --rm` rather than `exec`: the app container need not be running, and a
 # backup that depends on the thing it is protecting being healthy is not much of
 # a backup.
