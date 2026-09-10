@@ -142,6 +142,7 @@ you write stays yours under a share-alike licence.
 - GitHub: [@danja](https://github.com/danja)
 - Reddit: u/danja
 - Twitter/X: [@danja](https://twitter.com/danja)
+- Homepage: [danny.ayers.name](https://danny.ayers.name)
 
 Issues and pull requests on the repository are the best route for anything
 technical. Email is the right one for anything about the data itself —

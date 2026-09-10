@@ -53,10 +53,27 @@ BUILD_COMMIT=$(git rev-parse HEAD)
 BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 export BUILD_COMMIT BUILD_TIME
 
-if [ -n "$(git status --porcelain)" ]; then
-  echo "!!  The working tree has uncommitted changes. They will be built into"
-  echo "!!  the image, but /health will report ${BUILD_COMMIT} — which will not"
-  echo "!!  be what is running. Commit first, or accept a misleading stamp."
+# Does anything that actually reaches the image differ from the commit?
+#
+# Not "is the working tree dirty". A server accumulates untracked artefacts —
+# harvest caches, dumps, the candidate file a sweep wrote — and every one of
+# them is excluded by .dockerignore, so none of them is built into anything.
+# Warning about those said the stamp was misleading when it was exactly right,
+# which teaches people to ignore the warning.
+IMAGE_DIRTY=$(git status --porcelain -uall | while read -r _ path; do
+  excluded=no
+  while read -r rule; do
+    case "$rule" in ''|'#'*|'!'*) continue ;; esac
+    case "$path" in "${rule%/}"|"${rule%/}"/*) excluded=yes ;; esac
+  done < .dockerignore
+  [ "$excluded" = no ] && echo "$path"
+done)
+
+if [ -n "$IMAGE_DIRTY" ]; then
+  echo "!!  These differ from the commit and DO reach the image:"
+  echo "$IMAGE_DIRTY" | sed 's/^/!!    /'
+  echo "!!  /health will report ${BUILD_COMMIT}, which is not what is running."
+  echo "!!  Commit first, or accept a misleading stamp."
 fi
 
 echo "==> building ${BUILD_COMMIT}"

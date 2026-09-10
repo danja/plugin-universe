@@ -92,6 +92,7 @@ already.
 - **GitHub:** [@danja](https://github.com/danja)
 - **Reddit:** u/danja
 - **Twitter/X:** [@danja](https://twitter.com/danja)
+- **Homepage:** [danny.ayers.name](https://danny.ayers.name)
 
 Email is the reliable one, and the right one for anything about data removal or
 crawler behaviour.
