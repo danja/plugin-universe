@@ -69,8 +69,14 @@ export const LICENCES = Object.freeze({
   'AGPL-3.0': { redistributable: true, cc0Dump: false, notice: true },
 
   // Content licences, for user-authored prose and for aligned vocabularies.
+  //
+  // `shareAlike` is not the same claim as `notice`. Attribution can travel
+  // beside a file; share-alike governs what a consumer may do with anything
+  // they build from it, so CC BY-SA content is published as its own dataset
+  // rather than folded in with permissive material. Getting that wrong would
+  // misdescribe both halves at once.
   'CC-BY-4.0': { redistributable: true, cc0Dump: false, notice: true },
-  'CC-BY-SA-4.0': { redistributable: true, cc0Dump: false, notice: true },
+  'CC-BY-SA-4.0': { redistributable: true, cc0Dump: false, notice: true, shareAlike: true },
 
   // Not ours to republish. Indexed as a name and a link, never as a copy.
   'proprietary-linkout': { redistributable: false, cc0Dump: false, notice: true },

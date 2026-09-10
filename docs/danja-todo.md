@@ -130,6 +130,52 @@ docker compose restart app
 
 - [ ] re-ingested, whenever it suits
 
+## 3c. The wiki is built and needs deploying with the rest
+
+`/plugin/<slug>/wiki/edit` writes community notes, kept as revisions, licensed
+CC BY-SA and attributed to whoever wrote them. It is on the same deploy as
+everything else in §1 — `./bin/deploy.sh` — and needs **no ingest**, though the
+ontology re-ingest in §3b is still worth doing.
+
+Worth knowing before anyone else uses it:
+
+* **Prose is sanitised by not emitting anything dangerous** rather than by
+  cleaning up afterwards. Raw HTML never survives parsing, link schemes are
+  filtered, and images render as links rather than loads — an image in a wiki
+  page is a URL every reader's browser fetches from a third party. If you want
+  images to display, that is a decision to take deliberately.
+* **The terms now cover this.** Prose is the CC BY-SA half, which is what the
+  second opinion was about; the editor says so before anyone types.
+* Rate limited to 20 saves an hour per account, and a save built on a stale copy
+  is refused rather than overwriting.
+
+- [ ] deployed with §1
+- [ ] write one page yourself and see whether the editor is pleasant to use
+
+## 3d. Dumps exist but nothing serves them
+
+`node bin/dump.js` writes the publishable dataset to `data/dumps` — CC0,
+permissive-with-notices, and CC BY-SA prose in three parts, with a manifest and
+a VoID description. Personal data is withheld by the licence flag, reported on
+every run, and a test asserts a withheld graph can never produce a file.
+
+Two things need you:
+
+* **How they get served.** The app has no business streaming tens of megabytes;
+  nginx serving `data/dumps` from disk at `/dumps/` is the obvious answer, and
+  it is a config change on the server rather than code. Say the word and I will
+  write the location block and a `/data` page describing the parts.
+* **Attribution for the prose.** CC BY-SA requires naming the author, and each
+  revision records the account it is attributed to — but the account-IRI-to-name
+  mapping is in a withheld graph, so the dump alone does not tell a consumer
+  whom to credit. The README states that plainly rather than papering over it.
+  Closing it properly means publishing a minimal public attribution record —
+  IRI and public login, nothing else — which is a decision about personal data
+  and not one I should take silently.
+
+- [ ] decide how dumps are served
+- [ ] decide whether to publish a minimal attribution record
+
 ## 4. Blockers
 
 **`pluginval` is not installed anywhere.** A JUCE binary from Tracktion covering

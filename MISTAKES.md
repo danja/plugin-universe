@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-three entries is past the point where anyone reads them all, so what follows
+Twenty-four entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -75,6 +75,41 @@ The check that was run could not, in principle, have caught this class of defect
 found (`assert old in s`) before writing. An edit that silently does nothing is
 worse than one that fails, because it reports success. Where the edit is a
 single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-09 — A guard went blind instead of red when the thing it guarded moved
+
+**What was wrong.** `tests/api/linked-routes.test.js` scrapes `href=` out of
+`src/api/render.js` and checks each path against the routes `server.js` serves.
+When the page HTML moved into `templates/`, the guard went on reading
+`render.js` — where five links remained — and passed.
+
+**Why it was nearly missed.** It did not fail. It found five links instead of a
+dozen and asserted, correctly, that all five resolved. The only reason it was
+caught is that one assertion happened to be `toBeGreaterThan(5)` and the count
+landed exactly on the boundary. A threshold of three would have passed silently
+and the guard would have been decorative from then on.
+
+**Prevention.** It now walks `templates/` as well as the renderers, and asserts
+it found enough markup to be doing its job. The general point is worth more than
+the fix: **a test that reads a location rather than a value quietly stops
+testing when the content moves.** When relocating anything, grep for tests that
+name the old path.
+
+**It happened again within the hour**, in the other direction: moving the wiki's
+routes to `src/wiki/routes.js` left the same guard reading only `server.js`, and
+it reported three working routes as broken. Red rather than blind that time,
+which is the better failure — but the fix was the same one twice, so both halves
+now walk `src/` instead of naming files.
+
+**And a third time, from the same edit.** A regex written to delete the response
+helpers from `server.js` matched further than intended and took `VOCABULARIES`
+and half of `sendText` with it. `node --check` caught the truncation
+immediately, but the missing constant only surfaced as four failing tests. A
+multi-line regex deletion across a whole file is not a refactor tool; the lesson
+is the one already in this file — **assert what you expect to remove, not just
+that something was removed.**
 
 ---
 

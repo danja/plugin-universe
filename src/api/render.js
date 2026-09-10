@@ -36,7 +36,7 @@ function accountBar (account, signInEnabled) {
   })
 }
 
-function layout (title, body, { description = '', account = null, signInEnabled = false } = {}) {
+export function layout (title, body, { description = '', account = null, signInEnabled = false } = {}) {
   return templates.render('layout', {
     title,
     description: templates.when(Boolean(description), 'meta-description', { description }),
@@ -57,11 +57,13 @@ const PRICING_LABEL = { Free: 'free', Donationware: 'donationware', Freemium: 'f
  */
 function availabilityBadges (r) {
   const badges = []
-  if (PRICING_LABEL[r.pricing]) badges.push(`<span class="badge badge-price">${escape(PRICING_LABEL[r.pricing])}</span>`)
-  if (AVAILABILITY_LABEL[r.sourceAvailability]) {
-    badges.push(`<span class="badge badge-src">${escape(AVAILABILITY_LABEL[r.sourceAvailability])}</span>`)
+  if (PRICING_LABEL[r.pricing]) {
+    badges.push(templates.render('badge', { kind: 'price', label: PRICING_LABEL[r.pricing] }))
   }
-  if (r.licenceId) badges.push(`<span class="badge">${escape(r.licenceId)}</span>`)
+  if (AVAILABILITY_LABEL[r.sourceAvailability]) {
+    badges.push(templates.render('badge', { kind: 'src', label: AVAILABILITY_LABEL[r.sourceAvailability] }))
+  }
+  if (r.licenceId) badges.push(templates.render('plain-badge', { label: r.licenceId }))
   return badges.join('')
 }
 
@@ -91,9 +93,12 @@ export function pluginImage (doc, { size = 'thumb' } = {}) {
     return ''
   }
   if (url.protocol !== 'https:') return ''
-  const box = size === 'full' ? 320 : 72
-  return `<img class="shot shot-${escape(size)}" src="${escape(doc.image)}" alt="${escape(doc.name ?? '')}"` +
-    ` width="${box}" height="${box}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+  return templates.render('plugin-image', {
+    size,
+    src: doc.image,
+    alt: doc.name ?? '',
+    box: size === 'full' ? 320 : 72
+  })
 }
 
 /**
@@ -202,7 +207,7 @@ export function renderSearchPage ({
   })
 }
 
-export function renderPluginPage (doc, viewer = {}, contribution = null, measured = null) {
+export function renderPluginPage (doc, viewer = {}, contribution = null, measured = null, wiki = '') {
   const rows = [
     ['Vendor', doc.vendor],
     ['Formats', (doc.formats ?? []).join(', ')],
@@ -225,6 +230,7 @@ export function renderPluginPage (doc, viewer = {}, contribution = null, measure
     homepage: templates.when(Boolean(doc.homepage), 'plugin-homepage', { href: doc.homepage }),
     rows: templates.each('table-row', rows, ([label, value]) => ({ label, value })),
     iri: doc.iri,
+    wiki,
     measurements: renderMeasurements(measured),
     provenance: renderProvenance(doc),
     correctionForm: contribution ? renderCorrectionForm(doc, contribution) : '',
@@ -344,24 +350,21 @@ export function renderDocPage ({ title, description, html }, viewer = {}) {
  */
 export function renderMeasurements (measured) {
   if (!measured || measured.readings.length === 0) return ''
-  const verdict = measured.verdict
-    ? `<span class="badge badge-${verdictBadge(measured.verdict)}">${escape(measured.verdict)}</span>`
-    : ''
-  const rows = measured.readings
-    .filter(reading => reading.metric !== 'ValidationResult')
-    .map(reading => `<tr><th${reading.about ? ` title="${escape(reading.about)}"` : ''}>${escape(reading.label)}</th>` +
-      `<td>${escape(readingValue(reading))}${reading.note ? ` <span class="muted">— ${escape(reading.note)}</span>` : ''}</td></tr>`)
-    .join('\n')
-
-  return `<div class="prov measured">
-  <h3>Measured ${verdict}</h3>
-  <table>
-${rows}
-  </table>
-  <p class="tags">By <code>${escape(measured.tool)}</code> on ${escape(measured.platform)},
-    ${escape(String(measured.at).slice(0, 10))}. One run on one machine — a reading here describes
-    that binary on that host, not the plugin in the abstract.</p>
-</div>`
+  return templates.render('measurements', {
+    verdict: templates.when(Boolean(measured.verdict), 'badge',
+      { kind: verdictBadge(measured.verdict), label: measured.verdict }),
+    rows: templates.each('measurement-row',
+      measured.readings.filter(reading => reading.metric !== 'ValidationResult'),
+      reading => ({
+        title: templates.when(Boolean(reading.about), 'attribute-title', { text: reading.about }),
+        label: reading.label,
+        value: readingValue(reading),
+        note: templates.when(Boolean(reading.note), 'measurement-note', { text: reading.note })
+      })),
+    tool: measured.tool,
+    platform: measured.platform,
+    at: String(measured.at).slice(0, 10)
+  })
 }
 
 /**
@@ -398,9 +401,10 @@ function verdictBadge (verdict) {
 /** A list of sibling category links, or nothing. */
 function categoryLinks (label, slugs) {
   if (!slugs || slugs.length === 0) return ''
-  return `<p class="tags"><strong>${escape(label)}</strong> ` +
-    slugs.map(slug => `<a class="tag" href="/category/${escape(slug)}">${escape(slug)}</a>`).join(' ') +
-    '</p>'
+  return templates.render('labelled-tags', {
+    label,
+    items: templates.each('category-link', slugs, slug => ({ slug }))
+  })
 }
 
 /**
@@ -412,27 +416,29 @@ function categoryLinks (label, slugs) {
  * nobody reads is a definition nobody notices is wrong.
  */
 export function renderCategoryPage (slug, results, total, viewer = {}, concept = null) {
-  const body = `
-<p class="meta"><a href="/">← search</a></p>
-<h2 style="font-size:1.3rem;margin:.5rem 0 .2rem">${escape(concept?.prefLabel ?? slug)}</h2>
-${concept?.definition ? `<p class="desc">${escape(concept.definition)}</p>` : ''}
-${concept?.scopeNote ? `<p class="meta scope">${escape(concept.scopeNote)}</p>` : ''}
-${concept?.altLabels?.length
-    ? `<p class="tags"><strong>Also called</strong> ${concept.altLabels.map(l => `<span class="tag">${escape(l)}</span>`).join(' ')}</p>`
-    : ''}
-${categoryLinks('Part of', concept?.broader ? [concept.broader] : null)}
-${categoryLinks('Includes', concept?.narrower)}
-${categoryLinks('Related', concept?.related)}
-${concept?.closeMatches?.length
-    ? `<p class="tags"><strong>Elsewhere</strong> ${concept.closeMatches.map(m => `<code>${escape(m.replace('http://lv2plug.in/ns/lv2core#', 'lv2:'))}</code>`).join(' ')}</p>`
-    : ''}
-<p class="meta">${total} plugin${total === 1 ? '' : 's'} in this category.
-  Also as <a href="${escape(`/category/${slug}`)}.ttl">Turtle</a>.</p>
-${results.map(resultItem).join('\n')}
-`
+  const body = templates.render('category', {
+    heading: templates.render('page-heading', { title: concept?.prefLabel ?? slug }),
+    definition: templates.when(Boolean(concept?.definition), 'description', { description: concept?.definition }),
+    scopeNote: templates.when(Boolean(concept?.scopeNote), 'scope-note', { text: concept?.scopeNote }),
+    altLabels: templates.when(Boolean(concept?.altLabels?.length), 'labelled-tags', {
+      label: 'Also called',
+      items: templates.each('tag', concept?.altLabels ?? [], value => ({ value }))
+    }),
+    broader: categoryLinks('Part of', concept?.broader ? [concept.broader] : null),
+    narrower: categoryLinks('Includes', concept?.narrower),
+    related: categoryLinks('Related', concept?.related),
+    closeMatches: templates.when(Boolean(concept?.closeMatches?.length), 'labelled-tags', {
+      label: 'Elsewhere',
+      items: templates.each('code', concept?.closeMatches ?? [],
+        match => ({ text: match.replace(`${NAMESPACES.lv2}`, 'lv2:') }))
+    }),
+    count: `${total} plugin${total === 1 ? '' : 's'}`,
+    slug,
+    results: results.map(resultItem).join('\n')
+  })
+
   return layout(`${concept?.prefLabel ?? slug} — Plugin Universe`, body, {
-    description: concept?.definition ??
-      `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
+    description: concept?.definition ?? `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
     ...viewer
   })
 }
@@ -450,31 +456,18 @@ ${results.map(resultItem).join('\n')}
  */
 export function renderCorrectionForm (doc, { account, csrfToken, correctable, error, submitted }) {
   const slug = doc.iri.split('/').pop()
-  if (!account) {
-    return `<div class="prov">
-  <h3>Something wrong?</h3>
-  <p><a href="/auth/login?return_to=${escape(`/plugin/${slug}`)}">Sign in</a> to suggest a correction.
-  Facts you contribute go into the public domain; see the <a href="/terms">contributor terms</a>.</p>
-</div>`
-  }
+  if (!account) return templates.render('correct-signed-out', { slug })
 
-  const options = Object.entries(correctable)
-    .map(([predicate, field]) => `<option value="${escape(predicate)}">${escape(field.label)}</option>`)
-    .join('')
-
-  return `<div class="prov">
-  <h3>Suggest a correction</h3>
-  ${error ? `<p class="err">${escape(error)}</p>` : ''}
-  ${submitted ? `<p class="ok">${escape(submitted)}</p>` : ''}
-  <form method="post" action="/plugin/${escape(slug)}/correct" class="correct">
-    <input type="hidden" name="csrf" value="${escape(csrfToken)}">
-    <label>Field <select name="predicate">${options}</select></label>
-    <label>Should be <input type="text" name="value" required maxlength="2000"></label>
-    <label>Why <input type="text" name="rationale" maxlength="1000" placeholder="optional"></label>
-    <button type="submit">Suggest</button>
-  </form>
-  <p class="tags">Contributed facts are CC0. See the <a href="/terms">contributor terms</a>.</p>
-</div>`
+  return templates.render('correct-form', {
+    slug,
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    submitted: templates.when(Boolean(submitted), 'notice', { text: submitted }),
+    csrf: csrfToken,
+    options: templates.each('select-option', Object.entries(correctable),
+      ([predicate, field]) => ({ value: predicate, label: field.label })),
+    maxValue: CONTRIBUTION_CONFIG.maxValueLength,
+    maxRationale: CONTRIBUTION_CONFIG.maxRationaleLength
+  })
 }
 
 /**
@@ -493,23 +486,25 @@ export function renderProvenance (doc) {
   if (source?.derivedFrom && !linkable(source.derivedFrom)) {
     // A source recorded as something other than a URL — a local checkout, say.
     // Shown, because it is the provenance, but never as a link.
-    links.push(`<code>${escape(source.derivedFrom)}</code>`)
+    links.push(templates.render('code', { text: source.derivedFrom }))
   } else if (source?.derivedFrom) {
-    links.push(`<a href="${escape(source.derivedFrom)}" rel="nofollow noopener">${escape(source.derivedFrom)}</a>`)
+    links.push(templates.render('external-link', { href: source.derivedFrom, label: source.derivedFrom }))
   }
   if (doc.seeAlso) {
-    links.push(`<a href="${escape(doc.seeAlso)}" rel="nofollow noopener">source record</a>`)
+    links.push(templates.render('external-link', { href: doc.seeAlso, label: 'source record' }))
   }
   if (!source && links.length === 0) return ''
 
-  return `<div class="prov">
-  <h3>Provenance</h3>
-  <p>
-    ${source ? `Harvested from <strong>${escape(source.source)}</strong>` : 'Source unrecorded'}${source?.licence ? `, whose metadata is <strong>${escape(source.licence)}</strong>` : ''}.
-    ${links.length ? links.join(' &middot; ') : ''}
-  </p>
-  <p class="tags">Graph <code>${escape(source?.graph ?? 'unknown')}</code>. Catalogue data is CC0; the plugin's own licence is its author's.</p>
-</div>`
+  return templates.render('provenance', {
+    origin: source
+      ? templates.render('provenance-source', {
+        source: source.source,
+        licence: templates.when(Boolean(source.licence), 'provenance-licence', { licence: source.licence })
+      })
+      : 'Source unrecorded.',
+    links: links.join(' &middot; '),
+    graph: source?.graph ?? 'unknown'
+  })
 }
 
 export { escape }

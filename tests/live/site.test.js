@@ -243,6 +243,54 @@ describe('the deployed data is the current data', () => {
   })
 })
 
+describe('the contribution surface', () => {
+  // Present but closed to a stranger. Each of these is a route that exists and
+  // refuses, which is different from a route that is not deployed at all — and
+  // the difference is invisible without asking.
+  it('offers the wiki on a plugin page, without letting a passer-by edit it', async () => {
+    expect(await status(`/plugin/${slug}/wiki/history`)).toBe(200)
+    expect(await status(`/plugin/${slug}/wiki/edit`)).toBe(401)
+  })
+
+  it('refuses an unauthenticated wiki save', async () => {
+    expect(await status(`/plugin/${slug}/wiki`, { method: 'POST' })).toBe(401)
+  })
+
+  it('keeps a contributor\'s own page to themselves', async () => {
+    expect(await status('/contributions')).toBe(401)
+  })
+
+  it('renders the prose block on a plugin page', async () => {
+    // Either notes or an invitation to write them — never an empty box.
+    const page = await (await get(`/plugin/${slug}`)).text()
+    expect(page).toMatch(/About this plugin|Nobody has written/)
+  })
+
+  it('states the prose licence, which is not the catalogue licence', async () => {
+    // CC0 facts and CC BY-SA prose on one page. Nothing else would tell a
+    // reader that the two halves carry different terms.
+    const page = await (await get(`/plugin/${slug}`)).text()
+    if (page.includes('community notes')) expect(page).toContain('CC BY-SA')
+  })
+})
+
+describe('the pages are assembled from the templates that shipped', () => {
+  it('leaves no unfilled placeholder anywhere a reader can see', async () => {
+    // A template loaded without a value renders an empty region rather than an
+    // error, and a mismatched one would leave the braces on the page.
+    for (const path of ['/', `/plugin/${slug}`, '/category/reverb', '/about']) {
+      const page = await (await get(path)).text()
+      expect(page, `${path} has an unfilled placeholder`).not.toMatch(/\{\{[a-zA-Z0-9_]+\}\}/)
+      expect(page, `${path} has a leftover template literal`).not.toMatch(/\$\{[a-zA-Z0-9_]/)
+    }
+  })
+
+  it('serves the stylesheet inside the page, so templates/ reached the image', () => {
+    expect(front).toContain(':root')
+    expect(front).toContain('--accent')
+  })
+})
+
 describe('the promises the catalogue makes to other people', () => {
   it('answers at the address its crawler user agent gives', async () => {
     // Already advertised to every source that has seen a request from us.

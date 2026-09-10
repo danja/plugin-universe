@@ -12,8 +12,11 @@ import {
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
+import { send, sendText, JSON_HEADERS, LICENCE } from './respond.js'
 import { readForm, BodyError } from './body.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
+import wikiRoutes from '../wiki/routes.js'
+import { renderWikiBlock } from '../wiki/render.js'
 import { TRUST } from '../auth/Accounts.js'
 
 /**
@@ -28,21 +31,23 @@ import { TRUST } from '../auth/Accounts.js'
  * call from a browser is not much of an open dataset.
  */
 
-const JSON_HEADERS = {
-  'Content-Type': 'application/json; charset=utf-8',
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Cache-Control': 'public, max-age=60'
-}
-
-function sendText (response, status, body, contentType) {
-  response.writeHead(status, {
-    'Content-Type': contentType,
-    'Access-Control-Allow-Origin': '*',
-    'Content-Length': Buffer.byteLength(body)
-  })
-  response.end(body)
-}
+/**
+ * The vocabulary documents, served so that the IRIs in the data resolve.
+ *
+ * `pu:` terms appear in every plugin description this catalogue publishes, so a
+ * consumer that follows one has to arrive somewhere. Only these files are
+ * reachable, by name: the list is a whitelist rather than a directory served
+ * from disk, because "serve whatever is under vocabs/" is one bad symlink away
+ * from serving something else.
+ */
+export const VOCABULARIES = Object.freeze({
+  'plugin-universe': 'vocabs/plugin-universe.ttl',
+  'trn-extensions': 'vocabs/trn-extensions.ttl',
+  'trn-profile': 'vocabs/trn-profile.ttl',
+  categories: 'vocabs/categories.ttl',
+  alignment: 'vocabs/alignment.ttl',
+  shapes: 'vocabs/shapes.ttl'
+})
 
 /**
  * Decide the representation to return for a plugin IRI.
@@ -75,40 +80,16 @@ export function pageOffset (params) {
   return Math.min(Math.floor(raw), 100000)
 }
 
-function send (response, status, body) {
-  const payload = JSON.stringify(body, null, 2)
-  response.writeHead(status, { ...JSON_HEADERS, 'Content-Length': Buffer.byteLength(payload) })
-  response.end(payload)
-}
 
 /**
  * Licence and attribution, on every response.
  *
  * The dataset is CC0 and attribution is requested rather than required, so
  * saying so in the payload costs nothing and means a consumer never has to go
- * looking for the terms.
- */
-const LICENCE = {
-  licence: 'CC0-1.0',
-  url: 'https://creativecommons.org/publicdomain/zero/1.0/',
-  attribution: 'Plugin Universe — https://plugin-universe.com (requested, not required)'
-}
-
-/**
- * The vocabulary documents, served so that the IRIs in the data resolve.
+ * looking for the termocabulary documents, served so that the IRIs in the data resolve.
  *
  * `pu:` terms appear in every plugin description this catalogue publishes, so a
- * consumer that follows one has to arrive somewhere. Only these files are
- * reachable, by name: the list is a whitelist rather than a directory served
- * from disk, because "serve whatever is under vocabs/" is one bad symlink away
- * from serving something else.
- */
-export const VOCABULARIES = Object.freeze({
-  'plugin-universe': 'vocabs/plugin-universe.ttl',
-  'trn-extensions': 'vocabs/trn-extensions.ttl',
-  'trn-profile': 'vocabs/trn-profile.ttl',
-  alignment: 'vocabs/alignment.ttl',
-  shapes: 'vocabs/shapes.ttl'
+ * consumer that follows one has to arrive somewhere. Only the shapes: 'vocabs/shapes.ttl'
 })
 
 /**
@@ -144,7 +125,8 @@ export const STATIC_FILES = Object.freeze({
 })
 
 export function createServer ({
-  search, config, projectRoot = process.cwd(), auth = null, corrections = null, authProblem = null
+  search, config, projectRoot = process.cwd(), auth = null, corrections = null,
+  wiki: wikiService = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
 
@@ -160,6 +142,21 @@ export function createServer ({
     throw new Error(
       `Prose pages are missing their source files:\n  ${missing.join('\n  ')}\n` +
       'Check that docs/ reached the deployment — .dockerignore has excluded it before.'
+    )
+  }
+
+  // Every page is assembled from templates/, so an image built without them
+  // starts, answers /health, and 500s on everything a person can see. Rendering
+  // one page at startup proves the directory arrived and that its placeholders
+  // and this code still agree.
+  try {
+    renderSearchPage({
+      query: null, facets: {}, results: [], total: 0, corpus: 0, facetValues: {}
+    })
+  } catch (error) {
+    throw new Error(
+      `The page templates are unusable: ${error.message}\n` +
+      'Check that templates/ reached the deployment, and that every placeholder has a value.'
     )
   }
 
@@ -185,7 +182,7 @@ export function createServer ({
     // and says so.
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
     const isCorrectionPost = request.method === 'POST' &&
-      (/^\/plugin\/[^/]+\/correct$/.test(url.pathname) || url.pathname === '/moderation')
+      (/^\/plugin\/[^/]+\/(correct|wiki)$/.test(url.pathname) || url.pathname === '/moderation')
     if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost && !isCorrectionPost) {
       return send(response, 405, { error: 'This API is read-only' })
     }
@@ -460,6 +457,10 @@ export function createServer ({
           // on behalf of a person, so every guard is here: signed in, not
           // suspended, a CSRF token bound to that account, and a predicate from
           // the whitelist. The value itself is checked by the validator.
+          if (await wikiRoutes({
+            request, response, path, params, viewer, auth, wiki: wikiService, search
+          })) return
+
           const correcting = path.match(/^\/plugin\/([A-Za-z0-9-]+)\/correct$/)
           if (correcting) {
             if (!auth || !corrections) return send(response, 404, { error: 'Contributions are not enabled' })
@@ -537,7 +538,10 @@ export function createServer ({
                         correctable: CORRECTABLE
                       }
                     : null,
-                  search.measured(iri)), 'text/html; charset=utf-8')
+                  search.measured(iri),
+                  wikiService
+                    ? renderWikiBlock(await wikiService.current(iri), match[1])
+                    : ''), 'text/html; charset=utf-8')
             }
           }
           return send(response, 404, { error: 'No such endpoint', path })

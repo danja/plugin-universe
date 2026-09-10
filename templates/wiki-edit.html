@@ -1,0 +1,17 @@
+{{{heading}}}
+<p class="meta">Notes about <a href="/plugin/{{slug}}">{{slug}}</a>. Markdown, and it stays
+  yours — prose is licensed <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA
+  4.0</a> and attributed to you, which is a different bargain from the CC0 facts. Raw HTML is
+  not kept.</p>
+{{{error}}}
+{{{conflict}}}
+<form method="post" action="/plugin/{{slug}}/wiki" class="wiki-form">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <input type="hidden" name="previous" value="{{previous}}">
+  <label>The page
+    <textarea name="text" rows="20" maxlength="{{maxLength}}" required>{{text}}</textarea></label>
+  <label>What changed
+    <input type="text" name="summary" maxlength="{{maxSummary}}" placeholder="optional"></label>
+  <button type="submit">Save</button>
+  <a class="cancel" href="/plugin/{{slug}}">Cancel</a>
+</form>

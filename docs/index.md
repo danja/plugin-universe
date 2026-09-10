@@ -17,6 +17,8 @@
 
 ## Worklog
 
+* [2026-09-10 — Prose from strangers, and getting the HTML out of the code](entries/2026-09-10_claude_the-wiki-and-html-in-files.md)
+* [2026-09-09 — Closing the correction loop, and putting the data on the page](entries/2026-09-09_claude_phase-three-and-the-front-page.md)
 * [2026-09-07 — The registry, the shapes, and two bugs the shapes found](entries/2026-09-07_claude_registry-shapes-alignment.md)
 
 ## Working documents

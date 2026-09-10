@@ -39,7 +39,29 @@ function sources () {
 }
 
 const RENDER = sources()
-const SERVER = fs.readFileSync('src/api/server.js', 'utf8')
+
+/**
+ * Every file that defines a route.
+ *
+ * `server.js` alone was enough until the wiki's routes moved to `src/wiki/`
+ * with the rest of the wiki, at which point this guard reported three
+ * perfectly good routes as broken. Naming files is what made it wrong twice —
+ * once blind, once red — so it walks instead.
+ */
+function routeSources () {
+  const files = []
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`
+      if (entry.isDirectory()) walk(full)
+      else if (entry.name.endsWith('.js')) files.push(full)
+    }
+  }
+  walk('src')
+  return files.map(file => fs.readFileSync(file, 'utf8')).join('\n')
+}
+
+const SERVER = routeSources()
 
 /** The `case '/x':` labels of the dispatch switch. */
 const STATIC_ROUTES = new Set(
@@ -50,8 +72,12 @@ const STATIC_ROUTES = new Set(
  * The dynamic routes, read from the `path.match(...)` calls that implement
  * them, so this cannot drift from the dispatcher the way a second copy would.
  */
-const DYNAMIC_ROUTES = [...SERVER.matchAll(/path\.match\((\/.*\/)\)\s*$/gm)]
-  .map(match => new RegExp(match[1].slice(1, -1)))
+const DYNAMIC_ROUTES = [
+  // `path.match(/…/)` in a router, and the exported `…_PATH` constants that a
+  // feature's own route module uses instead.
+  ...[...SERVER.matchAll(/path\.match\((\/.*\/)\)\s*$/gm)].map(match => match[1]),
+  ...[...SERVER.matchAll(/^export const [A-Z_]*PATH = (\/.*\/)\s*$/gm)].map(match => match[1])
+].map(source => new RegExp(source.slice(1, -1)))
 
 /**
  * Replace each interpolation with a sample value.
@@ -126,7 +152,7 @@ describe('the routes the site links to', () => {
     const broken = linkedPaths().filter(path => !served(path))
     expect(
       broken,
-      `A template or renderer links to ${broken.join(', ')}, which src/api/server.js does not serve.`
+      `A template or renderer links to ${broken.join(', ')}, which nothing in src/ serves.`
     ).toEqual([])
   })
 

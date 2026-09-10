@@ -25,7 +25,10 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
   `IngestPipeline`
 - `src/search/` — `SearchService` (hybrid retrieval), `LexicalIndex` (IDF-weighted lexical signal)
 - `src/api/` — `server.js` (routing, read-only JSON + HTML, content negotiation), `render.js`
-  (HTML), `serialise.js` (Turtle and JSON-LD), `pages.js` (the prose whitelist), `body.js`
+  (page assembly), `Templates.js` (the template loader), `serialise.js` (Turtle and JSON-LD),
+  `pages.js` (the prose whitelist), `body.js`
+- `templates/` — every page's HTML, plus `site.css`. Nothing else contains markup.
+- `src/wiki/` — `Wiki.js` (revisions), `markdown.js` (untrusted Markdown), `render.js`
 - `bin/` — `ingest.js`, `discover.js`, `search.js`, `serve.js`, `validate.js`
 - `src/rdf/` — `NamespaceManager` (the single prefix registry), `URIMinter`
 - `src/store/` — `SPARQLClient`, `SPARQLHelper` (term formatting), `QueryService`
@@ -107,6 +110,31 @@ Specifically, before finishing a change, check:
 - Does a published URL — user agent, docs link, IRI — resolve to a route?
 - Does a new route have something linking to it?
 
+## HTML lives in files, not in code
+
+Pages are `templates/*.html`, loaded by name through `src/api/Templates.js`. The same rule as
+SPARQL, for the same reasons: markup is a document with its own syntax that an editor can check
+and a person can read, and `render.js` had reached 705 lines of mostly HTML — including a
+stylesheet inside a JavaScript template literal, where a backtick in a CSS comment silently
+ended the string and broke the build.
+
+- Two placeholders: `{{name}}` inserts the value **escaped**, `{{{name}}}` inserts it as-is for
+  a fragment already built as HTML. Escaping is the default because the alternative is
+  remembering.
+- **No loops and no conditionals, deliberately.** A template language grows until it is a worse
+  programming language, and every construct added makes the escaping question harder. A list is
+  `templates.each(...)`, filling a row template and joining; an optional block is
+  `templates.when(...)`, which is a fragment or an empty string. Templates lay out; code decides.
+- Every placeholder must be supplied and every supplied value must be used — both directions,
+  because a missing value renders an empty region of a page silently, and a surplus one means
+  the template and its caller have drifted.
+- A new template must be rendered by something: `tests/api/templates.test.js` fails on an
+  orphan, on a stray `${...}` left from the template-literal era, and if `.dockerignore` ever
+  excludes `templates/`. `createServer` renders a page at startup, so an image built without the
+  directory refuses to start rather than 500ing on every page a person can see.
+- **A guard that scrapes markup must scrape `templates/` too.** `tests/api/linked-routes.test.js`
+  kept reading `render.js` after the links moved and went blind rather than red.
+
 ## Long files are a smell
 
 A source file that has grown long has usually stopped being one thing. Treat length as a signal
@@ -116,8 +144,8 @@ change, and a long one rarely does.
 - **Check periodically**, not only when touching a file — `wc -l src/**/*.js | sort -n | tail`
   takes a second and the answer drifts silently.
 - Roughly, past **~400 lines** a module is worth a look and past **~600** it almost always wants
-  splitting. Nothing is over 600 now; `src/api/render.js` (510) and `src/api/server.js` (485)
-  are the ones to watch.
+  splitting. Moving the markup into `templates/` took `render.js` from 705 to about 500 without
+  changing a single test.
 - Split along the seam that already exists — a route group, a serialisation format, one
   harvester's quirks — not by line count. `render.js` crossed 600 and lost its Turtle and JSON-LD
   to `src/api/serialise.js`, because those change when the graph model changes and the HTML

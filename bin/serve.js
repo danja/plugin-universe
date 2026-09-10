@@ -9,6 +9,7 @@ import { createServer } from '../src/api/server.js'
 import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
+import Wiki from '../src/wiki/Wiki.js'
 
 logger.setLevel('info')
 
@@ -46,6 +47,7 @@ const origin = process.env.SITE_ORIGIN || config.get('site.origin')
 const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
 let corrections = null
+let wiki = null
 if (auth) {
   // Registered at startup, not at first sign-in: a graph holding personal data
   // that is not flagged as such is the one failure this design exists to
@@ -54,14 +56,18 @@ if (auth) {
   corrections = new Corrections(client)
   await corrections.ensureGraph()
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
+  wiki = new Wiki(client)
   console.log('Contributions enabled')
+  console.log('Wiki enabled')
 } else if (authProblem) {
   console.log(`Sign-in DISABLED — ${authProblem}`)
 } else {
   console.log('Sign-in disabled (no GITHUB_CLIENT_ID/SECRET); the site is read-only')
 }
 
-const server = createServer({ search, config, projectRoot: Config.projectRoot, auth, corrections, authProblem })
+const server = createServer({
+  search, config, projectRoot: Config.projectRoot, auth, corrections, wiki, authProblem
+})
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)
   console.log('  GET /health           service status')

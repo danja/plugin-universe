@@ -154,8 +154,24 @@ store rather than from memory.
 
 Next, in order:
 
-* **wiki pages** with revisions as graph resources — the CC BY-SA half, still untouched. The
-  `-prose` graph is registered and empty.
+* ~~**wiki pages** with revisions as graph resources~~ — done. The CC BY-SA half is live: prose
+  on each plugin page, an editor at `/plugin/<slug>/wiki/edit`, every version kept at
+  `.../wiki/history`, and old revisions readable. Nothing is edited or deleted — a save writes a
+  new revision superseding the last through `prov:wasRevisionOf`, so reverting is itself a
+  revision. Each author's revisions go to their own `-prose` graph, so attribution and erasure
+  both work by graph.
+  * **Sanitisation without a dependency.** `marked` does not sanitise. Rather than clean the
+    HTML afterwards, `src/wiki/markdown.js` stops the dangerous constructs being emitted: raw
+    HTML tokens are dropped, so nothing in the output is markup marked did not itself build;
+    link schemes are filtered, because `[x](javascript:…)` passes through marked untouched
+    (verified, not assumed); and images render as links rather than loads, since an image in a
+    wiki page is a URL every reader's browser fetches from a third party. 21 tests written as
+    attacks.
+  * **A conflicting save is refused**, with the current version handed back and the editor's own
+    text kept. Silently overwriting somebody's work is the one thing a wiki must not do.
+  * Free text into SPARQL literals is covered by `tests/store/wiki.test.js`, which round-trips
+    quotes, backslashes, newlines, `"""` and an injection payload, then asserts the graph the
+    payload named was never created.
 * ~~**a contributions page** per account~~ — done, at `/contributions`, linked from the account
   bar. Shows every suggestion with its status, the decision date, and how far a new contributor
   is from the trust threshold. Their own only: a pending correction sits in the personal-data
@@ -218,6 +234,42 @@ place in this project where the rules bite hardest:
   loads all three, one graph each. **This needs a re-ingest on the server to take effect.**
 * `vocabs/shapes.ttl` is deliberately still not loaded: SHACL shapes are how the store is
   checked, not part of what it describes.
+
+## HTML moved out of code
+
+`render.js` was 705 lines of mostly markup. Pages are now `templates/*.html`, loaded by name
+through `src/api/Templates.js` — the same discipline as `sparql/queries/`, with `{{escaped}}`
+and `{{{raw}}}` placeholders, no loops and no conditionals, and every placeholder required in
+both directions. `site.css` is a file rather than a JavaScript template literal, which is where
+a backtick in a comment silently broke the build once.
+
+* ~~`src/api/server.js` past the threshold~~ — 557 now. The wiki's routes moved to
+  `src/wiki/routes.js` beside the rest of the wiki, and the response helpers to
+  `src/api/respond.js` so a feature's routes can live with the feature. The corrections and
+  moderation routes are the next candidates if it grows again.
+* `tests/api/templates.test.js` fails on an orphaned template, on a stray `${...}`, and if
+  `.dockerignore` ever excludes `templates/`; `createServer` renders a page at startup so a
+  deployment missing the directory refuses to start.
+
+## Phase 5 — open data — started
+
+* ~~**CC0 dataset dumps, assembled by licence flag**~~ — `bin/dump.js` and
+  `src/store/DumpBuilder.js`. Three parts because three sets of terms cannot honestly be merged:
+  `cc0/` public domain, `notice/` permissive with the notices beside them, `prose/` CC BY-SA
+  share-alike. One file per graph — Turtle carries no graph name, so a merged file would lose
+  the provenance the whole design is built around — plus `MANIFEST.json`, `void.ttl` and a
+  README. Graphs flagged not redistributable are never written and are **reported every time**:
+  a dump that quietly omits something is as hard to trust as one that quietly includes it.
+  * `shareAlike` is now a flag on `LICENCES`, because CC BY-SA was being filed as merely
+    notice-carrying. Share-alike governs what a consumer may build from the data, and only that
+    decides which dataset it belongs in.
+  * A rebuild clears the section directories first. It did not, and reclassifying the prose left
+    a copy in `notice/` — the same text published twice under two different sets of terms.
+* **Nothing serves the dumps yet.** They are written to `data/dumps`; deciding how they are
+  published — nginx from disk is the obvious answer, since the app has no business streaming
+  tens of megabytes — is in `docs/danja-todo.md`.
+* Still to do in this phase: the public SPARQL endpoint at `sparql.`, the MCP face, the
+  open-audio-stack-compatible JSON view, and contributing the user's own plugins upstream.
 
 ## Recurring — not a phase, a habit
 

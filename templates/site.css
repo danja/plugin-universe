@@ -141,3 +141,22 @@ code { font-size:.85em; background:color-mix(in srgb, var(--fg) 8%, transparent)
 .ok { color:var(--accent); font-size:.88rem; font-weight:600; }
 @media (prefers-color-scheme: dark) { .err { color:#f2b8b5; } }
 .page-title { font-size:1.3rem; margin:.5rem 0 .2rem; }
+.wiki { margin:1.5rem 0; padding:.9rem 1rem; border:1px solid var(--line); border-radius:6px; }
+.wiki h3 { font-size:.9rem; margin:0 0 .5rem; text-transform:uppercase; letter-spacing:.04em;
+           color:var(--muted); }
+.wiki-licence { text-transform:none; letter-spacing:0; font-weight:400; }
+.wiki-body { max-width:none; }
+.wiki-body > :first-child { margin-top:0; }
+.wiki-form { display:block; margin:1rem 0; }
+.wiki-form label { display:block; margin-bottom:.7rem; font-size:.85rem; color:var(--muted); }
+.wiki-form textarea { display:block; width:100%; margin-top:.25rem; padding:.6rem .7rem;
+                      font:14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+                      border:1px solid var(--line); border-radius:6px;
+                      background:var(--bg); color:var(--fg); resize:vertical; }
+.wiki-form input[type=text] { display:block; width:100%; margin-top:.25rem; padding:.5rem .6rem;
+                              border:1px solid var(--line); border-radius:6px;
+                              background:var(--bg); color:var(--fg); }
+.wiki-form .cancel { margin-left:.8rem; font-size:.85rem; color:var(--muted); }
+.wiki-current { white-space:pre-wrap; max-height:18rem; overflow:auto; font-size:.82rem;
+                background:color-mix(in srgb, var(--fg) 6%, transparent); padding:.6rem .8rem;
+                border-radius:6px; }

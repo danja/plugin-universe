@@ -4,6 +4,7 @@ import GraphRegistry from '../store/GraphRegistry.js'
 import URIMinter from '../rdf/URIMinter.js'
 import ensureContributorGraphs from '../contrib/ContributorGraphs.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
+import { NAMESPACES as NS } from '../rdf/NamespaceManager.js'
 
 /**
  * Wiki prose about plugins, as revisions.
@@ -28,6 +29,21 @@ import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 const pu = NAMESPACES.pu
 const rdf = NAMESPACES.rdf
 const prov = NAMESPACES.prov
+
+/**
+ * The author's login, joined from the accounts graph.
+ *
+ * CC BY-SA requires attribution, and an account IRI ends in a content hash —
+ * so without this the byline read "1b505ba2", which names nobody. `?author` is
+ * always bound by the pattern this follows, so the OPTIONAL is constrained;
+ * an unbound subject here would match every account in the graph, which is
+ * exactly how the category synonyms went wrong.
+ */
+const AUTHOR_NAME = `OPTIONAL {
+          GRAPH ${iri(GraphRegistry.graphIri('system', 'accounts'))} {
+            ?author ${iri(NS.foaf + 'accountName')} ?authorName .
+          }
+        }`
 
 export class WikiError extends Error {
   constructor (message) {
@@ -63,7 +79,7 @@ export class Wiki {
    */
   async current (pluginIri) {
     const rows = await this.client.select(`
-      SELECT ?revision ?text ?summary ?author ?at ?previous WHERE {
+      SELECT ?revision ?text ?summary ?author ?authorName ?at ?previous WHERE {
         GRAPH ?g {
           ?revision ${iri(rdf + 'type')} ${iri(pu + 'WikiRevision')} ;
                     ${iri(pu + 'wikiSubject')} ${iri(pluginIri)} ;
@@ -73,6 +89,7 @@ export class Wiki {
           OPTIONAL { ?revision ${iri(pu + 'editSummary')} ?summary }
           OPTIONAL { ?revision ${iri(prov + 'wasRevisionOf')} ?previous }
         }
+        ${AUTHOR_NAME}
       } ORDER BY DESC(?at) LIMIT 1`)
     return rows[0] ?? null
   }
@@ -80,7 +97,7 @@ export class Wiki {
   /** Every revision of one page, newest first. The page's history. */
   async history (pluginIri, limit = 50) {
     return this.client.select(`
-      SELECT ?revision ?summary ?author ?at ?length WHERE {
+      SELECT ?revision ?summary ?author ?authorName ?at ?length WHERE {
         GRAPH ?g {
           ?revision ${iri(rdf + 'type')} ${iri(pu + 'WikiRevision')} ;
                     ${iri(pu + 'wikiSubject')} ${iri(pluginIri)} ;
@@ -90,13 +107,14 @@ export class Wiki {
           OPTIONAL { ?revision ${iri(pu + 'editSummary')} ?summary }
           BIND(STRLEN(?text) AS ?length)
         }
+        ${AUTHOR_NAME}
       } ORDER BY DESC(?at) LIMIT ${Number(limit)}`)
   }
 
   /** One revision by IRI, for reading an old version. */
   async revision (revisionIri) {
     const rows = await this.client.select(`
-      SELECT ?text ?summary ?author ?at ?subject WHERE {
+      SELECT ?text ?summary ?author ?authorName ?at ?subject WHERE {
         GRAPH ?g {
           ${iri(revisionIri)} ${iri(pu + 'wikiText')} ?text ;
                               ${iri(pu + 'wikiSubject')} ?subject ;
@@ -104,6 +122,7 @@ export class Wiki {
                               ${iri(prov + 'generatedAtTime')} ?at .
           OPTIONAL { ${iri(revisionIri)} ${iri(pu + 'editSummary')} ?summary }
         }
+        ${AUTHOR_NAME}
       } LIMIT 1`)
     return rows[0] ?? null
   }

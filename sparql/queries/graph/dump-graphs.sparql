@@ -1,0 +1,21 @@
+# Every registered graph with the facts a dump needs to decide what to do with
+# it: whether it may leave the building at all, whether it goes in the CC0
+# dataset, whether a notice travels with it, and where it came from.
+#
+# One query rather than three, because a dump that consulted the registry in
+# several passes could see it in two states — and the whole point of setting a
+# licence flag at harvest time is that publication is a selection rather than a
+# review.
+SELECT ?graph ?licence ?inCC0Dump ?redistributable ?derivedFrom ?identifier ?comment
+WHERE {
+  GRAPH ${metadataGraph} {
+    ?graph a pu:SourceGraph ;
+           dcterms:license ?licence .
+    OPTIONAL { ?graph pu:inCC0Dump ?inCC0Dump }
+    OPTIONAL { ?graph pu:redistributable ?redistributable }
+    OPTIONAL { ?graph prov:wasDerivedFrom ?derivedFrom }
+    OPTIONAL { ?graph dcterms:identifier ?identifier }
+    OPTIONAL { ?graph rdfs:comment ?comment }
+  }
+}
+ORDER BY ?graph
