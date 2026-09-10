@@ -474,3 +474,18 @@ Until those phases land, a weekly dump is ample.
 - **Harvest politely.** `config/preferences.js` holds the request interval and
   the crawler's user agent, which carries a real contact address. If that
   address stops working, fix it before the next sweep.
+
+## Checking nginx before it reaches the server
+
+```sh
+./deploy/nginx/check.sh
+```
+
+Runs a throwaway `nginx:alpine` over the real files in `deploy/nginx/`, with
+self-signed certificates generated at whatever paths they name, upstream
+hostnames pointed at loopback, and each site checked on its own — because
+`plugin-universe.conf` and `plugin-universe.host.conf` are alternatives rather
+than companions.
+
+Six configurations have failed `nginx -t` on the server. All six would have
+failed here first.

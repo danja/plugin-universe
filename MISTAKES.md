@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-six entries is past the point where anyone reads them all, so what follows
+Twenty-seven entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -75,6 +75,52 @@ The check that was run could not, in principle, have caught this class of defect
 found (`assert old in s`) before writing. An edit that silently does nothing is
 worse than one that fails, because it reports success. Where the edit is a
 single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-10 — A sixth nginx configuration that failed on the server
+
+**What was wrong.** `limit_except GET POST OPTIONS { deny all; }` at `server`
+level. It is only valid inside a `location`, so `nginx -t` refused the whole
+configuration:
+
+```
+[emerg] "limit_except" directive is not allowed here
+```
+
+**Root cause, and it is not the directive.** This is the sixth nginx
+configuration this project has handed to a person untested — after a duplicate
+`gzip`, a `location` in a snippet included at the wrong level, an unknown
+`http2` directive, "protocol options redefined", and a missing certificate.
+Every one was found by the user running `nginx -t`, and every one was findable
+in a second here: nginx is installed on this machine and `nginx:alpine` is in
+the local image list. I had simply never looked.
+
+**Prevention.** `deploy/nginx/check.sh` runs a throwaway nginx container over
+the real files, and it took four rounds to get right — which is the point,
+because each round was a class of false failure that would otherwise have been
+mistaken for a broken config:
+
+- **Snippets are not sites.** A file with no `server { }` has to be included
+  from inside one, which is what "location is not allowed here" meant the first
+  time.
+- **Upstream names resolve only in the compose network**, so `app:4100` fails
+  for a reason unrelated to the file. They are pointed at loopback for the test,
+  and a hostname hides in an `upstream { server … }` block as well as in a
+  `proxy_pass`.
+- **Certificates are loaded by `nginx -t`**, so a missing one fails the check
+  the way mistake five did. Self-signed certificates are generated at whatever
+  path each config names — `/etc/nginx/certs` for the containerised site,
+  `/etc/letsencrypt/live` for the host one — so no file has to be edited to be
+  tested.
+- **Some of these files are alternatives**, not companions: the containerised
+  and host variants of the same site produce a "duplicate upstream" if loaded
+  together, which says nothing about either. Each is checked alone.
+
+The general lesson is the one that keeps recurring in this file. **I had the
+tool to check and did not use it**, exactly as with the CSS arithmetic and the
+guards that read the wrong file. Reasoning about a configuration language from
+its source is not verification.
 
 ---
 

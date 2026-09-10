@@ -165,6 +165,10 @@ change, and a long one rarely does.
   a list of what to do. It is also the right place to record something the deployment cannot
   tell us, and anything I asserted about the server that I have not actually verified.
 - Do not run any `git` operations unless the user explicitly approves them.
+- **Never hand over an nginx configuration without running `./deploy/nginx/check.sh`.** It
+  validates the real files in a throwaway container, with self-signed certificates generated at
+  whatever paths they name. Six configurations have failed `nginx -t` on the server, every one
+  of them findable here in a second.
 - Use the Read tool to read files, not `sed`/`cat`/`head`/`tail` via Bash. Bash tool calls require per-call user approval; Read does not.
 - Log mistakes in MISTAKES.md (what happened, root cause, prevention).
 - Periodically review TODO.md and revise as necessary, and `docs/danja-todo.md` with it: TODO.md

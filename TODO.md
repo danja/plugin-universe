@@ -377,6 +377,8 @@ Still open, both stated in the runbook rather than silently skipped:
   worth revising at the end of any session that changes it. It goes stale in one direction —
   completed steps accumulate at the top and the next real action sinks — so pruning matters
   more than adding. Finished items are struck into its "Confirmed done" section, not deleted.
+* **Validate nginx before it leaves this machine** — `./deploy/nginx/check.sh`. Six
+  configurations have failed `nginx -t` on the server; all six were findable here.
 * **Run `npm run test:live` after every deploy.** It is the only check that sees the deployment
   rather than a copy of it: a container never rebuilt, an ingest run on the wrong machine, an
   expired certificate, a broken redirect. `./bin/deploy.sh` verifies the commit stamp by itself,
