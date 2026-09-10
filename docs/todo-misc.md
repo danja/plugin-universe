@@ -3,14 +3,24 @@
 Loose ideas, before they have a phase. Moved into [../TODO.md](../TODO.md) once they do —
 this file is the inbox, not the record.
 
-* create a Plugin Resources page for a categorised list of general resources for plugin *users*, and a Developers page for resources relevant to plugin developers : include things like the JUCE and DPF frameworks. Ultimately these should also be persisted in the SPARQL store, signed-in users can add resources (after initial moderation)
+Transferred 2026-09-10:
 
-* create a subsystem to take a daily, dated, backup of all data, together with simple scripts for doing a one-off backup as well as a revert script
+* Plugin Resources and Developers pages, later persisted and contributor-editable →
+  TODO.md, *Phase 3b*
+* daily dated backups, one-off backup, restore script → TODO.md, its own section, because
+  the store now holds contributions that cannot be rebuilt from any source
+* an admin area for administrators only → TODO.md, *Phase 3b*
+* company/developer profiles for paying users → TODO.md, *Phase 4*
+* text stored as Markdown, rendered with templating and marked → TODO.md, *Phase 3b*, struck
+  through: done for everything authored, and deliberately not done for harvested descriptions
+* wide screens show one narrow column; wants a hamburger or sidebars → TODO.md, *Phase 3b*
+* signed-out wiki edit shows raw JSON instead of a sign-in prompt → **fixed**, see MISTAKES.md
 
-* create an Admin area, accessible only to system administrators (currently only danja)
+Transferred 2026-09-09:
 
-* create company/developer profiles, so such paid users can advertise themselves
-
-* text data should be stored in markdown format : where appropriate use templating and the marked library for rendering
-
-* layout on small screen is good, but large screen only shows as a narrow column in the middle. We need a hamburger menu and/or suitable content in the side columns
+* README rewritten around language models + Semantic Web, ontologies at the centre →
+  TODO.md, *Outstanding, not blocking*
+* paged listing below the search box, most recently added → TODO.md, *Phase 1 follow-on*
+* more use of SKOS in the plugin taxonomy → TODO.md, *Phase 1 follow-on*
+* profile augmentation by web search — videos, reviews → TODO.md, *Phase 5*
+* plugin images in results and profiles → TODO.md, *Phase 1 follow-on*

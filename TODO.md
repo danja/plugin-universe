@@ -1,9 +1,5 @@
 # TODO
 
-## Recurring
-
-* check docs/todo-misc.md for any new items, fit these into the main TODO.md or phased plan as appropriate
-
 ## Done
 
 * ~~lists of data sources, forums, general resources~~ — [docs/resources.md](docs/resources.md)
@@ -105,6 +101,34 @@ never displayed, therefore never verified (MISTAKES.md pattern 3).
     `aufx:` equivalents for reverb, delay and so on await a pass that can check the published
     ontology.
 
+## Found while surfacing the measurements
+
+* ~~**The project's own vocabularies were not in the store.**~~ `vocabs/plugin-universe.ttl`,
+  `trn-extensions.ttl` and `trn-profile.ttl` were served from disk at `/ns/<name>.ttl` and were
+  absent from the graph entirely, so every `pu:` and `trn:` IRI in the published data resolved
+  to a document the endpoint holding that data could not read. A SPARQL query could not ask
+  what a term meant — which is how the profiler's metric labels, defined in the vocabulary and
+  nowhere else, were unavailable to the code that had to display them. `bin/ingest.js` now
+  loads all three, one graph each. **This needs a re-ingest on the server to take effect.**
+* `vocabs/shapes.ttl` is deliberately still not loaded: SHACL shapes are how the store is
+  checked, not part of what it describes.
+
+## HTML moved out of code
+
+`render.js` was 705 lines of mostly markup. Pages are now `templates/*.html`, loaded by name
+through `src/api/Templates.js` — the same discipline as `sparql/queries/`, with `{{escaped}}`
+and `{{{raw}}}` placeholders, no loops and no conditionals, and every placeholder required in
+both directions. `site.css` is a file rather than a JavaScript template literal, which is where
+a backtick in a comment silently broke the build once.
+
+* ~~`src/api/server.js` past the threshold~~ — 557 now. The wiki's routes moved to
+  `src/wiki/routes.js` beside the rest of the wiki, and the response helpers to
+  `src/api/respond.js` so a feature's routes can live with the feature. The corrections and
+  moderation routes are the next candidates if it grows again.
+* `tests/api/templates.test.js` fails on an orphaned template, on a stray `${...}`, and if
+  `.dockerignore` ever excludes `templates/`; `createServer` renders a page at startup so a
+  deployment missing the directory refuses to start.
+
 ## Phase 2 — the profiler — started
 
 Built and verified: the sandbox (`src/profiler/Sandbox.js`), the lilv scanner,
@@ -201,55 +225,39 @@ Two things to settle before writing code:
 * an [About page](docs/about.md) is drafted too. Both are written to be served at
   `/about` and `/terms` once there is a route for them.
 
-## Phase 5 — open data and link-out — not started
+## Phase 3b — the rest of the site
 
-[docs/plan.md §Phase 5](docs/plan.md) has the detail. One item from `docs/todo-misc.md` belongs
-here rather than earlier, because it is the conditional link-out deliverable and it is the one
-place in this project where the rules bite hardest:
+Built on the accounts and moderation machinery that Phase 3 finished, so none of this needs new
+foundations.
 
-* **profile augmentation from the open web** — videos and reviews found by search, linked from
-  the plugin page. Constraints, none of them optional:
-  - **KVR is excluded from harvesting** (CLAUDE.md, resources.md §4). A *link* to a KVR review
-    page is not harvesting and is not excluded; copying a word of the review, a rating, or a
-    substantial part of their listing is. The line is: store the URL and our own label for it,
-    nothing of theirs.
-  - **A source gets a row in [resources.md §4](docs/resources.md) before a line of code**, as
-    every other source has. That review is where "link-out only" is written down and checked.
-  - **Do not scrape a search engine.** DuckDuckGo's HTML endpoint is scraping whatever it is
-    called, and working around a bot check is forbidden by rule. Use a sanctioned API — the
-    YouTube Data API for videos — or nothing.
-  - Such graphs are `proprietary-linkout`, non-redistributable, and excluded from the CC0 dump
-    by the flag rather than by anyone remembering at publication time.
-  - Links rot. A link-out graph needs re-checking on a schedule and a way to record a dead link,
-    or the catalogue slowly fills with 404s that look like data.
+* **an admin area**, for `TIER.ADMIN` only — currently one person. The tier exists and
+  `bin/grant.js` sets it; nothing reads it yet. Account list, trust and suspension, the graph
+  registry, and whatever the moderation page should not carry.
+* **a Plugin Resources page and a Developers page** — categorised links: what a plugin *user*
+  wants, and what someone *writing* one does (JUCE, DPF, the LV2 and CLAP specs, validators).
+  Curated first, then persisted in the store so signed-in contributors can add to them through
+  the moderation queue that already exists. Resources are a natural `skos:` collection over
+  the same category scheme rather than a new taxonomy.
+* **the wide-screen layout.** Small screens are right now; a large one shows a single narrow
+  column with empty space either side. Wants a hamburger or a sidebar with something worth
+  putting in it — facets, categories, recently added — rather than a wider measure, which would
+  make the prose harder to read, not easier.
+* ~~**text stored as Markdown, rendered with templating and marked**~~ — done for everything
+  authored: wiki prose is Markdown in `pu:wikiText`, the standing documents are the
+  repository's own files, and both render through `marked` into `templates/`. A plugin's
+  `rdfs:comment` stays plain text on purpose — it is a harvested fact in whatever form the
+  source wrote it, and treating a source's text as markup would render somebody else's
+  punctuation as formatting.
 
-## Found while surfacing the measurements
+## Phase 4 — pro tier
 
-* ~~**The project's own vocabularies were not in the store.**~~ `vocabs/plugin-universe.ttl`,
-  `trn-extensions.ttl` and `trn-profile.ttl` were served from disk at `/ns/<name>.ttl` and were
-  absent from the graph entirely, so every `pu:` and `trn:` IRI in the published data resolved
-  to a document the endpoint holding that data could not read. A SPARQL query could not ask
-  what a term meant — which is how the profiler's metric labels, defined in the vocabulary and
-  nowhere else, were unavailable to the code that had to display them. `bin/ingest.js` now
-  loads all three, one graph each. **This needs a re-ingest on the server to take effect.**
-* `vocabs/shapes.ttl` is deliberately still not loaded: SHACL shapes are how the store is
-  checked, not part of what it describes.
+[docs/plan.md](docs/plan.md) has the detail; nothing here is started.
 
-## HTML moved out of code
-
-`render.js` was 705 lines of mostly markup. Pages are now `templates/*.html`, loaded by name
-through `src/api/Templates.js` — the same discipline as `sparql/queries/`, with `{{escaped}}`
-and `{{{raw}}}` placeholders, no loops and no conditionals, and every placeholder required in
-both directions. `site.css` is a file rather than a JavaScript template literal, which is where
-a backtick in a comment silently broke the build once.
-
-* ~~`src/api/server.js` past the threshold~~ — 557 now. The wiki's routes moved to
-  `src/wiki/routes.js` beside the rest of the wiki, and the response helpers to
-  `src/api/respond.js` so a feature's routes can live with the feature. The corrections and
-  moderation routes are the next candidates if it grows again.
-* `tests/api/templates.test.js` fails on an orphaned template, on a stray `${...}`, and if
-  `.dockerignore` ever excludes `templates/`; `createServer` renders a page at startup so a
-  deployment missing the directory refuses to start.
+* **company and developer profiles**, so a paying vendor can present themselves: a page per
+  vendor, claimed by a verified account, with their plugins listed. The `pu:vendor` IRIs are
+  already minted, so the identity half exists — what is missing is claiming, and the labelling
+  rules that come with anything paid (DSA Art. 26/39, and the ASA's advice against "sponsored"
+  as the word).
 
 ## Phase 5 — open data — started
 
@@ -271,6 +279,47 @@ a backtick in a comment silently broke the build once.
 * Still to do in this phase: the public SPARQL endpoint at `sparql.`, the MCP face, the
   open-audio-stack-compatible JSON view, and contributing the user's own plugins upstream.
 
+### The conditional link-out deliverable
+
+[docs/plan.md §Phase 5](docs/plan.md) has the detail. One item from `docs/todo-misc.md` belongs
+here rather than earlier, because it is the conditional link-out deliverable and it is the one
+place in this project where the rules bite hardest:
+
+* **profile augmentation from the open web** — videos and reviews found by search, linked from
+  the plugin page. Constraints, none of them optional:
+  - **KVR is excluded from harvesting** (CLAUDE.md, resources.md §4). A *link* to a KVR review
+    page is not harvesting and is not excluded; copying a word of the review, a rating, or a
+    substantial part of their listing is. The line is: store the URL and our own label for it,
+    nothing of theirs.
+  - **A source gets a row in [resources.md §4](docs/resources.md) before a line of code**, as
+    every other source has. That review is where "link-out only" is written down and checked.
+  - **Do not scrape a search engine.** DuckDuckGo's HTML endpoint is scraping whatever it is
+    called, and working around a bot check is forbidden by rule. Use a sanctioned API — the
+    YouTube Data API for videos — or nothing.
+  - Such graphs are `proprietary-linkout`, non-redistributable, and excluded from the CC0 dump
+    by the flag rather than by anyone remembering at publication time.
+  - Links rot. A link-out graph needs re-checking on a schedule and a way to record a dead link,
+    or the catalogue slowly fills with 404s that look like data.
+
+## Backups — nothing else on this list matters as much
+
+Until Phase 3 the store held nothing that could not be rebuilt: drop it all, re-run the
+harvesters, and the catalogue comes back. That stopped being true the moment a stranger could
+write to it. Corrections, moderation decisions, trust levels, accounts and wiki revisions exist
+**only** in Fuseki. There is no second copy and no way to reconstruct them, and a contributor
+whose work is lost does not contribute twice.
+
+* **a daily, dated backup of every graph**, run on the server. `bin/dump.js` is not this: it
+  publishes what may be published and deliberately withholds accounts and pending corrections,
+  which are exactly the graphs that cannot be rebuilt. A backup wants everything, including the
+  withheld graphs, and wants to be restorable rather than readable.
+* **a one-off backup script** to run before anything risky — an ingest that drops graphs, a
+  Fuseki upgrade, a schema change.
+* **a restore script, and a test that it works.** An untested backup is a belief, not a backup.
+  Restoring into a scratch dataset and counting triples is the cheap version of proving it.
+* Retention and where they live: the server has one small disk, so dated backups need a
+  rotation policy and ideally somewhere off the machine.
+
 ## Recurring — not a phase, a habit
 
 * **Keep [docs/danja-todo.md](docs/danja-todo.md) current.** Anything needing server access,
@@ -286,6 +335,7 @@ a backtick in a comment silently broke the build once.
   failure in [CLAUDE.md](CLAUDE.md) — two files that must change together with nothing
   connecting them — has cost more than any other class of defect here, and it is cheapest to
   catch before the second file is forgotten rather than after.
+* check docs/todo-misc.md for any new items, fit these into the main TODO.md or phased plan as appropriate
 
 ## Outstanding, not blocking
 

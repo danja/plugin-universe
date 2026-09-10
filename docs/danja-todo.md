@@ -14,67 +14,74 @@ looking at the machine.
 
 ---
 
-## 1. Deploy the build stamp — one command, then it gets easier
+## 1. Deploy — the standing routine
 
-There is uncommitted work in the tree: `/health` now reports which **code** is
-running, plus `bin/deploy.sh` and the tests around it.
+Everything through the wiki and the templates is live: `/health` reports
+`fad5d1b`, which is HEAD. Nothing is outstanding here except the habit.
 
 ```sh
 # here
-git status                 # read it; there are new files as well as changes
-git add -A && git commit   # your call on the message
-git push
-```
-
-```sh
+git add -A && git commit && git push
 # on the server
-cd /home/github/plugin-universe
-./bin/deploy.sh
+cd /home/github/plugin-universe && ./bin/deploy.sh
+# here again
+npm run test:live
 ```
 
-That is the whole deploy from now on. It pulls (`--ff-only`, so a diverged
-branch stops rather than being merged by a script), stamps the commit, builds,
-starts, then polls `/health` and **refuses to claim success unless the running
-container reports the commit it was just given**. It touches code only — data
-is a separate decision and it says so on the way out.
+`./bin/deploy.sh` pulls `--ff-only`, stamps the commit, builds, starts, and
+refuses to claim success unless the running container reports the commit it was
+just given. It touches code only. A **data** change wants
+`docker compose run --rm app node bin/ingest.js --only-new` and then
+`docker compose restart app` — a restart reuses the image, which is right for
+data and wrong for code.
 
-Then from here:
+**One small fix is waiting for the next deploy**: clicking "Edit" on a wiki page
+while signed out returned raw JSON, and now redirects to sign-in and back again.
+The live suite has one failing check until then, and that is the check working.
 
-```sh
-npm run test:live          # expect 29 of 29
-```
+- [ ] deploy the sign-in redirect with whatever lands next
 
-Until that first stamped build the live suite fails one check, because
-`/health` reports a null commit — meaning *nobody can tell what is deployed*,
-which is where we were before this existed. Everything else passes.
+## 2. Credentials — closed
 
-- [ ] committed and pushed
-- [ ] `./bin/deploy.sh` on the server
-- [ ] `npm run test:live` — 29 of 29
+**Nothing outstanding.** The exposed credential was `GITHUB_TOKEN`, the personal
+access token used for harvesting. It has been revoked and **deliberately not
+replaced**, which resolves the exposure better than rotating would have: a
+revoked token that does not exist cannot be abused.
 
----
+Verified rather than assumed — the app runs with `GITHUB_TOKEN` unset and
+reports sign-in, contributions and the wiki all enabled. Nothing in the serving
+path constructs a GitHub client. The token has exactly two users, both commands
+run by hand: `bin/discover.js` and `bin/ingest.js --github`.
 
-## 2. Rotate the harvesting token — before anything else touches GitHub
+**You will need one again** the next time you sweep or refresh a repository.
+It is not part of the OAuth App and needs no new GitHub App — it lives at
+Settings → Developer settings → **Personal access tokens** → Generate new token
+(classic), with **no scopes ticked**. Put it in `.env` on the server, run the
+sweep, and revoking it again afterwards is a perfectly reasonable habit.
 
-**The `GITHUB_TOKEN` was exposed twice** in an earlier session: once by an IDE
-selection putting it in the transcript, once by a `docker compose config` I ran
-that printed the resolved environment. This blocks §3.
+Two things done along the way that were not the leak, and cost nothing:
 
-- [ ] revoke the current token at https://github.com/settings/tokens
-- [ ] issue a new one — **no scopes**, public repository metadata only
-- [ ] update `.env` here **and** on the server
-- [ ] `docker compose up -d app` on the server so the new value reaches the
-      container (an `.env` edit alone does not)
+* `GITHUB_CLIENT_SECRET` cycled. That is the OAuth App secret, used only in the
+  sign-in callback exchange.
+* All user tokens revoked on the OAuth App. This changed nothing here:
+  `GitHubOAuth.identify()` uses a user's token once to call `/user` and never
+  returns it to the caller, so there was none stored to revoke. Sessions are
+  HMAC cookies signed with `SESSION_SECRET` and are independent of GitHub, so
+  nobody was signed out — someone signing in may see GitHub's authorize prompt
+  once more, and that is all.
 
-The OAuth App client secret was not printed and does not need rotating unless
-you would rather be sure.
+## 3. The GitHub sweep — running now
 
----
+Running as of 2026-09-10. Built and tested but never run at scale before — this
+machine's connection is why it was left for the server.
 
-## 3. Run the GitHub sweep
+When it finishes, two things are worth doing: read the output for
+`N categories are in the data but not in vocabs/categories.ttl` (a repository's
+own tags can introduce a category nothing defines — tell me and I will write the
+concepts), and commit `data/curation/github-candidates.json`, because it records
+decisions you made rather than output.
 
-Built, tested, and never run at scale — this machine's connection is why it was
-left for the server. Needs §2 done first.
+The commands, for reference and for the next time:
 
 ```sh
 cd /home/github/plugin-universe
@@ -130,28 +137,6 @@ docker compose restart app
 
 - [ ] re-ingested, whenever it suits
 
-## 3c. The wiki is built and needs deploying with the rest
-
-`/plugin/<slug>/wiki/edit` writes community notes, kept as revisions, licensed
-CC BY-SA and attributed to whoever wrote them. It is on the same deploy as
-everything else in §1 — `./bin/deploy.sh` — and needs **no ingest**, though the
-ontology re-ingest in §3b is still worth doing.
-
-Worth knowing before anyone else uses it:
-
-* **Prose is sanitised by not emitting anything dangerous** rather than by
-  cleaning up afterwards. Raw HTML never survives parsing, link schemes are
-  filtered, and images render as links rather than loads — an image in a wiki
-  page is a URL every reader's browser fetches from a third party. If you want
-  images to display, that is a decision to take deliberately.
-* **The terms now cover this.** Prose is the CC BY-SA half, which is what the
-  second opinion was about; the editor says so before anyone types.
-* Rate limited to 20 saves an hour per account, and a save built on a stale copy
-  is refused rather than overwriting.
-
-- [ ] deployed with §1
-- [ ] write one page yourself and see whether the editor is pleasant to use
-
 ## 3d. Dumps exist but nothing serves them
 
 `node bin/dump.js` writes the publishable dataset to `data/dumps` — CC0,
@@ -185,7 +170,23 @@ in the profiler is waiting on anything.
 
 ---
 
-## 5. Decisions that are yours
+## 5. Backups — the thing on this list I would do first
+
+Until Phase 3 the store held nothing that could not be rebuilt: drop it, re-run
+the harvesters, and the catalogue comes back. That stopped being true when
+strangers could write to it. Accounts, corrections, moderation decisions, trust
+levels and wiki revisions exist **only** in Fuseki, in one container, on one
+disk, with no second copy. `bin/dump.js` is not a backup — it deliberately
+withholds exactly those graphs.
+
+Nothing about this needs a decision from you; it needs a place to put them. Tell
+me whether the backups live on the same disk, somewhere else on the host, or off
+the machine entirely, and I will write the daily job, the one-off script, the
+restore script, and a test that the restore actually works.
+
+- [ ] say where backups should live
+
+## 6. Decisions that are yours
 
 - **Plugin images.** 560 plugins show a thumbnail hotlinked from the Open Audio
   Stack registry's GitHub Pages site, with a caption saying so. The alternative
@@ -215,6 +216,17 @@ in the profiler is waiting on anything.
   money for placement — because that is when the exposure changes and when the
   DSA/ASA labelling obligations in Phase 4 arrive alongside it. Worth deciding
   now who does it, so it is not the thing holding up a launch.
+- **What the front page should show.** It lists most-recently-added, which after
+  the GitHub sweep means a run of image-less LV2 utilities — accurate, and a
+  poor first impression for a visitor who has never seen the site. The
+  alternatives are worth a thought: most recently added but only what has a
+  description and a picture, or a curated handful, or random-but-good. Whatever
+  it is, it is an editorial decision rather than a technical one.
+- **The wide-screen layout.** Small screens are right now; a large one shows a
+  single narrow column with space either side. The fix is not a wider measure —
+  that makes prose harder to read — but something worth putting beside it:
+  facets, categories, recently added, or a hamburger. Which of those you want is
+  a taste question, and it is yours.
 - **A sitemap.** `robots.txt` has no `Sitemap:` line because there is no
   sitemap, and pointing at a 404 is the same defect as a user agent advertising
   a contact page that does not exist. Worth having for 752 plugin pages — say
@@ -256,6 +268,13 @@ Struck out rather than deleted, so the record survives.
 - ~~`/robots.txt`~~ — serving, byte-identical to the repository copy.
 - ~~First moderator~~ — `danja`, set with `bin/grant.js`. The moderation queue
   is linked from the account bar.
+- ~~The wiki~~ — deployed and serving. Prose on each plugin page, an editor,
+  every revision kept, CC BY-SA and attributed. Sanitised by not emitting
+  anything dangerous rather than by cleaning up afterwards; images in wiki text
+  render as links rather than loads, which is a decision you can revisit.
+- ~~HTML out of the code~~ — pages are `templates/*.html` now. Nothing in `src/`
+  contains markup, and a deployment missing `templates/` refuses to start
+  rather than serving 500s.
 
 ## Known and not wrong yet
 

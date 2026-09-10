@@ -230,15 +230,23 @@ describe('the deployed data is the current data', () => {
   })
 
   it('shows plugin images, over https only', async () => {
-    expect(front, 'no thumbnails on the front page').toContain('shot-thumb')
-    const sources = [...front.matchAll(/<img class="shot[^>]*src="([^"]+)"/g)].map(m => m[1])
-    expect(sources.length).toBeGreaterThan(0)
+    // Driven by a plugin that actually has one rather than by whatever is on
+    // the front page. The front page lists the most recently added, and after
+    // a sweep of GitHub repositories that is a run of plugins with no image at
+    // all — which made this fail while nothing was wrong.
+    const withImage = (await (await get('/search?q=reverb&limit=10')).json())
+      .results.find(result => result.image)
+    expect(withImage, 'no plugin in the catalogue has an image to check').toBeTruthy()
+
+    const page = await (await get(`/plugin/${withImage.iri.split('/').pop()}`)).text()
+    const sources = [...page.matchAll(/<img class="shot[^>]*src="([^"]+)"/g)].map(m => m[1])
+    expect(sources.length, 'a plugin with an image rendered none').toBeGreaterThan(0)
     for (const source of sources) {
       // An http image on an https page is blocked as mixed content, silently.
       expect(source, source).toMatch(/^https:/)
     }
-    expect(front, 'images are not lazy').toContain('loading="lazy"')
-    expect(front, 'the image host is being told what the reader is looking at')
+    expect(page, 'images are not lazy').toContain('loading="lazy"')
+    expect(page, 'the image host is being told what the reader is looking at')
       .toContain('referrerpolicy="no-referrer"')
   })
 })
@@ -249,15 +257,36 @@ describe('the contribution surface', () => {
   // the difference is invisible without asking.
   it('offers the wiki on a plugin page, without letting a passer-by edit it', async () => {
     expect(await status(`/plugin/${slug}/wiki/history`)).toBe(200)
-    expect(await status(`/plugin/${slug}/wiki/edit`)).toBe(401)
+  })
+
+  it('sends a signed-out reader to sign in, and back to where they were', async () => {
+    // Clicking "Edit" used to return raw JSON to a person, which is neither an
+    // answer nor an invitation.
+    const response = await fetch(`${BASE}/plugin/${slug}/wiki/edit`, {
+      redirect: 'manual',
+      headers: { 'User-Agent': AGENT, Accept: 'text/html' },
+      signal: AbortSignal.timeout(30000)
+    })
+    expect(response.status).toBe(302)
+    const location = response.headers.get('location')
+    expect(location).toContain('/auth/login')
+    expect(decodeURIComponent(location)).toContain(`/plugin/${slug}/wiki/edit`)
+  })
+
+  it('still answers a machine with 401 rather than a redirect', async () => {
+    // A redirect to a sign-in page is not a useful answer to an API client.
+    expect(await status(`/plugin/${slug}/wiki/edit`, { headers: { Accept: 'application/json' } }))
+      .toBe(401)
   })
 
   it('refuses an unauthenticated wiki save', async () => {
-    expect(await status(`/plugin/${slug}/wiki`, { method: 'POST' })).toBe(401)
+    expect(await status(`/plugin/${slug}/wiki`, {
+      method: 'POST', headers: { Accept: 'application/json' }
+    })).toBe(401)
   })
 
   it('keeps a contributor\'s own page to themselves', async () => {
-    expect(await status('/contributions')).toBe(401)
+    expect(await status('/contributions', { headers: { Accept: 'application/json' } })).toBe(401)
   })
 
   it('renders the prose block on a plugin page', async () => {

@@ -45,3 +45,23 @@ export function send (response, status, body) {
 }
 
 export const HTML = 'text/html; charset=utf-8'
+
+/**
+ * Ask someone to sign in, in whichever way suits them.
+ *
+ * A person following a link gets the sign-in page and comes back to where they
+ * were; a machine calling the API gets 401 and a sentence. Returning raw JSON
+ * to a reader who clicked "Edit" — which is what this did — is neither.
+ *
+ * The return path is a path on this site by construction, and `safeReturnTo`
+ * in the auth routes checks it again before it is used.
+ */
+export function needsSignIn (request, response, { returnTo, message }) {
+  const wantsHtml = String(request.headers.accept ?? '').includes('text/html')
+  if (!wantsHtml) {
+    send(response, 401, { error: message })
+    return
+  }
+  response.writeHead(302, { Location: `/auth/login?return_to=${encodeURIComponent(returnTo)}` })
+  response.end()
+}

@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-four entries is past the point where anyone reads them all, so what follows
+Twenty-five entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -75,6 +75,25 @@ The check that was run could not, in principle, have caught this class of defect
 found (`assert old in s`) before writing. An edit that silently does nothing is
 worse than one that fails, because it reports success. Where the edit is a
 single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-10 — A person clicking "Edit" was shown raw JSON
+
+**What was wrong.** Signed out, `/plugin/<slug>/wiki/edit` and `/contributions`
+answered `401 {"error": "Sign in to edit this page"}`. Correct as a status code
+and useless as a response: the reader had just clicked a link on a page, and
+what they got was a machine's answer rendered as text.
+
+**Root cause.** Both routes were written while thinking about the API surface,
+where 401 is right, and the same handler serves people. The distinction that
+matters is not the route but who is asking, and nothing was asking that.
+
+**Prevention.** `needsSignIn` in `src/api/respond.js` looks at `Accept`: a
+request that wants HTML is redirected to sign-in with a `return_to` that brings
+them back to what they were doing, and everything else still gets 401 and a
+sentence. Reported by the user, not by a test — no test asserted what a *person*
+sees, only what the status code was.
 
 ---
 

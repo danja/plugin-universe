@@ -12,7 +12,7 @@ import {
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
-import { send, sendText, JSON_HEADERS, LICENCE } from './respond.js'
+import { send, sendText, needsSignIn, JSON_HEADERS, LICENCE } from './respond.js'
 import { readForm, BodyError } from './body.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 import wikiRoutes from '../wiki/routes.js'
@@ -346,7 +346,12 @@ export function createServer ({
           // 401, not 404: unlike the moderation queue this is not a role
           // anyone might not have — it is simply nobody's page until you sign
           // in, and saying so is the useful answer.
-          if (!viewer.account) return send(response, 401, { error: 'Sign in to see your contributions' })
+          if (!viewer.account) {
+            return needsSignIn(request, response, {
+              returnTo: '/contributions',
+              message: 'Sign in to see your contributions'
+            })
+          }
           const rows = await corrections.byAccount(viewer.account.iri)
           return sendText(response, 200, renderContributionsPage(rows, {
             viewer,

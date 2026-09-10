@@ -1,6 +1,6 @@
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import { readForm } from '../api/body.js'
-import { send, sendText, HTML } from '../api/respond.js'
+import { send, sendText, needsSignIn, HTML } from '../api/respond.js'
 import { WikiError, WikiConflictError } from './Wiki.js'
 import { renderWikiEditor, renderWikiHistory, renderWikiRevision } from './render.js'
 
@@ -42,7 +42,10 @@ export async function wikiRoutes ({ request, response, path, params, viewer, aut
 
   if (section === '/edit') {
     if (!viewer.account) {
-      send(response, 401, { error: 'Sign in to edit this page' })
+      needsSignIn(request, response, {
+        returnTo: `/plugin/${slug}/wiki/edit`,
+        message: 'Sign in to edit this page'
+      })
       return true
     }
     const current = await wiki.current(pluginIri)
@@ -58,7 +61,12 @@ export async function wikiRoutes ({ request, response, path, params, viewer, aut
 
   if (request.method === 'POST') {
     if (!viewer.account) {
-      send(response, 401, { error: 'Sign in to edit this page' })
+      // A stale tab whose session expired. Sending them back to the editor
+      // rather than to the plugin page at least returns them to the work.
+      needsSignIn(request, response, {
+        returnTo: `/plugin/${slug}/wiki/edit`,
+        message: 'Sign in to edit this page'
+      })
       return true
     }
     let form
