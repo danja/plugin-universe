@@ -158,7 +158,13 @@ Each graph is dropped, reloaded, and **counted afterwards**; a count that does
 not match the manifest is an error rather than a success message.
 
 **A matching count is not proof.** Run `npm run validate` after any restore: a
-correct count with wrong data is exactly the failure the first rehearsal found. The app loads
+correct count with wrong data is exactly the failure the first rehearsal found.
+
+**Which scopes that defect can touch.** Only graphs containing blank nodes,
+which means `full` and never `essential`: the accounts graph and the graph
+registry have none, while `graph:source/flues` has 6,343 and the Open Audio
+Stack graph 21,819. So an essential restore is safe on any version; a full one
+needs the fixed loader. The app loads
 its index at start, so restart it if plugin data changed.
 
 ## What is deliberately not done

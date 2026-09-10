@@ -48,7 +48,16 @@ Reading what it prints tells you whether the backup holds what you think. Doing
 it now means the first time you read that output is not during an incident.
 
 - [ ] job and configuration re-installed
-- [ ] restore rehearsed on the server
+- [x] restore rehearsed on the server — the dry run reads the backup and lists
+      what it would replace
+
+**Before ever running a real restore on the server, deploy first.** The restore
+code on the server still groups triples by subject, which cuts blank nodes in
+half at batch boundaries — the defect the local rehearsal found. It cannot
+affect an `essential` restore, because neither the accounts graph nor the graph
+registry contains a blank node. It would quietly corrupt a `full` one:
+`graph:source/flues` holds 6,343 blank nodes and the Open Audio Stack graph
+21,819, and the triple count would still come back correct.
 
 ## 2. `pluginval` — the only real blocker
 
