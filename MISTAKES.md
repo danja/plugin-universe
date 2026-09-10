@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-seven entries is past the point where anyone reads them all, so what follows
+Twenty-eight entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -75,6 +75,46 @@ The check that was run could not, in principle, have caught this class of defect
 found (`assert old in s`) before writing. An edit that silently does nothing is
 worse than one that fails, because it reports success. Where the edit is a
 single site, use the Edit tool, which errors on a non-match by design.
+
+---
+
+## 2026-09-10 — Personal data was readable on the public internet, and the test for it was skipped
+
+**What was wrong.** `sparql.plugin-universe.com` was serving the **live
+catalogue** dataset. `GRAPH <graph:system/accounts> { ?s ?p ?o }` returned
+account records — a name, a GitHub id, an avatar URL — to anyone who asked. It
+had been reachable for as long as that server block had been deployed.
+
+**Two causes, and the second is the one worth keeping.**
+
+The configuration: an old `sparql.` server block in `plugin-universe.host.conf`,
+left from the original subdomain layout, proxied to `/plugin-universe/query`.
+When the new query-only config was added, nginx reported *conflicting server
+name* — a **warning**, not an error. It kept the block it loaded first, which
+was the old one, and ignored the new one entirely. A warning in a reload nobody
+reads is indistinguishable from silence.
+
+The test: an assertion that the public endpoint holds no accounts existed, and
+sat inside `describe.skipIf(!sparqlLive)` — gated on the *new* endpoint
+responding. It did not respond, so the block skipped, so the one check that
+would have caught this never ran. The reasoning at the time was "there is
+nothing to check until the endpoint exists". That is exactly backwards: **not
+deployed is the state in which nobody is looking.**
+
+**Prevention.** The check is unconditional now and probes five plausible SPARQL
+paths across both hostnames, whether or not this project put them there. It
+failed immediately and named the endpoint and the graph, which is how the fix
+was confirmed.
+
+**A safety assertion must never be gated on the feature it protects being
+present.** Gate a feature test on the feature; never gate "is anything leaking"
+on anything at all.
+
+**And a bad instruction, which is its own lesson.** The first fix offered was a
+`sed` commenting out `server_name`. That leaves a nameless server block, which
+nginx can use as a catch-all — it would have served that endpoint for *any*
+unmatched hostname and widened the exposure. It was written quickly because the
+situation felt urgent. Urgency is when a wrong instruction does the most damage.
 
 ---
 

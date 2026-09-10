@@ -23,6 +23,7 @@
     "test:harvest": "vitest run --config vitest.core.config.js tests/harvest"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@rdfjs/namespace": "^2.0.0",
     "faiss-node": "^0.5.1",
     "loglevel": "^1.9.1",

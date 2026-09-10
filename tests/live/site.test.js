@@ -442,6 +442,68 @@ describe('nothing anywhere serves personal data', () => {
   }, 60000)
 })
 
+describe('the MCP face', () => {
+  const rpc = (body, url = `${BASE}/mcp`) => fetch(url, {
+    method: 'POST',
+    headers: {
+      'User-Agent': AGENT,
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream'
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30000)
+  })
+
+  it('initializes and negotiates a protocol version', async () => {
+    const response = await rpc({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'live-check', version: '1' } }
+    })
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.result.serverInfo.name).toBe('plugin-universe')
+    expect(body.result.capabilities.tools).toBeTruthy()
+  })
+
+  it('offers the catalogue tools', async () => {
+    const body = await (await rpc({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} })).json()
+    const names = body.result.tools.map(tool => tool.name)
+    expect(names).toContain('search_plugins')
+    expect(names).toContain('get_plugin')
+    expect(names).toContain('list_categories')
+  })
+
+  it('answers a search', async () => {
+    const body = await (await rpc({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'search_plugins', arguments: { query: 'reverb', limit: 3 } }
+    })).json()
+    const payload = JSON.parse(body.result.content[0].text)
+    expect(payload.results.length).toBeGreaterThan(0)
+    expect(payload.licence).toMatch(/CC0/)
+  })
+
+  it('refuses a GET with an explanation rather than an empty stream', async () => {
+    // A stateless server has no SSE channel; an agent should be told so.
+    const response = await get('/mcp')
+    expect(response.status).toBe(405)
+    expect((await response.json()).error.message).toMatch(/stateless/i)
+  })
+
+  it('has no tool that writes', async () => {
+    // Contributions are attributed to a person, and an agent is not one.
+    const body = await (await rpc({ jsonrpc: '2.0', id: 4, method: 'tools/list', params: {} })).json()
+    for (const tool of body.result.tools) {
+      expect(tool.name, `${tool.name} looks like it writes`)
+        .not.toMatch(/create|update|delete|edit|write|submit|correct/i)
+    }
+  })
+})
+
 describe('the promises the catalogue makes to other people', () => {
   it('answers at the address its crawler user agent gives', async () => {
     // Already advertised to every source that has seen a request from us.

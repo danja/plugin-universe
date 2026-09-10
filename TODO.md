@@ -297,7 +297,7 @@ foundations.
     omitted rather than given an invented version, because a registry entry promises an
     artefact. **Only what may be republished**: the same licence flag that governs the public
     dump governs this, since publishing in a second format is still publishing.
-* ~~**the public SPARQL endpoint**~~ — built, awaiting a certificate and a publish run.
+* ~~**the public SPARQL endpoint**~~ — live, and verified from outside.
   A **separate TDB2 dataset** loaded from the dump, not a read-only view of the catalogue: a
   SPARQL endpoint exposes every named graph it holds whatever the default graph is set to, so
   pointing one at the live store would serve `graph:system/accounts` to anyone who asked for it
@@ -309,7 +309,23 @@ foundations.
   * Union default graph is **on** there and documented at `/about/sparql`. On a dataset holding
     only publishable graphs it is the friendly answer; an empty default graph makes a
     newcomer's first query return nothing.
-* Still to do in this phase: the MCP face, and contributing the user's own plugins upstream.
+* ~~**the MCP face**~~ — built, awaiting a certificate for `mcp.` and a deploy. Stateless
+  Streamable HTTP at `/mcp`, four tools: `search_plugins` (the same hybrid retrieval the site
+  uses, not a keyword match over JSON), `get_plugin`, `list_categories`, and `sparql_query`
+  against the **published** dataset.
+  * **The SDK rather than hand-rolled JSON-RPC**, unlike the Markdown sanitiser. The
+    distinction is whether the contract is internal or external: this project decides what HTML
+    it emits and can check it directly, whereas MCP's clients are other people's and a subtle
+    deviation surfaces as "it does not work in my agent" somewhere we cannot see.
+  * **Nothing writes.** A contribution is attributed to somebody and an agent is not somebody.
+    A live check asserts no tool name looks like a write.
+  * `sparql_query` is offered only when the published dataset is reachable — offered-and-broken
+    is worse than absent, because an agent retries it. Pointing it at the live store would have
+    been a way to ask for accounts by name.
+  * Every plugin record carries its provenance and licence, and every measurement carries the
+    tool, host and date, so an agent quoting the catalogue can say where the claim came from.
+* Still to do in this phase: contributing the user's own plugins upstream to the Open Audio
+  Stack registry.
 
 ### The conditional link-out deliverable
 

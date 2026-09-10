@@ -29,6 +29,7 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
   `pages.js` (the prose whitelist), `body.js`
 - `templates/` — every page's HTML, plus `site.css`. Nothing else contains markup.
 - `src/wiki/` — `Wiki.js` (revisions), `markdown.js` (untrusted Markdown), `render.js`
+- `src/mcp/` — `server.js` (stateless Streamable HTTP), `tools.js` (the catalogue as tools)
 - `bin/` — `ingest.js`, `discover.js`, `search.js`, `serve.js`, `validate.js`
 - `src/rdf/` — `NamespaceManager` (the single prefix registry), `URIMinter`
 - `src/store/` — `SPARQLClient`, `SPARQLHelper` (term formatting), `QueryService`

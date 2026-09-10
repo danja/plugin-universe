@@ -16,6 +16,7 @@ import { send, sendText, needsSignIn, JSON_HEADERS, LICENCE } from './respond.js
 import { readForm, BodyError } from './body.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 import buildRegistry from './registry.js'
+import { handleMcp, MCP_PATH } from '../mcp/server.js'
 import wikiRoutes from '../wiki/routes.js'
 import { renderWikiBlock } from '../wiki/render.js'
 import { TRUST } from '../auth/Accounts.js'
@@ -127,7 +128,7 @@ export const STATIC_FILES = Object.freeze({
 
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
-  wiki: wikiService = null, authProblem = null
+  wiki: wikiService = null, publication: mcpPublication = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
 
@@ -184,7 +185,10 @@ export function createServer ({
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
     const isCorrectionPost = request.method === 'POST' &&
       (/^\/plugin\/[^/]+\/(correct|wiki)$/.test(url.pathname) || url.pathname === '/moderation')
-    if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost && !isCorrectionPost) {
+    // MCP is JSON-RPC over POST. It writes no data — every tool answers a
+    // question — but it is a POST, so the read-only guard has to know about it.
+    const isMcp = url.pathname === MCP_PATH
+    if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost && !isCorrectionPost && !isMcp) {
       return send(response, 405, { error: 'This API is read-only' })
     }
 
@@ -196,6 +200,12 @@ export function createServer ({
       const viewer = auth
         ? { account: await auth.currentAccount(request), signInEnabled: true }
         : { account: null, signInEnabled: false }
+
+      // MCP first, and outside the switch: the transport writes the response
+      // itself rather than going through this project's send helpers.
+      if (path === MCP_PATH) {
+        return handleMcp(request, response, { search, publication: mcpPublication })
+      }
 
       // The prose pages, dispatched from PAGES rather than from a second list of
       // its keys. The switch below used to name them, so adding a page meant

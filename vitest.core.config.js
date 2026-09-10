@@ -10,6 +10,7 @@ export default defineConfig({
       'tests/auth/**/*.test.js',
       'tests/contrib/**/*.test.js',
       'tests/wiki/**/*.test.js',
+      'tests/mcp/**/*.test.js',
       'tests/embeddings/**/*.test.js',
       'tests/profiler/**/*.test.js',
       'tests/api/**/*.test.js',

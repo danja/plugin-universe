@@ -65,8 +65,22 @@ if (auth) {
   console.log('Sign-in disabled (no GITHUB_CLIENT_ID/SECRET); the site is read-only')
 }
 
+// The published dataset, for the MCP SPARQL tool. Optional: without it the
+// tool is simply not offered, rather than being offered and failing. A SPARQL
+// tool over the live store would be a way to ask for accounts by name.
+let publication = null
+try {
+  const candidate = new SPARQLClient(config.get('storage.publication'))
+  publication = await candidate.isReachable() ? candidate : null
+  console.log(publication
+    ? 'MCP enabled, including SPARQL over the published dataset'
+    : 'MCP enabled without SPARQL: the published dataset is not reachable')
+} catch (error) {
+  console.log(`MCP enabled without SPARQL: ${error.message}`)
+}
+
 const server = createServer({
-  search, config, projectRoot: Config.projectRoot, auth, corrections, wiki, authProblem
+  search, config, projectRoot: Config.projectRoot, auth, corrections, wiki, publication, authProblem
 })
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)

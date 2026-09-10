@@ -182,69 +182,40 @@ Two things that would be worth doing with a person rather than by me:
 Worth checking with real tooling before announcing it: point OwlPlug at the URL
 and see whether it lists anything.
 
-## 3f. Turn on the public SPARQL endpoint
+## 3g. Turn on the MCP endpoint
 
-Built and tested. It needs three things from you, in order.
-
-**1. A certificate for the subdomain.** DNS for `sparql.` already resolves; the
-nginx site expects `/etc/letsencrypt/live/sparql.plugin-universe.com/`.
+Built and tested; five live checks are failing until it is deployed, which is
+them working. Two steps.
 
 ```sh
-sudo certbot certonly --nginx -d sparql.plugin-universe.com
-sudo install -m 644 deploy/nginx/sparql.plugin-universe.conf \
-  /etc/nginx/sites-available/sparql.plugin-universe.conf
-sudo ln -s ../sites-available/sparql.plugin-universe.conf /etc/nginx/sites-enabled/
+# on the server
+sudo certbot certonly --nginx -d mcp.plugin-universe.com
+sudo install -m 644 deploy/nginx/mcp.plugin-universe.conf \
+  /etc/nginx/sites-available/mcp.plugin-universe.conf
+sudo ln -s ../sites-available/mcp.plugin-universe.conf /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
+./bin/deploy.sh
 ```
 
-**2. Fill the dataset.** The publication dataset is a *separate* TDB2 database,
-so it is empty until something loads it. `./bin/deploy.sh` first, since the
-Fuseki container needs the new assembler mounted:
+`nginx -t` should be silent — this config deliberately has **no port-80 block**,
+because `plugin-universe.host.conf` already lists `mcp.` among the names it
+redirects and serves ACME challenges for. A duplicate there is a warning rather
+than an error, and would have broken certificate renewal quietly.
 
-```sh
-cd /home/github/plugin-universe && ./bin/deploy.sh
-docker compose run --rm app node bin/publish.js
-docker compose run --rm app node bin/publish.js --audit
+Then `npm run test:live` here.
+
+**Worth doing yourself:** point a real MCP client at it — Claude Desktop or
+similar, with
+
+```json
+{ "mcpServers": { "plugin-universe": { "type": "http", "url": "https://mcp.plugin-universe.com/" } } }
 ```
 
-**3. Check it from outside.** `npm run test:live` here. Four checks are
-currently **skipped** and will start running once the endpoint answers —
-including the one that matters: that `graph:system/accounts` returns nothing.
+and ask it something like "find me a free open-source plate reverb in LV2".
+I can test the protocol; I cannot test whether the tool descriptions actually
+help an agent choose, and that is the part most likely to be wrong.
 
-### Why it is a separate dataset, and not a read-only view
-
-A SPARQL endpoint exposes every named graph it holds, whatever the default
-graph is set to. Pointed at the live catalogue, `GRAPH <graph:system/accounts>
-{ ?s ?p ?o }` returns a name and an avatar URL — I checked. So the public
-dataset is loaded from `bin/dump.js` output, which withholds those graphs by
-the licence flag set when each was harvested. **The strongest form of "not
-exposed" is "not present."**
-
-Three further guards, because a publication step that trusts its input is one
-refactor from publishing the wrong thing:
-
-* The `public` service has **no update operation defined at all**, so widening
-  the nginx rule by accident cannot reach a write endpoint. Loading goes through
-  a second service the proxy never mentions.
-* `bin/publish.js` **refuses to run against the catalogue** — a dataset holding
-  `graph:system/*` is by definition the wrong target, and publishing would have
-  dropped those graphs as "not in the dump".
-* `--audit` asks the endpoint what it actually holds, rather than inferring it
-  from what was loaded.
-
-### The default-graph answer
-
-Union is **on** for the public dataset: a query with no `GRAPH` clause sees
-everything in it. On a dataset containing only publishable graphs that is the
-friendly choice — the alternative makes a newcomer's first query return nothing
-and read as a broken endpoint. It is documented at `/about/sparql` rather than
-left to be discovered.
-
-- [ ] certificate and nginx site
-- [ ] `./bin/deploy.sh`, then `bin/publish.js`
-- [ ] `npm run test:live` — the four skipped checks should start running
-- [ ] add `bin/publish.js` to the nightly job beside the backup, so the public
-      copy does not drift more than a day behind
+`/about/mcp` documents it publicly.
 
 ## 4. Blockers
 
@@ -380,6 +351,14 @@ Struck out rather than deleted, so the record survives.
 - ~~`/robots.txt`~~ — serving, byte-identical to the repository copy.
 - ~~First moderator~~ — `danja`, set with `bin/grant.js`. The moderation queue
   is linked from the account bar.
+- ~~The public SPARQL endpoint~~ — live at
+  `https://sparql.plugin-universe.com/public/query`, serving 57,973 triples from
+  a separate published dataset. Verified from outside: `graph:system/accounts`
+  and `graph:system/corrections` return nothing, and every write path — the
+  public one, the admin one, the catalogue's, and Fuseki's dataset admin — 404s.
+  Union default graph is on, and documented at `/about/sparql`.
+  * **Re-run `bin/publish.js` after each ingest**, or the public copy drifts.
+    Worth adding to the nightly job beside the backup.
 - ~~The wiki~~ — deployed and serving. Prose on each plugin page, an editor,
   every revision kept, CC BY-SA and attributed. Sanitised by not emitting
   anything dangerous rather than by cleaning up afterwards; images in wiki text
