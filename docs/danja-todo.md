@@ -5,77 +5,43 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 *you* need to do.
 
 **What I cannot see.** I have no access to the server. What I can check is the
-public site, and `npm run test:live` does that from here — 52 checks. Anything
-below asserted about the deployment came from that, not from looking.
+public site, and `npm run test:live` does that from here. Anything below
+asserted about the deployment came from that, not from looking.
 
 ---
 
-## 1. Backups — the one I would do first
+## 1. Two steps to finish the backups
 
-Nothing else on this list risks anything irreversible. Accounts, corrections,
-moderation decisions, trust levels and wiki revisions exist **only** in Fuseki,
-on one disk, with no second copy. Measured: 203 irreplaceable triples against
-45,000 that a re-harvest could rebuild. `bin/dump.js` is not a backup — it
-deliberately withholds exactly those graphs.
+Everything else is done and verified: the nightly job on the server, the pull to
+`/chalet/plugin-universe-backups` at 07:17, and a restore rehearsal that found a
+real defect before it was needed.
 
-Built and tested. Two commands.
-
-**The server half is done** — the nightly job is installed and has run. There is
-now a dated copy on the server, which covers the ordinary case of undoing a bad
-ingest.
-
-**The off-host half is not**, and it is the half that survives losing the
-machine. It needs SSH key access from here, which does not currently work:
-`hyperdata` is not resolvable from this machine and key auth to `hyperdata.it`
-is refused.
-
-**Here**, as `danny` rather than root — the pull only reads files, so it needs
-no privilege beyond that:
-
-```
-# ~/.ssh/config here
-Host hyperdata
-  HostName hyperdata.it
-  User danny
-  IdentityFile ~/.ssh/id_ed25519
-```
+**Re-install the job and its configuration**, once you have pulled — the
+installed copy is still the older one, which writes files world-readable:
 
 ```sh
-ssh-copy-id hyperdata          # if that key is not on the server yet
-export PU_SSH_HOST=hyperdata
-./deploy/backup/pull-backups.sh
+sudo install -m 755 deploy/backup/plugin-universe-backup.sh \
+  /etc/cron.daily/plugin-universe-backup
+sudo install -m 644 deploy/backup/plugin-universe-backup.default \
+  /etc/default/plugin-universe-backup
+sudo /etc/cron.daily/plugin-universe-backup
 ```
 
-**On the server**, once, so `danny` can read them. The backups hold accounts and
-contributions — the personal data every published dump withholds — so they are
-group-readable rather than world-readable:
+The second file carries `PU_BACKUP_GROUP=danny`. Without it the permissions hold
+only because you set them by hand, and tomorrow's backup undoes that.
+
+**Rehearse a restore on the server.** It touches nothing without `--into`:
 
 ```sh
-sudo chgrp -R danny /var/backups/plugin-universe
-sudo chmod -R o-rwx,g+rX /var/backups/plugin-universe
+docker compose run --rm app node bin/restore.js \
+  /var/backups/plugin-universe/essential/<stamp>
 ```
 
-and give the nightly job the group so it keeps them that way:
+Reading what it prints tells you whether the backup holds what you think. Doing
+it now means the first time you read that output is not during an incident.
 
-```sh
-# in the cron environment, or edit the installed script's defaults
-PU_BACKUP_GROUP=danny
-```
-
-The pull runs from here rather than pushing from the server, so the server holds
-no credential for this machine and cannot reach or delete the copies — and the
-credential it does hold can only read backups. The runbook is
-[backups.md](backups.md).
-
-- [x] nightly job installed on the server, and run
-- [x] restore rehearsed — and it found a real defect, now fixed; see MISTAKES.md
-- [x] SSH key for `danny`; password auth disabled on the server
-- [x] pull run, verified, and a nightly cron entry installed here (07:17)
-- [ ] **`PU_BACKUP_GROUP=danny` for the server's nightly job**, once you have
-      pulled the updated script — otherwise tomorrow's backup writes files the
-      pull can read only by luck of the directory mode
-- [ ] rehearse a restore **on the server** too: `bin/restore.js <dir>` with no
-      `--into` prints what it would do and touches nothing
+- [ ] job and configuration re-installed
+- [ ] restore rehearsed on the server
 
 ## 2. `pluginval` — the only real blocker
 
@@ -84,24 +50,24 @@ profiler reaches LV2 plugins only, and the 46 built downspout VST3s cannot be
 measured at all. Everything else in Phase 2 — CPU load, latency in samples,
 reproducibility — is downstream of it.
 
-- [ ] install `pluginval` on whichever machine runs the profiler
+- [ ] install `pluginval` wherever the profiler runs
 
 ## 3. Decisions that are yours
 
-* **How the dumps get served.** `bin/dump.js` writes them to `data/dumps`;
-  nothing publishes them. The app has no business streaming tens of megabytes,
-  so nginx from disk is the obvious answer — a config change, and I will write
-  the location block and a page describing the parts. `/services` currently says
-  plainly that no dump is published, which is honest but thin.
+* **How the dumps get served.** `bin/dump.js` writes them to `data/dumps` and
+  nothing publishes them. nginx from disk is the obvious answer — the app has no
+  business streaming tens of megabytes — and I will write the location block and
+  a page describing the parts. `/services` currently says plainly that no dump is
+  published, which is honest but thin.
 * **Whether to publish a minimal attribution record.** CC BY-SA requires naming
   the author of wiki prose. Each revision records the account it is attributed
   to, but the IRI-to-name mapping is in a withheld graph, so the dump alone does
-  not say whom to credit. Closing it means publishing IRI and public login and
-  nothing else — a decision about personal data I should not take alone.
+  not say whom to credit. Closing it means publishing an IRI and a public login
+  and nothing else — a decision about personal data I should not take alone.
 * **What the front page should show.** Most-recently-added means a run of
-  image-less LV2 utilities after the sweep. Accurate, and a poor first
-  impression. Alternatives: recent-but-only-with-a-picture, a curated handful,
-  or random-but-good.
+  image-less LV2 utilities after the sweep: accurate, and a poor first
+  impression. Recent-but-only-with-a-picture, a curated handful, or
+  random-but-good.
 * **What goes beside the results on a wide screen.** Facets, categories,
   recently added, or a hamburger. A taste question.
 * **A sitemap.** `robots.txt` has no `Sitemap:` line because there is no
@@ -111,23 +77,22 @@ reproducibility — is downstream of it.
   judged them adequate and contributions are open on that basis. The trigger for
   a real review is **promotion** — advertising, or taking money for placement —
   because that is when the exposure changes and the DSA/ASA labelling
-  obligations arrive alongside it. Worth deciding now who does it.
+  obligations arrive with it. Worth deciding now who does it.
 * **Whether AI crawlers stay welcome.** `robots.txt` does not exclude them, on
   the reasoning that publishing CC0 RDF and an agent-facing API and then
   blocking machines would be incoherent. One `User-agent` block to reverse.
-* **Whether wiki images should display.** They currently render as links rather
-  than loads, because an image in a wiki page is a URL every reader's browser
-  fetches from a third party. Displaying them is a deliberate choice, not a
-  missing feature.
+* **Whether wiki images should display.** They render as links rather than
+  loads, because an image in a wiki page is a URL every reader's browser fetches
+  from a third party. A deliberate choice, not a missing feature.
 
 ## 4. Worth doing when you have a moment
 
 * **Tell the Open Audio Stack people the registry view exists.**
-  `/registry/plugins/index.json` publishes the catalogue in their format so
+  `/registry/plugins/index.json` publishes the catalogue in their format, so
   OwlPlug and StudioRack can read it. Contributing back rather than keeping a
   better copy privately is the operating principle — and **your own plugins are
-  in this catalogue and not in theirs**, which is the wrong way round. Worth
-  pointing OwlPlug at the URL before announcing anything.
+  in this catalogue and not in theirs**, which is the wrong way round. Point
+  OwlPlug at the URL before announcing anything.
 * **Point a real MCP client at the endpoint** — Claude Code or Codex, per
   [/services](/services) — and ask it something like "find me a free
   open-source plate reverb in LV2". I can test the protocol; I cannot test
@@ -135,15 +100,17 @@ reproducibility — is downstream of it.
   likely to be wrong.
 * **Commit `data/curation/github-candidates.json`** if you have not. It records
   decisions you made about which repositories to harvest, not output.
-* **Re-run `bin/publish.js` after each ingest**, or the public SPARQL copy
-  drifts behind. Worth adding to the nightly job beside the backup.
+* **A new `GITHUB_TOKEN`** whenever you next sweep. Settings → Developer
+  settings → Personal access tokens, **no scopes**. The old one was revoked and
+  deliberately not replaced; revoking it again afterwards is a reasonable habit.
 
 ## Standing habits
 
 * **Code change:** `./bin/deploy.sh` on the server, then `npm run test:live`.
 * **Data change:** `docker compose run --rm app node bin/ingest.js --only-new`,
-  then `docker compose restart app`, then `bin/publish.js`. A restart reuses the
-  image, which is right for data and wrong for code.
+  then `docker compose restart app`, then `bin/publish.js` — or the public
+  SPARQL copy drifts behind. A restart reuses the image, which is right for data
+  and wrong for code.
 * **`npm run test:live` is the check that matters** — the only one that sees the
   deployment rather than a copy of it.
 * **Ask me to prune this file** when it drifts. It is meant to be short.
@@ -158,19 +125,23 @@ reproducibility — is downstream of it.
 * `robots.txt`, the build stamp on `/health`, `bin/deploy.sh`.
 * The public SPARQL endpoint, on a separate published dataset.
 * The MCP endpoint, and `/services` describing every way in.
-* **Credentials.** The exposed `GITHUB_TOKEN` was revoked and deliberately not
-  replaced; an unset token cannot be abused. You will need a new one for the
-  next sweep — Settings → Developer settings → Personal access tokens, **no
-  scopes**. `GITHUB_CLIENT_SECRET` was cycled too; it was never the leaked one.
+* Backups: nightly on the server, pulled here nightly, restore rehearsed.
+* SSH keys for `danny`, and password authentication disabled on the server.
+* **Credentials.** The exposed `GITHUB_TOKEN` was revoked and not replaced; an
+  unset token cannot be abused. `GITHUB_CLIENT_SECRET` was cycled too, though it
+  was never the leaked one.
 * **A personal-data exposure, closed.** An old `sparql.` block proxied to the
   live catalogue and served `graph:system/accounts` to the internet. Removed,
-  and `npm run test:live` now checks five plausible SPARQL paths unconditionally
-  — not gated on any endpoint being deployed, because "not deployed" is exactly
-  the state in which nobody is looking.
+  and `npm run test:live` now checks five plausible SPARQL paths
+  unconditionally — not gated on any endpoint being deployed, because "not
+  deployed" is exactly the state in which nobody is looking.
 
 ## Known, and not wrong
 
 * `data/curation/` is deliberately not gitignored: a reviewed candidate file
-  records decisions. `data/dumps/` and `data/backups/` are ignored — they are
-  regenerated output.
+  records decisions. `data/dumps/` and `data/backups/` are ignored — regenerated
+  output.
+* There is very little irreplaceable data yet: one account, no corrections, no
+  wiki revisions. The backup machinery is proven before there is anything to
+  lose, which is the right order.
 * Two profiler scan graphs from test runs are still registered. Harmless.

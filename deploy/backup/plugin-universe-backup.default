@@ -1,0 +1,19 @@
+# Configuration for the nightly backup, installed to
+#   /etc/default/plugin-universe-backup
+#
+# It lives here rather than in the script because the script is installed by
+# copying: anything edited into it is lost the next time it is re-installed.
+
+# The group allowed to read the backups.
+#
+# These files hold accounts, contributions and wiki revisions — the personal
+# data every published dump withholds — so they are group-readable rather than
+# world-readable, and this is the group that gets the read. It should be a group
+# the machine that pulls them logs in as.
+PU_BACKUP_GROUP=danny
+
+# Where they go, and how many are kept. Essential backups are kept far longer
+# because they are tiny and cannot be rebuilt; full ones are large and can.
+#PU_BACKUP_DIR=/var/backups/plugin-universe
+#PU_KEEP_FULL=7
+#PU_KEEP_ESSENTIAL=90

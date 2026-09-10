@@ -14,6 +14,18 @@
 
 set -eu
 
+# Settings live outside this script, because the script is installed by copying
+# and the next `install` would discard anything edited into it. /etc/default is
+# where Debian expects a cron job's configuration, and cron.daily runs with a
+# near-empty environment, so there is nowhere else for it to come from.
+#
+#   # /etc/default/plugin-universe-backup
+#   PU_BACKUP_GROUP=danny
+#
+CONFIG="${PU_CONFIG:-/etc/default/plugin-universe-backup}"
+# shellcheck source=/dev/null
+[ -r "$CONFIG" ] && . "$CONFIG"
+
 REPO="${PU_REPO:-/home/github/plugin-universe}"
 DEST="${PU_BACKUP_DIR:-/var/backups/plugin-universe}"
 KEEP_FULL="${PU_KEEP_FULL:-7}"

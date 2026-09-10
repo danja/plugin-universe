@@ -50,16 +50,13 @@ to match a host user.
 **Permissions, and who may read them.** These files hold accounts,
 contributions and wiki revisions — the personal data every published dump
 deliberately withholds. The container writes them world-readable, so the script
-strips that and grants read to one group instead:
+strips that and grants read to one group instead — the group named by
+`PU_BACKUP_GROUP` in `/etc/default/plugin-universe-backup`.
 
-```sh
-PU_BACKUP_GROUP=danny sudo -E /etc/cron.daily/plugin-universe-backup
-```
-
-Or set it once in the cron environment. Directories are marked setgid, so
-tomorrow's backup inherits the group without the script having to run first.
-Without `PU_BACKUP_GROUP` only the container user can read them, the script says
-so, and a non-root pull will fail.
+Directories are marked setgid, so tomorrow's backup inherits the group without
+the script having to run first. Without `PU_BACKUP_GROUP` only the container
+user can read them, the script says so on every run, and a non-root pull fails
+with an explanation.
 
 If you installed an older copy of the script, either re-install it after pulling
 or do it once by hand:
