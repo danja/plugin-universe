@@ -44,6 +44,11 @@ export const PAGES = Object.freeze({
     title: 'Contributor terms',
     description: 'What you agree to when you contribute: CC0 for facts, CC BY-SA for prose.'
   },
+  '/about/sparql': {
+    file: 'docs/sparql.md',
+    title: 'The public SPARQL endpoint',
+    description: 'A read-only, open SPARQL endpoint over the Plugin Universe catalogue.'
+  },
   '/about/crawler': {
     file: 'docs/crawler.md',
     title: 'About the crawler',

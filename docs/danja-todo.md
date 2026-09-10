@@ -182,6 +182,70 @@ Two things that would be worth doing with a person rather than by me:
 Worth checking with real tooling before announcing it: point OwlPlug at the URL
 and see whether it lists anything.
 
+## 3f. Turn on the public SPARQL endpoint
+
+Built and tested. It needs three things from you, in order.
+
+**1. A certificate for the subdomain.** DNS for `sparql.` already resolves; the
+nginx site expects `/etc/letsencrypt/live/sparql.plugin-universe.com/`.
+
+```sh
+sudo certbot certonly --nginx -d sparql.plugin-universe.com
+sudo install -m 644 deploy/nginx/sparql.plugin-universe.conf \
+  /etc/nginx/sites-available/sparql.plugin-universe.conf
+sudo ln -s ../sites-available/sparql.plugin-universe.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**2. Fill the dataset.** The publication dataset is a *separate* TDB2 database,
+so it is empty until something loads it. `./bin/deploy.sh` first, since the
+Fuseki container needs the new assembler mounted:
+
+```sh
+cd /home/github/plugin-universe && ./bin/deploy.sh
+docker compose run --rm app node bin/publish.js
+docker compose run --rm app node bin/publish.js --audit
+```
+
+**3. Check it from outside.** `npm run test:live` here. Four checks are
+currently **skipped** and will start running once the endpoint answers —
+including the one that matters: that `graph:system/accounts` returns nothing.
+
+### Why it is a separate dataset, and not a read-only view
+
+A SPARQL endpoint exposes every named graph it holds, whatever the default
+graph is set to. Pointed at the live catalogue, `GRAPH <graph:system/accounts>
+{ ?s ?p ?o }` returns a name and an avatar URL — I checked. So the public
+dataset is loaded from `bin/dump.js` output, which withholds those graphs by
+the licence flag set when each was harvested. **The strongest form of "not
+exposed" is "not present."**
+
+Three further guards, because a publication step that trusts its input is one
+refactor from publishing the wrong thing:
+
+* The `public` service has **no update operation defined at all**, so widening
+  the nginx rule by accident cannot reach a write endpoint. Loading goes through
+  a second service the proxy never mentions.
+* `bin/publish.js` **refuses to run against the catalogue** — a dataset holding
+  `graph:system/*` is by definition the wrong target, and publishing would have
+  dropped those graphs as "not in the dump".
+* `--audit` asks the endpoint what it actually holds, rather than inferring it
+  from what was loaded.
+
+### The default-graph answer
+
+Union is **on** for the public dataset: a query with no `GRAPH` clause sees
+everything in it. On a dataset containing only publishable graphs that is the
+friendly choice — the alternative makes a newcomer's first query return nothing
+and read as a broken endpoint. It is documented at `/about/sparql` rather than
+left to be discovered.
+
+- [ ] certificate and nginx site
+- [ ] `./bin/deploy.sh`, then `bin/publish.js`
+- [ ] `npm run test:live` — the four skipped checks should start running
+- [ ] add `bin/publish.js` to the nightly job beside the backup, so the public
+      copy does not drift more than a day behind
+
 ## 4. Blockers
 
 **`pluginval` is not installed anywhere.** A JUCE binary from Tracktion covering

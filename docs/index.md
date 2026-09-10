@@ -23,6 +23,7 @@
 
 ## Working documents
 
+* [The public SPARQL endpoint](sparql.md) — served at `/about/sparql`; why it is a separate dataset
 * [Backups](backups.md) — what is irreplaceable, what runs where, and how to restore
 * [Danja's list](danja-todo.md) — actions needing server access, credentials or a decision
 * [TODO](../TODO.md) — what the project needs next, by phase

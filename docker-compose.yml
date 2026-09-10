@@ -55,6 +55,10 @@ services:
       # silently is not there.
       - fuseki-data:/fuseki-base/databases
       - ./config/fuseki/assembler-tdb2.ttl:/fuseki-base/configuration/plugin-universe.ttl:ro
+      # The public SPARQL dataset, query-only, loaded from the dump rather than
+      # from the live store — so accounts and pending corrections are absent
+      # rather than filtered. See config/fuseki/assembler-publication.ttl.
+      - ./config/fuseki/assembler-publication.ttl:/fuseki-base/configuration/publication.ttl:ro
     healthcheck:
       # wget, not curl: this image has no curl, and a healthcheck that can
       #  never pass makes every dependant fail with "dependency failed to

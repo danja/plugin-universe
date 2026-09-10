@@ -1,0 +1,56 @@
+@prefix :        <http://base/#> .
+@prefix fuseki:  <http://jena.apache.org/fuseki#> .
+@prefix ja:      <http://jena.hpl.hp.com/2005/11/Assembler#> .
+@prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
+
+# The public SPARQL dataset.
+#
+# A **separate dataset**, not a read-only view of the catalogue. The catalogue
+# holds accounts and pending corrections, and a SPARQL endpoint exposes every
+# named graph it has regardless of what the default graph is set to — so
+# `GRAPH <graph:system/accounts> { ?s ?p ?o }` would return a person's name and
+# avatar from any endpoint pointed at the live store. The strongest form of "not
+# exposed" is "not present", and that is what this is: loaded from the output of
+# bin/dump.js, which withholds non-redistributable graphs by the licence flag
+# set when each was harvested rather than by a filter somebody has to remember.
+#
+# **Query only.** No update, no gsp-rw, not even gsp-r. Publishing a TDB2 update
+# endpoint is the worst mistake available in this deployment, and the way to not
+# make it is to have no such endpoint on the dataset a stranger can reach.
+#
+# Union default graph is **on**, and here that is the friendly answer rather
+# than a risk: everything in this dataset is publishable, so the first query a
+# newcomer types — SELECT * WHERE { ?s ?p ?o } — does the obvious thing instead
+# of returning nothing and reading as a broken endpoint. Said out loud in the
+# VoID description too, so it is documented rather than discovered.
+#
+# Staleness is the trade. This reflects the last publish, not the live store; a
+# catalogue that changes on a harvest schedule can afford that, and bin/publish.js
+# is cheap enough to run nightly.
+
+# Two services over one dataset, and the split is the safety property.
+#
+# The public one has **no update operation at all**, so `/public/update` is not
+# a thing that can be reached carelessly — it 404s because it does not exist,
+# rather than because a proxy rule happened to be right. Loading is done through
+# a second service under a different name, which nginx never mentions and which
+# is only reachable on the loopback interface the container publishes to.
+#
+# The alternative — one service with update, kept private by configuration
+# alone — makes every future nginx edit a chance to publish a write endpoint.
+
+:publication a fuseki:Service ;
+    fuseki:name     "public" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query ; fuseki:name "query" ] ;
+    fuseki:dataset  :publicationDataset .
+
+:publicationAdmin a fuseki:Service ;
+    fuseki:name     "publication-admin" ;
+    fuseki:endpoint [ fuseki:operation fuseki:query ;   fuseki:name "query"  ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:update ;  fuseki:name "update" ] ;
+    fuseki:endpoint [ fuseki:operation fuseki:gsp-rw ;  fuseki:name "data"   ] ;
+    fuseki:dataset  :publicationDataset .
+
+:publicationDataset a tdb2:DatasetTDB2 ;
+    tdb2:location          "/fuseki-base/databases/publication" ;
+    tdb2:unionDefaultGraph true .

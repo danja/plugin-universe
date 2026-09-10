@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
+import { PAGES } from '../../src/api/pages.js'
+import { STATIC_FILES } from '../../src/api/server.js'
 
 /**
  * Every link the site renders must resolve to a route the server serves.
@@ -63,10 +65,22 @@ function routeSources () {
 
 const SERVER = routeSources()
 
-/** The `case '/x':` labels of the dispatch switch. */
-const STATIC_ROUTES = new Set(
-  [...SERVER.matchAll(/case '(\/[^']*)':/g)].map(match => match[1])
-)
+/**
+ * Every path the server answers at a fixed address.
+ *
+ * Three ways one can be declared, and the guard has to know all of them or it
+ * reports working routes as broken — which it did the moment the prose pages
+ * moved out of the switch and into a lookup on PAGES:
+ *
+ *  - a `case '/x':` label in the dispatcher
+ *  - a key of PAGES, dispatched by lookup
+ *  - a key of STATIC_FILES, likewise
+ */
+const STATIC_ROUTES = new Set([
+  ...[...SERVER.matchAll(/case '(\/[^']*)':/g)].map(match => match[1]),
+  ...Object.keys(PAGES),
+  ...Object.keys(STATIC_FILES)
+])
 
 /**
  * The dynamic routes, read from the `path.match(...)` calls that implement

@@ -27,6 +27,17 @@ describe('the served pages', () => {
     expect(Object.keys(PAGES)).toContain(path)
   })
 
+  it('is dispatched from PAGES, not from a second list of its keys', () => {
+    // The route handler used to enumerate '/about', '/terms', '/about/crawler'
+    // in a switch. Adding a page then meant editing two places, and the route
+    // is the one that gets forgotten — the recurring failure in CLAUDE.md.
+    const server = fs.readFileSync('src/api/server.js', 'utf8')
+    expect(server, 'server.js dispatches prose pages from PAGES').toMatch(/if \(PAGES\[path\]\)/)
+    for (const route of Object.keys(PAGES)) {
+      expect(server, `server.js still names ${route} in a case label`).not.toContain(`case '${route}'`)
+    }
+  })
+
   it('is a whitelist, not a directory', () => {
     // "Render whatever is under docs/" would publish the mistake log and the
     // implementation plan the moment someone guessed a filename.

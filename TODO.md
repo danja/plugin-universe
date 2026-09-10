@@ -297,8 +297,19 @@ foundations.
     omitted rather than given an invented version, because a registry entry promises an
     artefact. **Only what may be republished**: the same licence flag that governs the public
     dump governs this, since publishing in a second format is still publishing.
-* Still to do in this phase: the public SPARQL endpoint at `sparql.`, the MCP face, and
-  contributing the user's own plugins upstream.
+* ~~**the public SPARQL endpoint**~~ — built, awaiting a certificate and a publish run.
+  A **separate TDB2 dataset** loaded from the dump, not a read-only view of the catalogue: a
+  SPARQL endpoint exposes every named graph it holds whatever the default graph is set to, so
+  pointing one at the live store would serve `graph:system/accounts` to anyone who asked for it
+  by name. Verified, not assumed — it returns a name and an avatar URL.
+  * The `public` service defines **no update operation**, so a careless proxy rule cannot reach
+    a write endpoint; loading goes through a second service nginx never mentions.
+  * `bin/publish.js` refuses to run against a dataset holding `graph:system/*`, because that is
+    the catalogue and publishing would drop those graphs as "not in the dump".
+  * Union default graph is **on** there and documented at `/about/sparql`. On a dataset holding
+    only publishable graphs it is the friendly answer; an empty default graph makes a
+    newcomer's first query return nothing.
+* Still to do in this phase: the MCP face, and contributing the user's own plugins upstream.
 
 ### The conditional link-out deliverable
 

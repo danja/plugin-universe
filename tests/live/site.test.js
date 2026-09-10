@@ -341,6 +341,73 @@ describe('the pages are assembled from the templates that shipped', () => {
   })
 })
 
+/**
+ * Is the public SPARQL endpoint deployed yet?
+ *
+ * Probed once, at collection, so the checks below are **skipped** rather than
+ * passing vacuously. A test that quietly returns when its subject is absent is
+ * the same defect as a guard that reads the wrong file: green, and testing
+ * nothing.
+ */
+const SPARQL = 'https://sparql.plugin-universe.com/public/query'
+const sparqlLive = await fetch(`${SPARQL}?query=${encodeURIComponent('ASK {}')}`, {
+  headers: { 'User-Agent': AGENT }, signal: AbortSignal.timeout(15000)
+}).then(response => response.ok).catch(() => false)
+
+describe.skipIf(!sparqlLive)('the public SPARQL endpoint', () => {
+  const ask = query => fetch(`${SPARQL}?query=${encodeURIComponent(query)}`, {
+    headers: { 'User-Agent': AGENT, Accept: 'application/sparql-results+json' },
+    signal: AbortSignal.timeout(30000)
+  })
+
+  it('serves queries', async () => {
+    const response = await ask('SELECT * WHERE { ?s ?p ?o } LIMIT 1')
+    expect(response.status).toBe(200)
+    expect((await response.json()).results.bindings.length).toBe(1)
+  })
+
+  it('answers a query with no GRAPH clause, because the default graph is the union', async () => {
+    // An empty default graph would make the first query anybody types return
+    // nothing, and read as a broken endpoint.
+    const results = await (await ask('SELECT (COUNT(*) AS ?n) WHERE { ?s ?p ?o }')).json()
+    expect(Number(results.results.bindings[0].n.value)).toBeGreaterThan(1000)
+  })
+
+  it('holds no accounts and no pending contributions', async () => {
+    // The assertion this whole design exists for. Asked of the endpoint
+    // directly rather than inferred from what was loaded into it.
+    for (const graph of ['graph:system/accounts', 'graph:system/corrections']) {
+      const results = await (await ask(`SELECT * WHERE { GRAPH <${graph}> { ?s ?p ?o } } LIMIT 1`)).json()
+      expect(results.results.bindings.length, `${graph} is readable from the public endpoint`).toBe(0)
+    }
+  })
+
+  it('exposes no way to write', async () => {
+    // The dataset behind it has no update operation defined at all, so this
+    // should fail at the proxy and again at Fuseki.
+    for (const path of ['/public/update', '/publication-admin/update', '/$/datasets']) {
+      const response = await fetch(`https://sparql.plugin-universe.com${path}`, {
+        method: 'POST',
+        headers: { 'User-Agent': AGENT, 'Content-Type': 'application/sparql-update' },
+        body: 'INSERT DATA { GRAPH <urn:probe> { <urn:a> <urn:b> <urn:c> } }',
+        signal: AbortSignal.timeout(30000)
+      }).catch(() => null)
+      if (!response) continue
+      expect([401, 403, 404, 405], `${path} answered ${response.status}`).toContain(response.status)
+    }
+  })
+})
+
+describe('the endpoint that is not there yet', () => {
+  it('says so, rather than being quietly skipped without a word', () => {
+    // So the suite's output names the gap even when the block above is skipped.
+    if (!sparqlLive) {
+      console.log('    sparql.plugin-universe.com is not serving yet — 4 checks skipped')
+    }
+    expect(typeof sparqlLive).toBe('boolean')
+  })
+})
+
 describe('the promises the catalogue makes to other people', () => {
   it('answers at the address its crawler user agent gives', async () => {
     // Already advertised to every source that has seen a request from us.

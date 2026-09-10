@@ -14,6 +14,15 @@
       "update": "${SPARQL_URL_BASE}/${SPARQL_DATASET}/update",
       "user": "${SPARQL_USER}",
       "password": "${SPARQL_PASSWORD}"
+    },
+    "publication": {
+      "label": "publication",
+      "dataset": "public",
+      "adminDataset": "publication-admin",
+      "query": "${SPARQL_URL_BASE}/public/query",
+      "update": "${SPARQL_URL_BASE}/publication-admin/update",
+      "user": "${SPARQL_USER}",
+      "password": "${SPARQL_PASSWORD}"
     }
   },
   "embedding": {

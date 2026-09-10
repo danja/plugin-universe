@@ -197,6 +197,15 @@ export function createServer ({
         ? { account: await auth.currentAccount(request), signInEnabled: true }
         : { account: null, signInEnabled: false }
 
+      // The prose pages, dispatched from PAGES rather than from a second list of
+      // its keys. The switch below used to name them, so adding a page meant
+      // editing two places and the route was the one that got forgotten —
+      // which is the failure this project has shipped five times.
+      if (PAGES[path]) {
+        const page = await loadPage(path, projectRoot)
+        return sendText(response, 200, renderDocPage(page, viewer), 'text/html; charset=utf-8')
+      }
+
       switch (path) {
         case '/': {
           // The search page. Same service, same signals as the JSON endpoint.
@@ -335,12 +344,7 @@ export function createServer ({
         // The prose pages. /about/crawler in particular is the address this
         // project's own crawler user agent points at, so it is a promise made
         // to every source that has ever seen a request from it.
-        case '/about':
-        case '/terms':
-        case '/about/crawler': {
-          const page = await loadPage(path, projectRoot)
-          return sendText(response, 200, renderDocPage(page, viewer), 'text/html; charset=utf-8')
-        }
+
 
         case '/contributions': {
           if (!auth || !corrections) return send(response, 404, { error: 'Contributions are not enabled' })
