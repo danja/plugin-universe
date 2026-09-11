@@ -5,7 +5,7 @@ import {
   renderLandingPage, renderSearchPage, renderBrowsePage, pager,
   renderSubmitPage, renderModerationPage
 } from '../../src/api/render.js'
-import { SUBMITTABLE } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, PLUGIN_FORMATS } from '../../src/contrib/Submissions.js'
 
 /**
  * One URL per thing, each with its representations.
@@ -164,10 +164,52 @@ describe('the submit form', () => {
     expect(new Set(inputs)).toEqual(new Set(Object.keys(SUBMITTABLE)))
   })
 
+  it('offers every format as a checkbox, because a plugin is built for several', () => {
+    const html = render({})
+    const form = html.slice(html.indexOf('<form method="post" action="/submit"'))
+    for (const format of PLUGIN_FORMATS) {
+      expect(form, `no checkbox for ${format}`).toContain(`value="${format}"`)
+    }
+    // Counted inside the form: the browse panel's own toggle is a checkbox too.
+    expect((form.match(/type="checkbox"/g) ?? []).length).toBe(PLUGIN_FORMATS.length)
+  })
+
+  it('refuses to render a required group with nothing to tick', () => {
+    // An unfillable form looks like it should work, which is worse than an
+    // error. The options travel on the field so this cannot happen by
+    // forgetting to pass them, and this proves the guard rather than the
+    // plumbing.
+    expect(() => renderSubmitPage(
+      { format: { ...SUBMITTABLE.format, choices: [] } }, { csrfToken: 'tok' }
+    )).toThrow(/no choices to offer/)
+  })
+
+  it('ticks back the formats that were chosen when it refuses', () => {
+    const html = render({
+      error: 'Homepage is needed.',
+      values: { format: ['VST3', 'CLAP'] }
+    })
+    expect(html).toMatch(/value="VST3" checked/)
+    expect(html).toMatch(/value="CLAP" checked/)
+    expect(html).not.toMatch(/value="LV2" checked/)
+  })
+
+  it('carries the way back into the catalogue', () => {
+    // Somebody who has just been told their plugin is already here wants a
+    // route onwards, not a dead end.
+    const html = render({ facetValues: { format: [{ value: 'VST3', count: 9 }] }, corpus: 645 })
+    expect(html).toContain('class="side"')
+    expect(html).toContain('class="site-links"')
+    expect(html).not.toContain('<footer>')
+  })
+
   it('marks the required fields required, in the markup as well as the label', () => {
     const html = render({})
     for (const [name, spec] of Object.entries(SUBMITTABLE)) {
-      if (!spec.required) continue
+      // A checkbox group cannot use the attribute — on a checkbox `required`
+      // means *that* box must be ticked, not that one of them must be. "At
+      // least one" is enforced by the validator, which is tested separately.
+      if (!spec.required || spec.multiple) continue
       const field = html.slice(html.indexOf(`name="${name}"`))
       expect(field.slice(0, 80), `${name} is not marked required`).toContain('required')
     }

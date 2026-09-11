@@ -401,18 +401,30 @@ export function renderPluginPage (doc, viewer = {}, contribution = null, measure
  * refuses is a form people fill in once.
  */
 export function renderSubmitPage (submittable, {
-  csrfToken, error = null, submitted = null, values = {}, viewer = {}
+  csrfToken, error = null, submitted = null, values = {}, viewer = {},
+  facetValues = {}, corpus = 0
 }) {
-  const body = templates.render('submit', {
-    heading: templates.render('page-heading', { title: 'Submit a plugin' }),
-    csrf: csrfToken ?? '',
-    error: templates.when(Boolean(error), 'error', { text: error }),
-    done: templates.when(Boolean(submitted), 'submit-done', {
-      text: submitted?.text ?? '',
-      href: submitted?.href ?? '/',
-      linkText: submitted?.linkText ?? ''
-    }),
-    fields: templates.each('submit-field', Object.entries(submittable), ([name, spec]) => ({
+  /** One field: a row of checkboxes where it takes several values, a box where it does not. */
+  const field = ([name, spec]) => {
+    if (spec.multiple) {
+      // A required group with nothing to tick is a form nobody can complete,
+      // and it looks like it should work — so it is an error here rather than
+      // an empty row on the page.
+      if (!spec.choices?.length) {
+        throw new Error(`${name} takes several values but declares no choices to offer.`)
+      }
+      const chosen = new Set([values[name] ?? []].flat())
+      return templates.render('submit-checkboxes', {
+        label: spec.label,
+        help: spec.help,
+        boxes: templates.each('submit-checkbox', spec.choices, value => ({
+          name,
+          value,
+          checked: chosen.has(value) ? ' checked' : ''
+        }))
+      })
+    }
+    return templates.render('submit-field', {
       name,
       label: spec.label,
       help: spec.help,
@@ -422,11 +434,29 @@ export function renderSubmitPage (submittable, {
       maxLength: String(CONTRIBUTION_CONFIG.maxValueLength),
       required: spec.required ? '' : ' (optional)',
       requiredAttr: spec.required ? ' required' : ''
-    }))
+    })
+  }
+
+  const body = templates.render('submit', {
+    heading: templates.render('page-heading', { title: 'Submit a plugin' }),
+    csrf: csrfToken ?? '',
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    done: templates.when(Boolean(submitted), 'submit-done', {
+      text: submitted?.text ?? '',
+      href: submitted?.href ?? '/',
+      linkText: submitted?.linkText ?? ''
+    }),
+    fields: Object.entries(submittable).map(field).join('\n  '),
+    // The same two columns the search pages carry. Somebody who has just
+    // submitted a plugin, or been told theirs is already here, wants a way
+    // back into the catalogue rather than a dead end.
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {})
   })
   return layout('Submit a plugin — Plugin Universe', body, {
     description: 'Propose a plugin for the Plugin Universe catalogue.',
-    ...viewer
+    ...viewer,
+    footer: false
   })
 }
 

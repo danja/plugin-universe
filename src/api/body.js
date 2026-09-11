@@ -47,24 +47,42 @@ export function readBody (request, { limit = MAX_BODY_BYTES } = {}) {
 }
 
 /**
- * A form post as a map.
+ * A form post.
  *
  * `URLSearchParams` handles the decoding, including the `+`-for-space rule that
- * a hand-rolled parser gets wrong. Repeated keys collapse to the first: no form
- * here wants a list, and silently taking the last value is how a validated
- * field gets replaced by an unvalidated one.
+ * a hand-rolled parser gets wrong.
+ *
+ * **`get` returns the first value for a repeated key, and that is a rule rather
+ * than an accident**: silently taking the last is how a validated field gets
+ * replaced by an unvalidated one appended to the body.
+ *
+ * `getAll` returns every value, for the one shape of field that genuinely wants
+ * several — a checkbox group, where each box posts under the same name. It is
+ * safe there and only there, because the caller matches each value against a
+ * whitelist; a field that took `getAll` and trusted the result would have given
+ * back exactly the hole `get` exists to close.
  */
+class Form extends Map {
+  #params
+  constructor (params) {
+    super()
+    this.#params = params
+    for (const [key, value] of params) {
+      if (!this.has(key)) this.set(key, value)
+    }
+  }
+
+  getAll (key) {
+    return this.#params.getAll(key)
+  }
+}
+
 export async function readForm (request, options = {}) {
   const type = String(request.headers['content-type'] ?? '')
   if (!type.startsWith('application/x-www-form-urlencoded')) {
     throw new BodyError('Expected a form submission.', { status: 415 })
   }
-  const params = new URLSearchParams(await readBody(request, options))
-  const form = new Map()
-  for (const [key, value] of params) {
-    if (!form.has(key)) form.set(key, value)
-  }
-  return form
+  return new Form(new URLSearchParams(await readBody(request, options)))
 }
 
 export default readForm

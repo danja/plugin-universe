@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import URIMinter from '../../src/rdf/URIMinter.js'
-import { validate, valueTerm, SUBMITTABLE, SubmissionError, Submissions } from '../../src/contrib/Submissions.js'
+import { readFileSync } from 'fs'
+import { validate, valueTerm, SUBMITTABLE, PLUGIN_FORMATS, SubmissionError, Submissions } from '../../src/contrib/Submissions.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
 /**
@@ -21,7 +22,7 @@ const GOOD = {
   name: 'Moka',
   homepage: 'https://danja.github.io/downspout/plugins/moka/',
   vendor: 'danja',
-  format: 'VST3',
+  format: ['VST3', 'LV2'],
   description: 'A MIDI phrase player.',
   category: 'midi'
 }
@@ -71,9 +72,17 @@ describe('validating a submission', () => {
     expect(() => validate({ ...GOOD, homepage: 'file:///etc/passwd' })).toThrow(/http or https/)
   })
 
-  it('refuses a category or format that is not shaped like one', () => {
+  it('refuses a category that is not shaped like one', () => {
     expect(() => validate({ ...GOOD, category: 'Reverb!' })).toThrow(/lowercase/)
-    expect(() => validate({ ...GOOD, format: 'VST 3' })).toThrow(/a name like/)
+  })
+
+  it('refuses a format the catalogue does not know, and lists the ones it does', () => {
+    // Not a shape rule — a membership one. "VST 3" and "VST4" are both
+    // plausible typings and neither is a format, and a typo here would create
+    // a facet value that silently matches nothing.
+    expect(() => validate({ ...GOOD, format: ['VST 3'] })).toThrow(/not a format this catalogue knows/)
+    expect(() => validate({ ...GOOD, format: ['VST3', 'VST4'] })).toThrow(/VST4/)
+    expect(() => validate({ ...GOOD, format: ['VST3', 'VST4'] })).toThrow(/Known: VST3/)
   })
 
   it('leaves out what was not filled in, rather than writing empty values', () => {
@@ -178,5 +187,51 @@ describe('refusing to write', () => {
       { minter: new URIMinter() })
     await expect(submissions.submit({ account: null, fields: GOOD }))
       .rejects.toBeInstanceOf(SubmissionError)
+  })
+})
+
+/**
+ * A plugin is commonly built for several formats, and the catalogue models it
+ * that way — `trn:format` has no maxCount in the shapes.
+ */
+describe('formats', () => {
+  it('are the same nine the SHACL shapes allow', () => {
+    // The coupling that has cost this project most: a list in code and the
+    // same list in vocabs/shapes.ttl with nothing connecting them. A format
+    // missing here is one nobody can submit; one here that the shapes reject
+    // is a submission that passes the form and fails at the last moment.
+    const shapes = readFileSync('vocabs/shapes.ttl', 'utf8')
+    const clause = shapes.slice(shapes.indexOf('sh:path trn:format'))
+    const allowed = [...clause.slice(0, clause.indexOf(')')).matchAll(/trn:([A-Za-z0-9]+)/g)]
+      .map(match => match[1])
+      .filter(name => name !== 'format')
+    expect([...PLUGIN_FORMATS].sort()).toEqual(allowed.sort())
+  })
+
+  it('accepts several, and keeps them all', () => {
+    expect(validate({ ...GOOD, format: ['VST3', 'LV2', 'CLAP'] }).format)
+      .toEqual(['VST3', 'LV2', 'CLAP'])
+  })
+
+  it('accepts one, given as a bare string, because that is what one checkbox sends', () => {
+    expect(validate({ ...GOOD, format: 'LV2' }).format).toEqual(['LV2'])
+  })
+
+  it('drops a repeat rather than stating it twice', () => {
+    expect(validate({ ...GOOD, format: ['LV2', 'LV2'] }).format).toEqual(['LV2'])
+  })
+
+  it('still insists on at least one', () => {
+    expect(() => validate({ ...GOOD, format: [] })).toThrow(/Formats are needed/)
+    expect(() => validate({ ...GOOD, format: '' })).toThrow(/Formats are needed/)
+  })
+
+  it('becomes one triple per format', () => {
+    const submissions = new Submissions({ select: async () => [], update: async () => {} },
+      { minter: new URIMinter() })
+    const clean = validate({ ...GOOD, format: ['VST3', 'LV2'] })
+    const joined = submissions.triplesFor('http://x/p', clean, new Date()).join('\n')
+    expect(joined).toContain(`<${NAMESPACES.trn}format> <${NAMESPACES.trn}VST3>`)
+    expect(joined).toContain(`<${NAMESPACES.trn}format> <${NAMESPACES.trn}LV2>`)
   })
 })

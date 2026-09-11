@@ -35,7 +35,7 @@ const FIELDS = {
   name: 'Test Submission Plugin',
   homepage: 'https://example.invalid/test-submission-plugin',
   vendor: 'Test Vendor',
-  format: 'VST3',
+  format: ['VST3', 'LV2'],
   description: 'A plugin that exists only in this test.',
   category: 'reverb'
 }
@@ -110,7 +110,8 @@ describe('a submission from a new contributor', () => {
     const mine = queue.find(item => item.plugin === result.plugin)
     expect(mine).toBeTruthy()
     expect(mine.fields.name).toBe(FIELDS.name)
-    expect(mine.fields.format).toBe('VST3')
+    // Several formats come back as several, not as whichever was written last.
+    expect(mine.fields.format.sort()).toEqual(['LV2', 'VST3'])
     // One record, not one per proposed field — it is reviewed whole.
     expect(queue.filter(item => item.plugin === result.plugin)).toHaveLength(1)
   })
@@ -137,7 +138,12 @@ describe('a submission from a new contributor', () => {
     const predicates = written.map(row => row.p)
     expect(predicates).toContain(`${NAMESPACES.rdfs}label`)
     expect(predicates).toContain(`${NAMESPACES.dcterms}created`)
-    expect(predicates).toContain(`${NAMESPACES.trn}format`)
+
+    // Both formats, as two statements. A plugin built for VST3 and LV2 that
+    // arrived in the catalogue as one of them would be wrong in a way nothing
+    // downstream could detect.
+    const formats = written.filter(row => row.p === `${NAMESPACES.trn}format`).map(row => row.o)
+    expect(formats.sort()).toEqual([`${NAMESPACES.trn}LV2`, `${NAMESPACES.trn}VST3`])
   })
 
   it('refuses a proposal of a plugin the catalogue now holds', async () => {

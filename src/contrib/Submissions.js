@@ -61,6 +61,21 @@ export class SubmissionError extends Error {
  * checksums and parameters are not on this list: those are things the catalogue
  * finds out, not things it is told.
  */
+/**
+ * The plugin formats a submission may claim.
+ *
+ * The same nine the SHACL shapes enumerate, and
+ * `tests/contrib/Submissions.test.js` asserts the two agree. This is the shape
+ * of coupling that has cost this project most — a list in code and the same
+ * list in `vocabs/shapes.ttl`, with nothing connecting them, which is how a
+ * GitHub sweep once produced 136 violations. A format missing here is one
+ * nobody can submit; a format here that the shapes reject is a submission that
+ * passes the form and fails at the last moment.
+ */
+export const PLUGIN_FORMATS = Object.freeze([
+  'VST3', 'VST2', 'CLAP', 'AudioUnit', 'AudioUnitV3', 'LV2', 'LADSPA', 'AAX', 'Standalone'
+])
+
 export const SUBMITTABLE = Object.freeze({
   name: {
     predicate: `${rdfs}label`, label: 'Name', kind: 'text', required: true,
@@ -79,8 +94,17 @@ export const SUBMITTABLE = Object.freeze({
     help: 'What it does, in a sentence or two.'
   },
   format: {
-    predicate: `${trn}format`, label: 'Format', kind: 'format', required: true,
-    help: 'VST3, LV2, CLAP, AudioUnit, VST2, AAX or Standalone.'
+    predicate: `${trn}format`, label: 'Formats', kind: 'format', required: true,
+    // A plugin is commonly built for several, and the catalogue already models
+    // it that way — trn:format has no maxCount in the shapes. A single-choice
+    // field would have forced a contributor to pick one and lose the rest.
+    multiple: true,
+    // The options travel with the field rather than being passed to the form.
+    // Passed separately they can be forgotten, and a required checkbox group
+    // with no boxes is a form nobody can complete — which is worse than an
+    // error, because it looks like it should work.
+    choices: PLUGIN_FORMATS,
+    help: 'Every format it is built for. At least one.'
   },
   category: {
     predicate: `${pu}category`, label: 'Category', kind: 'category', required: false,
@@ -109,6 +133,29 @@ export function valueTerm (kind, value) {
 export function validate (fields = {}) {
   const clean = {}
   for (const [key, spec] of Object.entries(SUBMITTABLE)) {
+    // A field that takes several values arrives as an array from a checkbox
+    // group, and as a single string from anything else. Normalised once here
+    // so the rest of this function, and everything downstream, sees one shape.
+    if (spec.multiple) {
+      const values = [...new Set(
+        (Array.isArray(fields[key]) ? fields[key] : [fields[key]])
+          .map(value => String(value ?? '').trim())
+          .filter(Boolean)
+      )]
+      if (values.length === 0) {
+        if (spec.required) throw new SubmissionError(`${spec.label} are needed. ${spec.help}`)
+        continue
+      }
+      for (const value of values) {
+        if (spec.kind === 'format' && !PLUGIN_FORMATS.includes(value)) {
+          throw new SubmissionError(
+            `"${value}" is not a format this catalogue knows. Known: ${PLUGIN_FORMATS.join(', ')}.`)
+        }
+      }
+      clean[key] = values
+      continue
+    }
+
     const raw = String(fields[key] ?? '').trim()
     if (!raw) {
       if (spec.required) throw new SubmissionError(`${spec.label} is needed. ${spec.help}`)
@@ -203,7 +250,9 @@ export class Submissions {
     ]
     for (const [key, spec] of Object.entries(SUBMITTABLE)) {
       if (!fields[key]) continue
-      triples.push(`${s} ${iri(spec.predicate)} ${valueTerm(spec.kind, fields[key])} .`)
+      for (const value of [fields[key]].flat()) {
+        triples.push(`${s} ${iri(spec.predicate)} ${valueTerm(spec.kind, value)} .`)
+      }
     }
     return triples
   }
@@ -266,11 +315,16 @@ export class Submissions {
     ]
     for (const [key, spec] of Object.entries(SUBMITTABLE)) {
       if (!clean[key]) continue
-      const field = `_:f${key}`
-      record.push(
-        `${q} ${iri(pu + 'proposedField')} ${field} .`,
-        `${field} ${iri(pu + 'fieldPredicate')} ${literal(spec.predicate)} .`,
-        `${field} ${iri(pu + 'fieldValue')} ${literal(clean[key])} .`)
+      // One node per value, not per field: a plugin built for VST3 and LV2 is
+      // two proposed formats, and a single node would have kept whichever was
+      // written last.
+      for (const [index, value] of [clean[key]].flat().entries()) {
+        const field = `_:f${key}${index}`
+        record.push(
+          `${q} ${iri(pu + 'proposedField')} ${field} .`,
+          `${field} ${iri(pu + 'fieldPredicate')} ${literal(spec.predicate)} .`,
+          `${field} ${iri(pu + 'fieldValue')} ${literal(value)} .`)
+      }
     }
     // One request: the blank nodes above are scoped to it, and splitting them
     // across two would leave half a submission with no fields.
@@ -325,7 +379,10 @@ export class Submissions {
         })
       }
       const key = Object.keys(SUBMITTABLE).find(name => SUBMITTABLE[name].predicate === row.predicate)
-      if (key) byIri.get(row.submission).fields[key] = row.value
+      if (!key) continue
+      const record = byIri.get(row.submission).fields
+      if (SUBMITTABLE[key].multiple) (record[key] ??= []).push(row.value)
+      else record[key] = row.value
     }
     return [...byIri.values()].slice(0, limit)
   }
@@ -363,7 +420,9 @@ export class Submissions {
     const fields = {}
     for (const row of rows) {
       const key = Object.keys(SUBMITTABLE).find(name => SUBMITTABLE[name].predicate === row.predicate)
-      if (key) fields[key] = row.value
+      if (!key) continue
+      if (SUBMITTABLE[key].multiple) (fields[key] ??= []).push(row.value)
+      else fields[key] = row.value
     }
     const clean = validate(fields)
     const pluginIri = rows[0].plugin

@@ -541,10 +541,13 @@ export function createServer ({
             })
           }
           const account = viewer.account
+          const facetValues = await search.facets()
           const render = extra => sendText(response, extra.status ?? 200,
             renderSubmitPage(SUBMITTABLE, {
               csrfToken: auth.session.csrfToken(account.iri),
               viewer,
+              facetValues,
+              corpus: search.documents.size,
               ...extra
             }), HTML)
 
@@ -563,8 +566,8 @@ export function createServer ({
           // Whatever was typed, so an error hands the form back filled in
           // rather than empty. A form that empties itself when it refuses is a
           // form people fill in once.
-          const values = Object.fromEntries(
-            Object.keys(SUBMITTABLE).map(name => [name, form.get(name) ?? '']))
+          const values = Object.fromEntries(Object.entries(SUBMITTABLE).map(([name, spec]) =>
+            [name, spec.multiple ? form.getAll(name) : (form.get(name) ?? '')]))
 
           try {
             const result = await submissions.submit({ account, fields: values })
