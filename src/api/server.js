@@ -924,7 +924,15 @@ export function createServer ({
                     ? {
                         account: viewer.account,
                         csrfToken: viewer.account ? auth.session.csrfToken(viewer.account.iri) : null,
-                        correctable: CORRECTABLE
+                        correctable: CORRECTABLE,
+                        // The only place the upload form appears. Without this
+                        // the route at /plugin/<slug>/image worked and nothing
+                        // on the site reached it — a route with no link, which
+                        // is the failure in CLAUDE.md's table and which this
+                        // shipped as.
+                        mayUploadImage: Boolean(images) && (
+                          viewer.account?.trustLevel === TRUST.TRUSTED ||
+                          viewer.account?.trustLevel === TRUST.MODERATOR)
                       }
                     : null,
                   search.measured(iri),

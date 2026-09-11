@@ -101,6 +101,7 @@ complained, and each was found in production or by accident:
 | Added a test directory | the `include` list in `vitest.core.config.js` | tests written, never run — twice |
 | Set the crawler's user-agent URL | the route it promises | a contact page that 404s, already advertised to sources |
 | Added the `/moderation` route | the account bar that should link to it | a queue reachable only by typing the URL |
+| Added `/plugin/<slug>/image` | the plugin page, which never showed the form | an upload route nothing on the site could reach |
 | Added terms to `vocabs/plugin-universe.ttl` | the store's own copy of it, reloaded only by a full harvest | three metrics on plugin pages as bare local names, no label or unit |
 | Saved a test fixture as `*.log` | `.gitignore`, which excludes `*.log` | a test that passes here and fails on a fresh clone |
 | Stored uploaded images under `data/` | a volume in `docker-compose.yml` | uploads written into the container, gone on the next rebuild |

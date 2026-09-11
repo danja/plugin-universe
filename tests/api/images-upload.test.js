@@ -213,3 +213,52 @@ describe('reading an upload', () => {
       { maxBytes: IMAGE_CONFIG.maxBytes })).rejects.toThrow(/One file at a time/)
   })
 })
+
+/**
+ * The form has to be reachable, which is a different question from whether the
+ * route works.
+ *
+ * The upload route worked from the day it was written and nothing on the site
+ * linked to it: `mayUploadImage` was set only inside the POST handler, so a
+ * plugin page never showed the form. This is the fifth instance of the pattern
+ * in CLAUDE.md — a route with nothing reaching it — and the previous one was a
+ * moderation queue that could only be opened by typing its URL.
+ */
+describe('reaching the upload form', () => {
+  const source = () => fs.readFileSync('src/api/server.js', 'utf8')
+
+  it('is offered on a plugin page, not only inside the POST that handles it', () => {
+    const server = source()
+    // The GET branch that renders a plugin page for a reader.
+    const view = server.slice(server.indexOf("const match = path.match(/^\\/plugin\\/([A-Za-z0-9-]+?)"))
+    expect(view, 'the plugin page never sets mayUploadImage, so the form never appears')
+      .toContain('mayUploadImage')
+  })
+
+  it('is offered on the strength of trust, not of being signed in', () => {
+    const server = source()
+    const view = server.slice(server.indexOf("const match = path.match(/^\\/plugin\\/([A-Za-z0-9-]+?)"))
+    const clause = view.slice(view.indexOf('mayUploadImage'), view.indexOf('mayUploadImage') + 300)
+    expect(clause).toContain('TRUSTED')
+    expect(clause).toContain('MODERATOR')
+  })
+
+  it('renders the form for a trusted account and not for a new one', async () => {
+    const { renderPluginPage } = await import('../../src/api/render.js')
+    const DOC = {
+      iri: 'http://purl.org/stuff/plugin-universe/plugin/x-1234',
+      name: 'X', vendor: 'v', formats: [], categories: [], roles: [], tags: [], parameters: []
+    }
+    const trusted = renderPluginPage(DOC, {}, {
+      mayUploadImage: true, csrfToken: 'tok', correctable: {}
+    })
+    expect(trusted).toContain('enctype="multipart/form-data"')
+    expect(trusted).toContain('/image')
+
+    const newcomer = renderPluginPage(DOC, {}, {
+      mayUploadImage: false, csrfToken: 'tok', correctable: {}
+    })
+    expect(newcomer, 'a form shown to somebody who will be refused is a promise the page cannot keep')
+      .not.toContain('enctype=')
+  })
+})

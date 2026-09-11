@@ -8,31 +8,11 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 public site, and `npm run test:live` does that from here. Anything below
 asserted about the deployment came from that, not from looking.
 
-## 1. Four deployment steps for the files nginx now serves
+## 1. Two jobs still to install on the server
 
-nginx serves `/image/` and `/dumps/` straight off disk, read-only; the app
-writes both.
-
-- [ ] **Run `sudo ./deploy/prepare-data-dirs.sh`** on the server. It creates
-  `data/images` and `data/dumps` and hands them to whichever user the app image
-  runs as — asked of the image, not assumed, because `APP_UID` is a build
-  argument.
-
-  This was a documented manual step and it failed twice, which is what the
-  script is for. `docker run -v` creates a missing source directory **as root**,
-  the app does not run as root, and the Dockerfile's `chown /app/data` does
-  nothing for these because a bind mount replaces that directory with the
-  host's, ownership and all. The symptom is
-  `EACCES: permission denied, mkdir 'data/dumps/cc0'`.
-- [ ] **Rebuild the dumps once**, or `/dumps/` is an advertised path with an
-  empty directory behind it — the defect this project already shipped as a
-  contact page that 404d. Either `docker compose run --rm app node bin/dump.js`
-  or the **Rebuild dumps** button on `/admin`.
-- [ ] **Check a backup picks up the images.**
-  `node bin/backup.js --scope essential` should report "N image(s)" once there
-  are any. They ride in `essential` and `full`, not in `measurements`.
-- [ ] **Install the nightly dump**, beside the backup job. `/services` now tells
-  people the dumps are there, so without this they go stale:
+- [ ] **The nightly dump.** `/services` tells people the dumps are rebuilt
+  nightly; nothing does it yet, so they are as old as the last time you pressed
+  the button.
 
   ```sh
   sudo install -m 755 deploy/dump/plugin-universe-dump.sh \
@@ -42,66 +22,17 @@ writes both.
   sudo /etc/cron.daily/plugin-universe-dump      # once, to check
   ```
 
-  It overwrites in place — a dump is the current dataset by definition, and the
-  backup is what keeps history. Full details in [dumps.md](dumps.md).
+- [ ] **Add a picture to a plugin.** Open any plugin page while signed in as a
+  moderator — the form is under the measurements, above "Suggest a correction".
+  It appears only for a trusted contributor or a moderator, and it did not
+  appear at all until now: the route existed and the plugin page never offered
+  it.
+- [ ] **Check a backup carries the images**, once there are any.
+  `node bin/backup.js --scope essential` should report "N image(s)". They ride
+  in `essential` and `full`, not in `measurements`. Nothing has been uploaded
+  yet, so this is untested against real files.
 
-Uploading pictures is limited to **trusted contributors and moderators**. A
-correction can wait in a queue because nobody sees it meanwhile; a picture is
-public the instant it is served and cannot be un-seen, so the useful question is
-whether this person is trusted rather than whether somebody will get round to
-looking. Say if you would rather it were a queue.
-
-## 2. One plugin is in the catalogue and not in the index
-
-`/health` reports **753 plugins, 752 vectors**. The odd one out is the plugin you
-accepted from a submission: it is in the store, it has a page, and it has no
-embedding — so it turns up by name and is invisible to the semantic search this
-catalogue is built on.
-
-- [ ] press **Reindex** on `/admin`, then `npm run test:live`
-
-`takeUpNewPlugins()` runs on acceptance and deliberately never throws — a plugin
-in the catalogue but not yet indexed is a better outcome recorded than an
-acceptance reversed — so if Ollama was slow or down at that moment it logged a
-warning and carried on. The container log for the acceptance will say which.
-
-## 3. Make yourself a moderator — the queue is invisible without it
-
-`/moderation` exists and is linked from the account bar, but **only for an
-account whose trust level is `moderator`**, and there is deliberately no web
-route that makes the first one: every such route is a privilege-escalation bug
-waiting to be found. Shell access is the correct bar.
-
-```sh
-# on the server, in /home/github/plugin-universe
-docker compose run --rm app node bin/grant.js --list
-docker compose run --rm app node bin/grant.js --login danja --trust moderator
-```
-
-Then sign out and back in — the account bar is built from the session, so the
-link appears on the next sign-in rather than the next page.
-
-- [ ] grant yourself moderator
-
-## 4. Try submitting a plugin
-
-`/submit` is live for signed-in accounts, linked from the account bar. Worth
-walking through once as a real user, because I cannot: the sign-in is GitHub
-OAuth and I have no account.
-
-- [ ] submit something — one of your own that is not in the catalogue — and see
-  whether the form asks for the right things and refuses the right things
-- [ ] then review it in the moderation queue, which now holds proposed plugins
-  beside corrections
-
-Two things I decided and you may disagree with: the **homepage is required**,
-because it is what identifies a plugin when a person rather than a harvester is
-describing it, and **at least one format is required**, because without one the
-plugin is invisible to the facet most people filter by first. Formats are
-checkboxes — a plugin is commonly built for several, and the catalogue has
-always modelled it that way.
-
-## 5. Two findings from the first pluginval sweep
+## 2. Two findings from the first pluginval sweep
 
 `pluginval` is built into the profiler image and has been run over all 51 built
 downspout VST3s. It found two things in **your** code, which is the catalogue
@@ -119,7 +50,7 @@ doing its job on the one repository you can act on:
 
 Nothing here needs server access. The profiler runs on this machine.
 
-## 6. Decisions that are yours
+## 3. Decisions that are yours
 
 
 * **Whether to publish a minimal attribution record.** CC BY-SA requires naming
@@ -146,7 +77,7 @@ Nothing here needs server access. The profiler runs on this machine.
   loads, because an image in a wiki page is a URL every reader's browser fetches
   from a third party. A deliberate choice, not a missing feature.
 
-## 7. Worth doing when you have a moment
+## 4. Worth doing when you have a moment
 
 * **Tell the Open Audio Stack people the registry view exists.**
   `/registry/plugins/index.json` publishes the catalogue in their format, so
@@ -201,6 +132,14 @@ Nothing here needs server access. The profiler runs on this machine.
 * The public SPARQL endpoint, on a separate published dataset.
 * The MCP endpoint, and `/services` describing every way in.
 * Backups: nightly on the server, pulled here nightly, restore rehearsed.
+* **nginx serves `/image/` and `/dumps/` from disk**, with the right types and
+  the security headers repeated in each location. `/dumps/` is browsable and
+  `/services` describes the three parts. The config is installed as
+  `plugin-universe.com.conf` — the suffix matters, and the runbook said
+  otherwise for a while.
+* **753 plugins, 753 vectors, 50 measured.** `npm run test:live`: 58 pass.
+* Moderator granted, and the first submitted plugin accepted, indexed and
+  searchable.
 * **Three columns on a wide screen**, on every page that has content to
   navigate away from — search, browse, plugin pages, category pages and the
   submit form. Site links left, content centre, formats and the twelve largest
