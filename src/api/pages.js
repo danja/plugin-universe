@@ -59,6 +59,15 @@ export const PAGES = Object.freeze({
     title: 'The public SPARQL endpoint',
     description: 'A read-only, open SPARQL endpoint over the Plugin Universe catalogue.'
   },
+  '/about/measurements': {
+    file: 'docs/measurements.md',
+    // Linked from the Measured block on every plugin page that has one, so it
+    // is what somebody clicks having just been shown a verdict they did not
+    // expect. It has to answer "measured by whom, how, and does `crashed` mean
+    // my plugin is broken?" before anything else.
+    title: 'Measurements',
+    description: 'What the profiler measures, what each verdict means, and why a reading is about one binary on one machine.'
+  },
   '/about/crawler': {
     file: 'docs/crawler.md',
     title: 'About the crawler',

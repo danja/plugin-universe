@@ -117,7 +117,21 @@ export const PROFILER_CONFIG = {
   sampleRate: 48000,
   blockSize: 512,
   // Repeats per measurement; the published figure is the median.
-  repeats: 3
+  repeats: 3,
+
+  // pluginval's strictness level. 5 is its own recommended minimum for host
+  // compatibility and the level whose verdict developers quote; above it the
+  // tests get long and fuzz-heavy, which is a different question from "does
+  // this load in a host". Raising it changes what a verdict means, so a run at
+  // a different level is not comparable with one at this one — which is why
+  // the level is recorded with the measurement rather than assumed.
+  pluginvalStrictness: 5,
+
+  // pluginval's own inactivity timeout. Deliberately well under
+  // wallClockLimitMs: when a plugin hangs, pluginval saying so is a better
+  // measurement than the sandbox killing the container, because only the
+  // former knows which test it hung in.
+  pluginvalTimeoutMs: 30000
 }
 
 /**

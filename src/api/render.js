@@ -423,9 +423,20 @@ function readingValue (reading) {
   return `${reading.value} ${UNIT_SYMBOL[name] ?? name}`
 }
 
-/** Verdict to badge class. Anything other than a pass reads as a warning. */
+/**
+ * Verdict to badge class. Anything other than a pass reads as a warning.
+ *
+ * Two tools write two vocabularies here and both are passes. lilv's scanner
+ * reports the sandbox's own outcome, where a clean run is `ok`; pluginval
+ * reports its own conclusion about the plugin, where a clean run is `passed`.
+ * They are deliberately not flattened into one word — "the scan completed" and
+ * "the plugin is well-behaved" are different claims, and the second is the one
+ * worth making — so this is the one place that has to know both.
+ */
+const PASSING_VERDICTS = new Set(['ok', 'passed'])
+
 function verdictBadge (verdict) {
-  return verdict === 'ok' ? 'src' : 'warn'
+  return PASSING_VERDICTS.has(verdict) ? 'src' : 'warn'
 }
 
 /** A list of sibling category links, or nothing. */

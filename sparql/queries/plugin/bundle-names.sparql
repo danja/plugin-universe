@@ -1,0 +1,14 @@
+# Catalogue plugins by the name of the bundle they ship as.
+#
+# The profiler is pointed at a directory of built bundles and gets file names
+# back; this is what turns "basilico.vst3" into the plugin it is. Bundle name is
+# also part of the identity tuple the IRI is minted from for formats that have
+# one, so a match here is the same fact the IRI was built on rather than a
+# separate guess about which plugin a file is.
+SELECT ?plugin ?bundleName
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile ;
+            trn:bundleName ?bundleName .
+  }
+}

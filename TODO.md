@@ -33,24 +33,37 @@ Phase 4 has not started.
 
 ---
 
-## Phase 2 — the profiler — stalled
+## Phase 2 — the profiler — running
 
-Built: the sandbox, the lilv scanner, the measurement model, per-run graphs, and the readings
-surfaced on plugin pages and as a `measured=` filter.
+Built: the sandbox, the lilv scanner, **the pluginval host**, the measurement model, per-run
+graphs, and the readings surfaced on plugin pages and as a `measured=` filter.
 
-* **`pluginval` is not installed anywhere.** A JUCE binary from Tracktion covering
-  VST/VST3/AU/LV2/LADSPA. Without it the profiler reaches LV2 only, and the 46 built downspout
-  VST3s cannot be measured at all. *Everything below is downstream of this.*
+`pluginval` is built from a pinned commit into `docker/profiler.Dockerfile` and run by
+`node bin/profile.js --path <dir> --tool pluginval`. First sweep over the 51 built downspout
+VST3s: **45 pass, 1 crashes, 4 have no binary in the bundle at all.** 57 plugins in the
+catalogue now carry a reading.
+
 * **CPU load** needs a host that runs audio through the plugin — `lv2bm`, or an in-house one.
-  `pu:CpuLoad` is defined and nothing produces it.
-* **`pu:LatencySamples`** likewise: `pu:Latency` is the boolean a static scan can establish,
-  and the sample count needs the same running host.
-* **The scan matches a plugin by `owl:sameAs` to its LV2 IRI**, so it only reaches LV2 plugins
-  the catalogue already holds. VST3 needs a different key.
+  `pu:CpuLoad` is defined and nothing produces it. This is now the largest gap: pluginval
+  instantiates and exercises a plugin but does not report what it cost.
+* **`sidecar.vst3` segfaults under the `Automation` test.** Recorded as `crashed`, which is
+  the design working. Worth reporting upstream to downspout — the catalogue found a real bug.
+* **Four downspout bundles are empty** — `Contents/x86_64-linux/` with no `.so`: chipper,
+  damiano, skream, worms. A build problem in that repo, not a catalogue one, but they are
+  recorded as `failed` and will stay that way until rebuilt.
 * **Reproducibility is assumed, not tested**: two runs of the same plugin on the same host,
-  within a stated tolerance. The plan calls for this to be proven.
-* **No facet dropdown in the search form**, deliberately — 7 measured plugins out of 750-odd is
-  not a control worth putting in front of everyone. Add it when coverage justifies it.
+  within a stated tolerance. The plan calls for this to be proven, and the open-time figures
+  now give it something to be measured against.
+* **Only the newest run shows on a plugin page.** A plugin measured by both lilv and pluginval
+  keeps only the later run's readings, so its port counts disappear when it is validated. The
+  behaviour is documented in `plugin/measurements.sparql` and was right when one tool wrote
+  them; with two it loses information.
+* **No facet dropdown in the search form.** 57 measured plugins out of 750-odd — up from 7, and
+  the values are now `passed` / `ok` / `failed` / `crashed`. Closer to worth a control than it
+  was; still a judgement about whether 8% coverage should shape everyone's search form.
+* **AU, LADSPA and VST2 are reachable by pluginval and not built for.** AU is macOS-only; VST2
+  needs Steinberg's SDK, which is not redistributable; LADSPA and VST2 both ship as a bare
+  `.so`, so the profiler declines to guess which a file is.
 
 ## Phase 3b — the rest of the site
 

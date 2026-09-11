@@ -22,11 +22,17 @@ profile, and when it does, the scan wins.
 It is also the thing no aggregating catalogue has. Anyone can copy a plugin
 list; measurements have to be made.
 
+The reader-facing version of this is [measurements.md](measurements.md), served
+at `/about/measurements`. Keep the two in step: that one explains what a verdict
+means to somebody whose plugin has just been marked `crashed`.
+
 ## What it does today
 
-`bin/profile.js` scans **built LV2 bundles** through lilv — the same library a
-host uses, so what it reports is what a host would see — and records the result
-as measurements in their own graph.
+Two tools, answering two different questions. `bin/profile.js --tool <name>`
+picks one; both run in the same sandbox and write to their own per-run graph.
+
+**`--tool lilv`** (the default) reads what an LV2 bundle *declares*, through the
+library a host uses. Fast, LV2 only, and it does not instantiate anything.
 
 | Metric | What it records |
 |---|---|
@@ -36,12 +42,31 @@ as measurements in their own graph.
 | `pu:DiscoveredPorts` | ports of every kind on the built binary |
 | `pu:DiscoveredControlPorts` | just the control ports — the like-for-like counterpart of a profile's parameter count |
 
-**Not yet:** CPU load, denormal behaviour, state save/restore integrity. Those
-need a host that actually runs audio through the plugin. `pu:CpuLoad` is
-defined in the vocabulary and nothing produces it.
+**`--tool pluginval`** loads the plugin and drives audio through it. This is the
+one that reaches VST3, and the one plugins crash under.
 
-**LV2 only.** lilv reads LV2. The 46 built VST3s in downspout cannot be measured
-until there is a `pluginval` wrapper.
+| Metric | What it records |
+|---|---|
+| `pu:ValidationResult` | `passed` or `failed` — pluginval's own word — or `crashed`, `timed-out`, `unloadable` |
+| `pu:FailedTests` | how many of its tests reported a problem, out of those it ran |
+| `pu:OpenTimeCold` / `pu:OpenTimeWarm` | milliseconds to instantiate, first time and immediately after |
+| `pu:LatencySamples` | latency in samples, from a plugin that has actually been asked |
+| `pu:ScanTime` | wall clock for the whole validation |
+
+Every pluginval reading also carries `pu:strictness`, `pu:sampleRate` and
+`pu:blockSize`. The level is not a detail: "passed pluginval" means nothing
+without it, and a run at another level sits alongside rather than replacing.
+
+**Not yet:** CPU load, denormal behaviour, state save/restore integrity.
+pluginval exercises a plugin thoroughly but does not report what it cost.
+`pu:CpuLoad` is defined in the vocabulary and nothing produces it. That is the
+largest remaining gap in Phase 2.
+
+**Not built for:** AU (macOS only), VST2 (Steinberg's SDK is not
+redistributable), CLAP (no validator in the image, and nothing in the catalogue
+to point it at). LADSPA and VST2 both ship as a bare `.so`, so the scanner
+declines to guess which a file is rather than filing a reading under the wrong
+format.
 
 ## Running it
 
@@ -51,11 +76,18 @@ Build the sandbox image once:
 docker build -f docker/profiler.Dockerfile -t plugin-universe-profiler .
 ```
 
-Then point it at a directory of **built** bundles:
+The build takes about ten minutes cold: it compiles pluginval from a pinned
+commit, with JUCE fetched shallow into a layer of its own. Tracktion publish
+binaries, but only for tagged releases, and the tags predate the CMake build
+this checkout uses — and a tool whose version drifted between two runs would
+make those runs incomparable, which is the thing `pu:tool` exists to prevent.
+
+Then point it at a directory of **built** plugins:
 
 ```sh
-node bin/profile.js --path /home/danny/github/flues/build-output/plugins-v0.1.0 --dry-run
-node bin/profile.js --path /home/danny/github/flues/build-output/plugins-v0.1.0
+node bin/profile.js --path ~/github/flues/build-output/plugins-v0.1.0 --dry-run
+node bin/profile.js --path ~/github/downspout/build/bin --tool pluginval --dry-run
+node bin/profile.js --path ~/github/downspout/build/bin --tool pluginval
 ```
 
 `--dry-run` scans and prints without writing anything, which is the right way to
@@ -107,12 +139,27 @@ fills memory has told us something true about itself, and writing that down is
 the job. The sandbox throws only when the *sandbox itself* could not be
 established — because then the measurement would be a lie.
 
-| Outcome | Means |
-|---|---|
-| `ok` | the tool exited cleanly |
-| `failed` | the tool ran and reported a problem with the plugin |
-| `crashed` | the plugin took the tool down, or was killed for exceeding a limit |
-| `timed-out` | it never finished |
+| Outcome | Means | Whose problem |
+|---|---|---|
+| `ok` | the tool exited cleanly | — |
+| `passed` | pluginval's own verdict: the plugin got through every test it ran | — |
+| `failed` | the tool ran and reported a problem with the plugin | the plugin's |
+| `crashed` | the plugin took the tool down, or was killed for exceeding a limit | the plugin's |
+| `timed-out` | it never finished | the plugin's |
+| `unloadable` | the image's dynamic loader could not satisfy the binary | **ours** |
+
+That last row is the expensive one, and it was learned the hard way. On a
+bookworm base not one of the downspout VST3s loaded — glibc 2.36 against the
+2.38 they were built for — and pluginval reported `Num plugins found: 0`, which
+is *also* what it reports about a genuinely damaged binary. Published as-is that
+would have been 46 working plugins recorded as failures, with the container the
+only thing at fault.
+
+So `PluginvalScanner` runs `ldd` before it runs pluginval, and a plugin the
+image cannot load is recorded as `unloadable` with the missing libraries named.
+**The base image is a measurement instrument**: its glibc is the floor under
+everything the profiler can reach, and trixie will be too old for something
+eventually.
 
 One subtlety worth knowing, because getting it wrong is easy and quiet: a
 container's exit code is its PID 1's. When a plugin brings down the tool
@@ -151,14 +198,17 @@ with its own equipment, so they are CC0 and no one else's terms attach.
 
 ### Matching a scan to a plugin
 
-A scan yields an LV2 IRI; a measurement has to attach to a catalogue IRI. The
-link is `owl:sameAs`, which the LV2 harvester preserves from the bundle. A
-scanned plugin the catalogue does not hold is **reported and not recorded** — a
-measurement attached to the wrong plugin is worse than no measurement.
+Two keys, because the tools identify a plugin differently. lilv reports the
+plugin's own IRI, so the link is `owl:sameAs`, which the LV2 harvester preserves
+from the bundle. pluginval is pointed at a file and can only report the file, so
+the link is `trn:bundleName` — which is the same fact the plugin's IRI was
+minted from, not a separate guess about which plugin a file is. A bundle name
+claimed by two plugins is dropped rather than resolved arbitrarily: the
+ambiguity is the finding.
 
-This is also the current limit on coverage: only plugins already harvested *and*
-carrying an upstream IRI can be measured. VST3 has no equivalent key and will
-need a different one.
+Either way, a measured plugin the catalogue does not hold is **reported and not
+recorded**. A measurement attached to the wrong plugin is worse than no
+measurement.
 
 ## Reading the results
 
@@ -226,6 +276,15 @@ it is the wrong tool.
    came from an actual scan; a hand-written sample tests your idea of the format
    rather than the format.
 
-The next two are `pluginval` — which covers VST/VST3/AU/LV2/LADSPA and would
-make the downspout VST3s measurable — and something that runs audio, for
-`pu:CpuLoad`.
+Two more things a new tool has to get right, both learned from adding pluginval:
+
+5. **Check that the image can load the plugin before blaming the plugin.** See
+   the `unloadable` row above. Every tool here reports "I found nothing to test"
+   and "this binary is damaged" in the same words.
+6. **A new metric has to reach the store's copy of the vocabulary**, not just
+   the file. `bin/ingest.js --vocabs-only` does that; without it three new
+   metrics arrived on plugin pages as bare local names with no label or unit,
+   because the labels come from `vocabs/plugin-universe.ttl` *as loaded into
+   Fuseki*.
+
+The next one is something that runs audio, for `pu:CpuLoad`.

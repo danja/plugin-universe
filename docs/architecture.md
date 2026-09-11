@@ -228,7 +228,7 @@ they are true of *a plugin version on a machine at a time*, not of the plugin:
 pu:measurement-abc123 a pu:Measurement ;
     pu:subject <http://purl.org/stuff/plugin-universe/plugin/foo-1a2b3c4d> ;
     pu:version "1.2.0" ;
-    pu:tool "pluginval 1.0.3" ;
+    pu:tool "pluginval - 1.0.4" ;
     pu:metric pu:CpuLoad ; pu:value 0.043 ; pu:blockSize 512 ; pu:sampleRate 48000 ;
     pu:platform "linux-x64" ;
     prov:generatedAtTime "2026-09-06T12:00:00Z"^^xsd:dateTime ;

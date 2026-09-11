@@ -1,0 +1,15 @@
+# Catalogue plugins that carry an upstream canonical IRI.
+#
+# LV2 plugins have their own IRIs by design, so the catalogue preserves them
+# with owl:sameAs rather than replacing them. That is what lets a scan of a
+# built bundle be attached to the right plugin: lilv reports the plugin's own
+# IRI, and this is the only thing that maps it back to a minted one.
+#
+# A scan that finds no match is reported rather than written against a guess.
+# A measurement attached to the wrong plugin is worse than no measurement.
+SELECT ?plugin ?upstream
+WHERE {
+  GRAPH ?g {
+    ?plugin owl:sameAs ?upstream .
+  }
+}

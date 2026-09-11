@@ -43,12 +43,57 @@ const flag = name => {
   return index === -1 ? null : args[index + 1]
 }
 const skipEmbeddings = args.includes('--skip-embeddings')
+// Reload the ontology graphs and stop. Adding a term to a file under vocabs/ is
+// only half the change: the store holds its own copy, and that copy is what
+// answers "what does pu:OpenTimeCold mean" for every page that shows a
+// measurement. Before this flag the only way to refresh it was a full harvest,
+// so in practice it was not refreshed, and three new metrics arrived on plugin
+// pages as bare local names with no label, unit or explanation.
+const vocabsOnly = args.includes('--vocabs-only')
 const onlyNew = args.includes('--only-new')
 const onlySource = flag('source')
 const githubFile = flag('github')
 
 const config = Config.load()
 const client = new SPARQLClient(config.get('storage.endpoint'))
+
+/** The ontology documents, and the graph each is loaded into. */
+const ONTOLOGIES = [
+  ['vocabs/plugin-universe.ttl', 'ontology-plugin-universe',
+    'The pu: vocabulary: measurements, packaging, catalogue administration'],
+  ['vocabs/trn-extensions.ttl', 'ontology-trn-extensions',
+    'This project\'s additions to trn:, proposed upstream to the transmission repository'],
+  ['vocabs/trn-profile.ttl', 'ontology-trn-profile',
+    'The trn: plugin profile vocabulary, shared with transmission, downspout and valis']
+]
+
+/**
+ * Load each ontology document into a graph of its own.
+ *
+ * One graph per document, because each is a document with its own provenance,
+ * and because dropping one to reload it should not disturb the others.
+ * vocabs/shapes.ttl is deliberately absent: SHACL shapes are how the store is
+ * checked, not part of what it describes.
+ */
+async function writeOntologies (pipeline) {
+  for (const [file, id, comment] of ONTOLOGIES) {
+    const written = await pipeline.writeTurtleFile(file, {
+      kind: 'alignment',
+      id,
+      licence: 'CC0-1.0',
+      derivedFrom: `${config.get('baseUri')}${id}`,
+      comment
+    })
+    console.log(`ontology    →  ${written.graph}  (${written.tripleCount} triples)`)
+  }
+}
+
+if (vocabsOnly) {
+  await writeOntologies(new IngestPipeline(client))
+  console.log('\n--vocabs-only: the ontology graphs are reloaded and nothing else was touched.')
+  console.log('Restart the app so the search service reloads its metric labels.')
+  process.exit(0)
+}
 
 /**
  * GitHub repositories come from a reviewed candidate file, never from a live
@@ -227,27 +272,9 @@ console.log(`alignment   →  ${alignment.graph}  (${alignment.tripleCount} trip
 // vocabulary defines and nothing else does — were unavailable to the code that
 // needed to display them.
 //
-// One graph per document, because each is a document with its own provenance,
-// and because dropping one to reload it should not disturb the others.
-// vocabs/shapes.ttl is deliberately absent: SHACL shapes are how the store is
-// checked, not part of what it describes.
-for (const [file, id, comment] of [
-  ['vocabs/plugin-universe.ttl', 'ontology-plugin-universe',
-    'The pu: vocabulary: measurements, packaging, catalogue administration'],
-  ['vocabs/trn-extensions.ttl', 'ontology-trn-extensions',
-    'This project\'s additions to trn:, proposed upstream to the transmission repository'],
-  ['vocabs/trn-profile.ttl', 'ontology-trn-profile',
-    'The trn: plugin profile vocabulary, shared with transmission, downspout and valis']
-]) {
-  const written = await pipeline.writeTurtleFile(file, {
-    kind: 'alignment',
-    id,
-    licence: 'CC0-1.0',
-    derivedFrom: `${config.get('baseUri')}${id}`,
-    comment
-  })
-  console.log(`ontology    →  ${written.graph}  (${written.tripleCount} triples)`)
-}
+// `--vocabs-only` reloads just these, for when a term is added to a file under
+// vocabs/ and nothing else has changed.
+await writeOntologies(pipeline)
 
 if (skipEmbeddings) {
   console.log('\nSkipping embeddings (--skip-embeddings).')

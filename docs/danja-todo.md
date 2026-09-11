@@ -8,65 +8,23 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 public site, and `npm run test:live` does that from here. Anything below
 asserted about the deployment came from that, not from looking.
 
----
+## 2. Two findings from the first pluginval sweep
 
-## 1. Two steps to finish the backups
+`pluginval` is built into the profiler image and has been run over all 51 built
+downspout VST3s. It found two things in **your** code, which is the catalogue
+doing its job on the one repository you can act on:
 
-Everything else is done and verified: the nightly job on the server, the pull to
-`/chalet/plugin-universe-backups` at 07:17, and a restore rehearsal that found a
-real defect before it was needed.
+- [ ] **`sidecar.vst3` segfaults** under pluginval's `Automation` test at
+  strictness 5. Reproduce with
+  `node bin/profile.js --path ~/github/downspout/build/bin --tool pluginval --dry-run`,
+  or on that one plugin alone. It is recorded in the catalogue as `crashed`.
+- [ ] **Four bundles contain no binary** — `chipper`, `damiano`, `skream`,
+  `worms` each have `Contents/x86_64-linux/` and nothing in it. They are
+  recorded as `failed`, with pluginval's own words ("the plugin binary is
+  missing or damaged"), and will read that way until the build is fixed and the
+  profiler re-run.
 
-**Re-install the job and its configuration**, once you have pulled — the
-installed copy is still the older one, which writes files world-readable:
-
-```sh
-sudo install -m 755 deploy/backup/plugin-universe-backup.sh \
-  /etc/cron.daily/plugin-universe-backup
-sudo install -m 644 deploy/backup/plugin-universe-backup.default \
-  /etc/default/plugin-universe-backup
-sudo /etc/cron.daily/plugin-universe-backup
-```
-
-The second file carries `PU_BACKUP_GROUP=danny`. Without it the permissions hold
-only because you set them by hand, and tomorrow's backup undoes that.
-
-**Rehearse a restore on the server.** It touches nothing without `--into`.
-
-The backups are on the host and the app runs in a container, so they have to be
-mounted — the same `-v` the nightly job uses:
-
-```sh
-ls /var/backups/plugin-universe/essential          # pick a full timestamp
-
-docker compose run --rm -v /var/backups/plugin-universe:/backups \
-  app node bin/restore.js /backups/essential/<stamp>
-```
-
-Note the path is `/backups/...` inside the container, not `/var/backups/...`.
-
-Reading what it prints tells you whether the backup holds what you think. Doing
-it now means the first time you read that output is not during an incident.
-
-- [ ] job and configuration re-installed
-- [x] restore rehearsed on the server — the dry run reads the backup and lists
-      what it would replace
-
-**Before ever running a real restore on the server, deploy first.** The restore
-code on the server still groups triples by subject, which cuts blank nodes in
-half at batch boundaries — the defect the local rehearsal found. It cannot
-affect an `essential` restore, because neither the accounts graph nor the graph
-registry contains a blank node. It would quietly corrupt a `full` one:
-`graph:source/flues` holds 6,343 blank nodes and the Open Audio Stack graph
-21,819, and the triple count would still come back correct.
-
-## 2. `pluginval` — the only real blocker
-
-A JUCE binary from Tracktion covering VST/VST3/AU/LV2/LADSPA. Without it the
-profiler reaches LV2 plugins only, and the 46 built downspout VST3s cannot be
-measured at all. Everything else in Phase 2 — CPU load, latency in samples,
-reproducibility — is downstream of it.
-
-- [ ] install `pluginval` wherever the profiler runs
+Nothing here needs server access. The profiler runs on this machine.
 
 ## 3. Decisions that are yours
 
@@ -127,6 +85,12 @@ reproducibility — is downstream of it.
   then `docker compose restart app`, then `bin/publish.js` — or the public
   SPARQL copy drifts behind. A restart reuses the image, which is right for data
   and wrong for code.
+* **Vocabulary change:** `node bin/ingest.js --vocabs-only`, then restart the
+  app. The store holds its own copy of `vocabs/*.ttl`, and it is that copy that
+  tells a plugin page what `pu:OpenTimeCold` means.
+* **Profiler run:** `docker build -f docker/profiler.Dockerfile -t plugin-universe-profiler .`
+  once, then `node bin/profile.js --path <dir of built plugins> --tool pluginval`.
+  Add `--dry-run` to see the verdicts without writing anything.
 * **`npm run test:live` is the check that matters** — the only one that sees the
   deployment rather than a copy of it.
 * **Ask me to prune this file** when it drifts. It is meant to be short.
@@ -142,6 +106,10 @@ reproducibility — is downstream of it.
 * The public SPARQL endpoint, on a separate published dataset.
 * The MCP endpoint, and `/services` describing every way in.
 * Backups: nightly on the server, pulled here nightly, restore rehearsed.
+* **`pluginval`.** Built from a pinned commit into the profiler image and run
+  over the downspout VST3s. 45 pass, 1 crashes, 4 have no binary. The profiler
+  now reaches VST3, and `pu:LatencySamples` — defined since Phase 2 and produced
+  by nothing — has values.
 * SSH keys for `danny`, and password authentication disabled on the server.
 * **Credentials.** The exposed `GITHUB_TOKEN` was revoked and not replaced; an
   unset token cannot be abused. `GITHUB_CLIENT_SECRET` was cycled too, though it

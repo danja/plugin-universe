@@ -181,11 +181,11 @@ pu:Latency          a pu:Metric ; rdfs:label "Reports latency" ;
     rdfs:comment "Whether the plugin declares latency to its host. Boolean, because this is what a scan can establish: a static scan sees that a latency port exists, not what the plugin reports through it at run time." ;
     rdfs:seeAlso pu:LatencySamples .
 pu:LatencySamples   a pu:Metric ; rdfs:label "Latency" ; units:unit units:frame ;
-    rdfs:comment "Latency in samples, as reported by the plugin while running. Needs a host that actually instantiates it, so nothing produces this yet; pu:Latency is the scan-time counterpart that only says whether latency is declared at all." .
+    rdfs:comment "Latency in samples, as reported by the plugin while running. Needs a host that actually instantiates it and asks, which is pluginval; pu:Latency is the scan-time counterpart that only says whether latency is declared at all." .
 pu:ScanTime         a pu:Metric ; rdfs:label "Scan time" ; units:unit units:ms ;
     rdfs:comment "Time to enumerate the plugin." .
 pu:ValidationResult a pu:Metric ; rdfs:label "Validation result" ;
-    rdfs:comment "Verdict from a format validator: pass, fail or crash." .
+    rdfs:comment "Verdict from a format validator. 'passed' and 'failed' are pluginval's own conclusions about the plugin; 'crashed' and 'timed-out' are what the sandbox saw; 'unloadable' means the profiler image could not load the binary at all and says nothing about the plugin. They are kept distinct on purpose — a plugin that fails a test and a plugin that killed the validator are different facts about it, and a plugin the profiler is too old to load is a fact about the profiler." .
 pu:DenormalBehaviour a pu:Metric ; rdfs:label "Denormal behaviour" .
 pu:DiscoveredControlPorts a pu:Metric ; rdfs:label "Discovered control ports" ;
     rdfs:comment "Control ports the built binary reports — the like-for-like counterpart of the parameter count in a harvested profile. Comparing the profile against the *total* port count instead makes every plugin look wrong, because a binary also has audio and atom ports." .
@@ -194,6 +194,12 @@ pu:DiscoveredPorts a pu:Metric ; rdfs:label "Discovered ports" ;
 pu:signal a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:string ;
     rdfs:comment "The signal a crashing scan died from, where it died from one. A plugin that takes the scanning tool with it is a recorded result." .
 pu:StateIntegrity   a pu:Metric ; rdfs:label "State save/restore integrity" .
+pu:FailedTests      a pu:Metric ; rdfs:label "Failed tests" ;
+    rdfs:comment "How many of a validator's own tests reported a failure, out of those it ran. Meaningless without pu:strictness: the same plugin fails a different number of tests at level 5 and level 10, because they are not the same tests." .
+pu:OpenTimeCold     a pu:Metric ; rdfs:label "Open time (cold)" ; units:unit units:ms ;
+    rdfs:comment "Time to instantiate the plugin the first time, when nothing of it is cached. This is what a user waits for when a session loads." .
+pu:OpenTimeWarm     a pu:Metric ; rdfs:label "Open time (warm)" ; units:unit units:ms ;
+    rdfs:comment "Time to instantiate the plugin again immediately afterwards. Where it is far below the cold figure the cost was loading the binary; where it is not, the plugin does that work every time." .
 
 pu:subject    a owl:ObjectProperty ; rdfs:domain pu:Measurement ;
     rdfs:comment "The plugin measured." .
@@ -204,6 +210,8 @@ pu:tool       a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range x
 pu:platform   a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:string .
 pu:sampleRate a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:integer .
 pu:blockSize  a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:integer .
+pu:strictness a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:integer ;
+    rdfs:comment "The strictness level a validator was run at, 1-10 for pluginval. A condition of the measurement rather than a result of it, and recorded on every reading because \"passed pluginval\" is not a fact until it says at what level." .
 pu:pluginVersion a owl:DatatypeProperty ; rdfs:domain pu:Measurement ; rdfs:range xsd:string .
 
 ## ── Embedding bookkeeping ───────────────────────────────────────────────────

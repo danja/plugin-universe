@@ -174,3 +174,53 @@ describe('the routes the site links to', () => {
     expect(linkedPaths()).toContain('/moderation')
   })
 })
+
+/**
+ * The other direction: a published page nobody can reach.
+ *
+ * The check above proves every link goes somewhere. This proves every prose
+ * page can be got to, which is the half that let `/moderation` ship reachable
+ * only by typing its URL. A page written, routed and linked from nothing is
+ * indistinguishable from a page that was never written.
+ *
+ * Reachability is transitive and has to be, because two pages are legitimately
+ * reached only through another page's prose: `/about/sparql` and `/about/mcp`
+ * are linked from `/services`, which a template links. So this walks — start
+ * from what the markup links, then follow the links inside the prose of each
+ * page already reached, until nothing new appears.
+ */
+describe('every published page can be reached', () => {
+  const PROSE = Object.fromEntries(
+    Object.entries(PAGES).map(([route, page]) => [route, fs.readFileSync(page.file, 'utf8')])
+  )
+
+  /** Routes linked from a document, in either Markdown or HTML. */
+  const linksIn = text => Object.keys(PAGES).filter(route =>
+    text.includes(`(${route})`) || text.includes(`"${route}"`))
+
+  const reachable = new Set(linkedPaths().filter(path => path in PAGES))
+  for (let added = true; added;) {
+    added = false
+    for (const route of [...reachable]) {
+      for (const next of linksIn(PROSE[route])) {
+        if (!reachable.has(next)) { reachable.add(next); added = true }
+      }
+    }
+  }
+
+  it('starts from pages the markup itself links', () => {
+    // If the templates link none of them the walk below starts empty and
+    // proves nothing, so the entry point is asserted separately.
+    expect(linkedPaths()).toContain('/about')
+    expect(linkedPaths()).toContain('/services')
+  })
+
+  it('reaches all of them', () => {
+    const orphans = Object.keys(PAGES).filter(route => !reachable.has(route))
+    expect(
+      orphans,
+      `${orphans.join(', ')} is routed and rendered but nothing links to it, ` +
+      'so the only way to reach it is to know the URL already.'
+    ).toEqual([])
+  })
+})

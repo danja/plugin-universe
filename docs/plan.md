@@ -199,9 +199,22 @@ from a tagged v0.1.0 while the source tree has moved on, so this is likely
 version skew rather than a defect — but that is exactly the question the
 profiler exists to raise, and it could not be asked before.
 
-Still to do: pluginval and clap-validator wrappers (neither is installed here),
-`lv2bm` or an in-house host for actual CPU load, measured facets in search, and
-measurements on the plugin profile page.
+**pluginval landed 2026-09-11**, built from a pinned commit into the profiler
+image rather than installed: Tracktion's tagged binaries predate the CMake build
+this uses, and a tool whose version drifted between runs would make those runs
+incomparable. First sweep over 51 built downspout VST3s: 45 pass, 1 segfaults
+under the `Automation` test, 4 turn out to have no binary in the bundle. It also
+produced the first `pu:LatencySamples` values — defined in Phase 2 and, until a
+host actually instantiated a plugin and asked, produced by nothing.
+
+The image's base is now part of the measurement. On bookworm not one downspout
+VST3 loaded — glibc 2.36 against the 2.38 they were built for — and pluginval
+reported them exactly as it reports a broken plugin. `PluginvalScanner` asks the
+dynamic loader before it asks pluginval, so the next such mismatch is recorded
+as a limitation of the profiler rather than a defect in the plugin.
+
+Still to do: a clap-validator wrapper, `lv2bm` or an in-house host for actual
+CPU load, and measured facets in the search form.
 
 
 **Goal.** Measured data in the graph. The catalogue becomes authoritative rather than aggregated.

@@ -1,0 +1,58 @@
+Started validating: /plugin/moka.vst3
+Random seed: 0x743f483
+Validation started
+	11 Sep 2026 8:10:20am
+
+Strictness level: 5
+-----------------------------------------------------------------
+Starting tests in: pluginval / Scan for plugins located in: /plugin/moka.vst3...
+Num plugins found: 1
+
+Testing plugin: VST3-Moka-8489fdc5-33846176
+danja: Moka v0.1.0
+Completed tests in pluginval / Scan for plugins located in: /plugin/moka.vst3
+-----------------------------------------------------------------
+Starting tests in: pluginval / Open plugin (cold)...
+
+Time taken to open plugin (cold): 162 ms
+Completed tests in pluginval / Open plugin (cold)
+-----------------------------------------------------------------
+Starting tests in: pluginval / Open plugin (warm)...
+
+Time taken to open plugin (warm): 11 ms
+Running tests 1 times
+Completed tests in pluginval / Open plugin (warm)
+-----------------------------------------------------------------
+Starting tests in: pluginval / Plugin info...
+
+Plugin name: Moka
+Alternative names: Moka
+SupportsDoublePrecision: no
+Reported latency: 0
+Reported taillength: 0
+
+Time taken to run test: 0
+Completed tests in pluginval / Plugin info
+-----------------------------------------------------------------
+Starting tests in: pluginval / Plugin programs...
+Num programs: 0
+All program names checked
+
+Time taken to run test: 0
+Completed tests in pluginval / Plugin programs
+-----------------------------------------------------------------
+Starting tests in: pluginval / Audio processing...
+Testing with sample rate [48000] and block size [512]
+[... 8400 lines of parameter and bus tests elided ...]
+Total candidate layouts to test: 3
+Trying layout: in [] out [Stereo]
+Trying layout: in [] out [Mono]
+  setBusesLayout() rejected the layout
+Trying layout: in [] out [Stereo]
+Layouts tested: 3, accepted by setBusesLayout: 2
+
+Time taken to run test: 0
+
+Time taken to run all tests: 667 ms
+Completed tests in pluginval / Bus layout processing
+SUCCESS

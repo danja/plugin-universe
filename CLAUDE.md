@@ -35,6 +35,10 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
 - `src/store/` — `SPARQLClient`, `SPARQLHelper` (term formatting), `QueryService`
   (file-based query loading), `GraphRegistry` (named graphs, provenance, licence flags),
   `ShapeValidator` (SHACL, over `vocabs/shapes.ttl`)
+- `src/profiler/` — `Sandbox` (the container the untrusted code runs in), `Lv2Scanner`
+  (lilv: what a bundle declares), `PluginvalScanner` (pluginval: what the plugin does when
+  hosted), `ProfilerRun` (matching a reading to a catalogue plugin, and writing the run's
+  graph), `MeasurementSerialiser`
 - `src/vectors/` — `VectorOperations`, `VectorIndex` (persisted FAISS index)
 - `src/embeddings/` — `EmbeddingService` and the composed text view
 - `vocabs/` — the ontologies, including `categories.ttl` (the SKOS category scheme, loaded by
@@ -97,6 +101,8 @@ complained, and each was found in production or by accident:
 | Added a test directory | the `include` list in `vitest.core.config.js` | tests written, never run — twice |
 | Set the crawler's user-agent URL | the route it promises | a contact page that 404s, already advertised to sources |
 | Added the `/moderation` route | the account bar that should link to it | a queue reachable only by typing the URL |
+| Added terms to `vocabs/plugin-universe.ttl` | the store's own copy of it, reloaded only by a full harvest | three metrics on plugin pages as bare local names, no label or unit |
+| Saved a test fixture as `*.log` | `.gitignore`, which excludes `*.log` | a test that passes here and fails on a fresh clone |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
@@ -110,6 +116,8 @@ Specifically, before finishing a change, check:
 - Is a new `tests/<dir>/` in `vitest.core.config.js`?
 - Does a published URL — user agent, docs link, IRI — resolve to a route?
 - Does a new route have something linking to it?
+- Does `.gitignore` exclude a file a test reads? A fixture is source, not output.
+- Did a new term in `vocabs/` reach the *store's* copy? `bin/ingest.js --vocabs-only`.
 
 ## HTML lives in files, not in code
 

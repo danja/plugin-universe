@@ -66,6 +66,21 @@ describe('a measured plugin', () => {
     expect(html).toContain('Time to enumerate the plugin.')
   })
 
+  it('badges a pluginval pass as a pass, not as a warning', () => {
+    // Two tools, two vocabularies for the same good news: lilv's scanner
+    // reports the sandbox outcome `ok`, pluginval reports its own `passed`.
+    // Reading the second as a failure would put a warning badge on every
+    // well-behaved VST3 in the catalogue.
+    const passed = renderMeasurements({ ...RUN, verdict: 'passed' })
+    expect(passed).toContain('badge-src')
+    expect(passed).not.toContain('badge-warn')
+  })
+
+  it('badges a pluginval failure as a warning', () => {
+    expect(renderMeasurements({ ...RUN, verdict: 'failed' })).toContain('badge-warn')
+    expect(renderMeasurements({ ...RUN, verdict: 'crashed' })).toContain('badge-warn')
+  })
+
   it('renders nothing at all for a plugin nothing has measured', () => {
     // The overwhelming majority. An empty "Measured" heading on 745 pages
     // would be worse than no feature.

@@ -56,6 +56,48 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — The profiler's own container made 46 working plugins look broken
+
+**What happened.** The first profiler image with `pluginval` in it was built on
+`debian:bookworm-slim`. Pointed at the 46 built downspout VST3s, pluginval
+reported `Num plugins found: 0` for every one of them, followed by
+`!!! Test 1 failed: No types found. This usually means the plugin binary is
+missing or damaged`. Read at face value that is 46 broken plugins, and it would
+have been written into the graph as `pu:ValidationResult "failed"` against 46
+plugins that are fine.
+
+**Root cause.** bookworm carries glibc 2.36; the plugins were built against
+2.38. The dynamic loader refused them, JUCE's format scanner reported no types,
+and pluginval said what it says when a binary is missing — which is the same
+sentence it says about a genuinely broken plugin. **The base image is a
+measurement instrument, and its glibc is the floor under everything the profiler
+can load.** Nothing in the design had treated it as anything but packaging.
+
+**What made it findable.** Only running it. The three plugins were checked by
+hand with `ldd` inside the image, which named `GLIBC_2.38 not found` in one
+line. Nothing in the tool's own output pointed at the container.
+
+**Prevention.** Two changes, and the second matters more than the first.
+
+1. The image is `debian:trixie-slim` (glibc 2.41), with the reason written at
+   the top of the Dockerfile: lowering that line changes what every measurement
+   means.
+2. `PluginvalScanner` now asks the loader *before* it asks pluginval. A plugin
+   the image cannot load is recorded as `unloadable` with the missing libraries
+   named, and explicitly as a limitation of the profiler rather than a defect in
+   the plugin. The next version skew will be reported instead of misattributed,
+   which is the part that generalises — trixie will be too old for something
+   eventually.
+
+**The same shape, twice more in one session.** `xvfb-run` was removed from the
+image but left in the command, and every plugin came back `failed` in 275 ms;
+and three new metrics arrived on plugin pages as bare local names because the
+store holds its own copy of `vocabs/plugin-universe.ttl` and only a full harvest
+reloaded it. Both are pattern 1 — a second thing that had to change — and both
+looked like facts about plugins. `bin/profile.js` now prints stderr when a run
+produced no log at all, and `bin/ingest.js --vocabs-only` reloads the ontology
+graphs on their own.
+
 ## 2026-09-09 — A search-and-replace that matched nothing, and a syntax check that could not tell
 
 **What was wrong.** `/moderation` returned

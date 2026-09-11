@@ -134,7 +134,8 @@ say where it came from — and should.
 binary, on one machine, on one day, so the tool, the platform and the date come
 back with every number. "This plugin uses 2% CPU" is a claim this catalogue
 cannot support. "A scan on Linux x64 in September reported five ports" is one it
-can.
+can. [What each verdict means](/about/measurements) — including which of them
+are about the plugin and which are about our container.
 
 ## Bulk
 
