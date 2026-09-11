@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import { readFileSync } from 'fs'
 import { createMcpServer } from '../../src/mcp/server.js'
 
 /**
@@ -141,7 +142,23 @@ describe('search_plugins', () => {
 
   it('says what the data may be used for', async () => {
     const result = await parse('search_plugins', { query: 'reverb' })
-    expect(result.licence).toMatch(/CC0/)
+    expect(result.catalogueLicence).toMatch(/CC0/)
+  })
+
+  it('does not let the catalogue\'s terms stand in for a plugin\'s', async () => {
+    // This test existed and only checked search_plugins, where the notice sits
+    // beside `results` and collides with nothing. In get_plugin the record is
+    // spread at the top level, and the notice — then also called `licence` —
+    // overwrote the plugin's own. Checking the tool where the two share a
+    // scope is the whole point.
+    const result = await parse('search_plugins', { query: 'reverb' })
+    const plugin = result.results[0]
+    expect(plugin, 'no result to check').toBeTruthy()
+    if (plugin.licence !== null) {
+      expect(plugin.licence, 'a plugin licence should be an identifier, not a paragraph')
+        .not.toMatch(/CC0 \(public domain\)|attribution/)
+      expect(plugin.licence.length).toBeLessThan(40)
+    }
   })
 })
 
@@ -236,5 +253,43 @@ describe('sparql_query', () => {
 
   it('caps the rows it will return', async () => {
     expect(JSON.parse((await run({ query: 'SELECT * WHERE { ?s ?p ?o }', limit: 10 })).text).rows).toBe(10)
+  })
+})
+
+/**
+ * A plugin's licence and the catalogue's are two different facts.
+ *
+ * They were both called `licence`, and in `get_plugin` the catalogue's notice
+ * was the later key in the same object literal — so it silently overwrote the
+ * plugin's own. Every plugin came back as CC0: MIT ones, GPL ones, all of them.
+ * Nothing failed, the field was populated, and an agent repeating it would have
+ * made a false licensing claim about somebody else's software.
+ *
+ * Found by pointing a real MCP client at the deployment, which is the one test
+ * that had never been run.
+ */
+describe('the two licences', () => {
+  const source = readFileSync('src/mcp/tools.js', 'utf8')
+
+  it('never names the catalogue notice `licence`', () => {
+    // `licence` belongs to the plugin. The catalogue's terms are
+    // `catalogueLicence`, in every tool, so the name cannot mean two things
+    // depending on which response you are reading.
+    expect(source).not.toMatch(/\blicence:\s*LICENCE_NOTE/)
+    expect((source.match(/catalogueLicence:\s*LICENCE_NOTE/g) ?? []).length)
+      .toBeGreaterThanOrEqual(4)
+  })
+
+  it('keeps the plugin\'s own licence in the field named for it', () => {
+    expect(source).toMatch(/licence:\s*result\.licenceId/)
+  })
+
+  it('puts the catalogue notice after the spread, where the collision was', () => {
+    // The bug was ordering, not naming alone: a later key wins. Asserting the
+    // name is what makes the order harmless.
+    const record = source.slice(source.indexOf("registerTool('get_plugin'"))
+    expect(record).toContain('...summarise(doc)')
+    expect(record.slice(0, record.indexOf('registerTool(\'list_categories\'')))
+      .not.toMatch(/\blicence:\s*LICENCE_NOTE/)
   })
 })

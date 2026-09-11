@@ -88,6 +88,27 @@ catalogue now carry a reading.
   The gap is that nothing notices: `/health` reports both numbers and nothing compares them
   except a live test nobody runs on a schedule. Worth making the acceptance path report an
   embedding failure to the moderator who caused it, rather than only to the log.
+* **Submit a plugin by URL, for a moderator.** Paste `https://danja.github.io/valis/` and have
+  the target read on a best-effort basis rather than typing seven fields. Moderator-only,
+  because it is the difference between a form and a fetch: the site would be making a request
+  on somebody's say-so.
+
+  **This is not the crawler and must not become it.** `docs/resources.md` §4 governs what is
+  harvested at scale, and the rules there — a sanctioned API where one exists, never work
+  around an access-control measure, `robots.txt` permitting a path is not a licence to
+  re-publish it — still apply to a single fetch. What is different is consent and scale: one
+  page, fetched once, at the request of a person who is usually its author. Worth writing that
+  distinction into the terms review before building it, not after, and worth sending the same
+  honest user agent so a sysadmin seeing it in their log can find out what it was.
+
+* **Licence identifiers are not normalised.** Asked of the live catalogue through MCP:
+  `GPL-3.0` 317, `GPLv3` 27, `http://usefulinc.com/doap/licenses/gpl` 59 — three spellings of
+  one licence, and `MIT` 201 against `https://spdx.org/licenses/MIT` 6. So the licence facet
+  offers the same licence several times, a filter on `GPL-3.0` misses 86 plugins, and two
+  harvests of one plugin can disagree about its terms. `src/harvest/Normaliser.js` is where
+  vocabulary defects are fixed and this one is not; the target is the SPDX identifier, and the
+  `sh:in` list in `vocabs/shapes.ttl` should then be able to enumerate what is allowed.
+
 * **Uploads have no size story beyond the per-file cap.** 2 MB each, no per-account quota and
   no total. Content-addressing means duplicates cost nothing, but nothing stops one trusted
   account filling the disk. A quota wants adding before that matters.
@@ -158,6 +179,11 @@ foundations.
   already minted, so identity exists; claiming and the labelling rules do not.
 * Promoted placement must be labelled to meet DSA Art. 26/39 and ASA guidance — and the ASA
   advises against "sponsored" as the word.
+* **Payments: Stripe.** Nothing here handles money yet, and taking it changes what the site is
+  for legal purposes — the terms review in `docs/resources.md` §4 has promotion as its trigger
+  for a real legal reading, and this is that trigger. Card details never touch this server;
+  Stripe Checkout or a payment link keeps it that way, and that is worth deciding before any
+  code.
 
 ## Phase 5 — open data — nearly done
 

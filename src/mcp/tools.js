@@ -21,6 +21,15 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
  * the tool is for and what it is not.
  */
 
+/**
+ * The catalogue's own terms, carried on every response as `catalogueLicence`.
+ *
+ * Never `licence`. A plugin record already has a `licence` — the plugin's own,
+ * which is its author's and a different fact entirely — and naming this one the
+ * same thing put the catalogue's terms on top of it in `get_plugin`, so every
+ * plugin came back as CC0 whatever its licence actually was. A licence is
+ * precisely the claim an agent must not be handed wrong.
+ */
 const LICENCE_NOTE =
   'Catalogue facts are CC0 (public domain); attribution to Plugin Universe ' +
   '(https://plugin-universe.com) is requested but not required.'
@@ -85,7 +94,7 @@ export function registerTools (server, { search, publication = null }) {
       facets: chosen,
       total: outcome.total,
       results: outcome.results.map(summarise),
-      licence: LICENCE_NOTE
+      catalogueLicence: LICENCE_NOTE
     })
   })
 
@@ -142,7 +151,14 @@ export function registerTools (server, { search, publication = null }) {
         : null,
       page: `https://plugin-universe.com/plugin/${iri.split('/').pop()}`,
       turtle: `${iri.replace(NAMESPACES.pu, 'https://plugin-universe.com/')}.ttl`,
-      licence: LICENCE_NOTE
+      // `catalogueLicence`, not `licence`. This object also carries the
+      // *plugin's* licence, from summarise(), and a key named `licence` at this
+      // level silently overwrote it — so every plugin came back as CC0,
+      // including MIT and GPL ones. A licence is exactly the claim an agent
+      // should not be given wrong, and the two are different facts: the
+      // catalogue's terms cover the description, the plugin's cover the
+      // software.
+      catalogueLicence: LICENCE_NOTE
     })
   })
 
@@ -164,7 +180,7 @@ export function registerTools (server, { search, publication = null }) {
       related: concept.related,
       note: concept.scopeNote ?? undefined
     })),
-    licence: LICENCE_NOTE
+    catalogueLicence: LICENCE_NOTE
   }))
 
   // Only offered when a published dataset is configured. A SPARQL tool over the
@@ -200,7 +216,7 @@ export function registerTools (server, { search, publication = null }) {
           rows: capped.length,
           truncated: rows.length > capped.length,
           results: capped,
-          licence: LICENCE_NOTE
+          catalogueLicence: LICENCE_NOTE
         })
       } catch (error) {
         return failure(`The query was refused: ${error.message}`)

@@ -56,6 +56,44 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — The catalogue's licence overwrote every plugin's licence
+
+**What happened.** `get_plugin` over MCP returned Sidecar — an MIT-licensed
+plugin — with `"licence": "Catalogue facts are CC0 (public domain)…"`. Every
+plugin came back that way: GPL ones, MIT ones, all of them. An agent repeating
+the field would have made a false licensing claim about somebody else's
+software.
+
+**Root cause.** Two different facts shared a field name. The record spreads
+`summarise(doc)`, which sets `licence` to the *plugin's* SPDX identifier, and
+then the object literal ended with `licence: LICENCE_NOTE` — the *catalogue's*
+terms. A later key wins, so the notice silently replaced the identifier.
+Nothing was missing and nothing threw; the field was populated, with the wrong
+thing.
+
+`search_plugins` had the same two values and did not collide, because there the
+notice sits beside `results` rather than inside a plugin record. The existing
+test checked that tool and passed.
+
+**Prevention.** The notice is `catalogueLicence` in all four tools, so the name
+cannot mean two things depending on which response is being read, and
+`tests/mcp/tools.test.js` asserts no tool names it `licence`. The existing
+licence test was extended to the tool where the two share a scope, and to
+checking that a plugin's licence looks like an identifier rather than a
+paragraph.
+
+**How it was found.** By pointing a real MCP client at the deployment and
+reading what came back — which `docs/danja-todo.md` had been asking for since
+the MCP face was built: *"I can test the protocol; I cannot test whether the
+tool descriptions help an agent choose, and that is the part most likely to be
+wrong."* The descriptions turned out to be fine. The payload did not.
+
+**Worth generalising.** A field that is populated with the wrong value fails no
+test that checks the field exists. Where two different facts could share a name,
+they should be given different ones before the collision rather than after — and
+a licence is the worst possible field to be casual about, because repeating it
+wrongly is a claim about somebody else's rights.
+
 ## 2026-09-11 — The runbook named a file nginx does not read
 
 **What happened.** `/dumps/` and `/image/` returned 404 through two installs and

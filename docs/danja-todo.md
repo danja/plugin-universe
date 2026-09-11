@@ -32,7 +32,33 @@ asserted about the deployment came from that, not from looking.
   in `essential` and `full`, not in `measurements`. Nothing has been uploaded
   yet, so this is untested against real files.
 
-## 2. Two findings from the first pluginval sweep
+## 2. The announcement, when you are ready
+
+Worth drafting before posting anywhere, because the first thing people ask is
+"where did you get my data" and the answer is better given than extracted.
+
+- [ ] decide what an announcement post says and where it goes
+
+Things that belong in it, from the inbox and from what has been built since:
+
+* **What it is** — an open, machine-readable catalogue with semantic search, a
+  public SPARQL endpoint, dumps, an Open Audio Stack registry view and an MCP
+  face. `/services` already says this well; the post can be shorter than it.
+* **Where the data comes from, and where it does not.** Every source's terms are
+  reviewed before harvesting and recorded in `docs/resources.md` §4. KVR is
+  excluded and it is worth saying why unprompted. The crawler identifies itself
+  and has a contact address.
+* **How to get your plugin in, without being crawled.** Send the URL and
+  permission — that is the offer, and it is a better first impression than
+  "we found you". [TODO.md](../TODO.md) has the moderator URL-submission form
+  that would make it one paste rather than a form to fill in; worth building
+  before the announcement rather than after, or every reply is manual.
+* **How to get it out.** Erasure is a DROP of a graph, and contributions are
+  stored per person so that is one command. Say so — it costs nothing and it
+  answers the objection before it is made.
+* **That the facts are CC0** and the plugin's own licence is a separate matter.
+
+## 3. Two findings from the first pluginval sweep
 
 `pluginval` is built into the profiler image and has been run over all 51 built
 downspout VST3s. It found two things in **your** code, which is the catalogue
@@ -50,7 +76,7 @@ doing its job on the one repository you can act on:
 
 Nothing here needs server access. The profiler runs on this machine.
 
-## 3. Decisions that are yours
+## 4. Decisions that are yours
 
 
 * **Whether to publish a minimal attribution record.** CC BY-SA requires naming
@@ -77,7 +103,7 @@ Nothing here needs server access. The profiler runs on this machine.
   loads, because an image in a wiki page is a URL every reader's browser fetches
   from a third party. A deliberate choice, not a missing feature.
 
-## 4. Worth doing when you have a moment
+## 5. Worth doing when you have a moment
 
 * **Tell the Open Audio Stack people the registry view exists.**
   `/registry/plugins/index.json` publishes the catalogue in their format, so
