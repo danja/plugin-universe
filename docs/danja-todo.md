@@ -115,6 +115,10 @@ Nothing here needs server access. The profiler runs on this machine.
 ## Standing habits
 
 * **Code change:** `./bin/deploy.sh` on the server, then `npm run test:live`.
+* **An accepted submission indexes itself.** Nothing to run — accepting one in
+  the moderation queue reloads the documents and embeds the new plugin in the
+  running app, and the page says so. If Ollama is down it says that instead, and
+  the nightly `--only-new` picks it up.
 * **Data change:** `docker compose run --rm app node bin/ingest.js --only-new`,
   then `docker compose restart app`, then `bin/publish.js` — or the public
   SPARQL copy drifts behind. A restart reuses the image, which is right for data

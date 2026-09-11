@@ -73,6 +73,11 @@ catalogue now carry a reading.
 
 ## Phase 3b — the rest of the site
 
+* **An accepted plugin becomes searchable without a restart.** *Done 2026-09-11:*
+  `SearchService.takeUpNewPlugins()` reloads the documents, rebuilds the lexical index and
+  embeds anything without a vector, called when a submission is accepted. It never throws —
+  the plugin is already in the catalogue, and a failure leaves it for the nightly
+  `bin/ingest.js --only-new` rather than reversing an acceptance.
 * **Submitting a plugin.** *Done 2026-09-11:* `/submit` for signed-in accounts, built from
   `SUBMITTABLE` so the form, the validator and the triples cannot drift; duplicate refusal
   against both the catalogue and the queue; SHACL before writing; the same trust promotion

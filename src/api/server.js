@@ -515,8 +515,17 @@ export function createServer ({
                 : await corrections.review({
                   correctionIri: form.get('correction'), moderator, accept, accounts: auth.accounts
                 })
+              // An accepted submission is a plugin the running app has never
+              // heard of: documents are read at startup and the vector index
+              // is a file. Without this it is in the catalogue, dereferenceable
+              // at its own IRI, and absent from every search.
+              const taken = outcome.status === 'accepted' && form.get('submission')
+                ? await search.takeUpNewPlugins()
+                : null
               message = outcome.status === 'accepted'
-                ? `Accepted.${outcome.promoted ? ` ${outcome.contributor} is now trusted — their contributions go live from here.` : ''}`
+                ? `Accepted.${outcome.promoted ? ` ${outcome.contributor} is now trusted — their contributions go live from here.` : ''}` +
+                  (taken?.error ? ' It is in the catalogue but not yet searchable — indexing failed, and the nightly run will pick it up.' : '') +
+                  (taken?.embedded ? ` Indexed and searchable — ${taken.plugins} plugins.` : '')
                 : 'Rejected. Nothing was written to a public graph.'
             } catch (error) {
               if (!(error instanceof CorrectionError) && !(error instanceof SubmissionError)) throw error
@@ -571,6 +580,11 @@ export function createServer ({
 
           try {
             const result = await submissions.submit({ account, fields: values })
+            // Written straight into the catalogue for a trusted contributor,
+            // so it has to reach the index now or it is a plugin nobody can
+            // find. Never throws; a failure here leaves it for the nightly
+            // --only-new and says so in the log.
+            if (result.status === 'accepted') await search.takeUpNewPlugins()
             return render({
               submitted: result.status === 'accepted'
                 ? {

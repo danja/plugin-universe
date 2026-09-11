@@ -4,6 +4,8 @@ import QueryService from '../store/QueryService.js'
 import GraphRegistry from '../store/GraphRegistry.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import LexicalIndex, { tokenise } from './LexicalIndex.js'
+import { composeText } from '../embeddings/EmbeddingService.js'
+import logger from 'loglevel'
 
 export { tokenise }
 
@@ -341,6 +343,53 @@ export class SearchService {
       total: results.length,
       offset: from,
       order
+    }
+  }
+
+  /**
+   * Take up whatever the store has gained since this process started.
+   *
+   * A plugin accepted from a submission is written straight into the
+   * contributor's graph, and until this runs the running app cannot find it:
+   * `documents` is read once at startup, the lexical index is built from it,
+   * and the vector index is a file on disk. The plugin would be in the
+   * catalogue, dereferenceable at its own IRI, and absent from every search —
+   * which is the shape of defect this project has shipped three times, data
+   * collected and never shown.
+   *
+   * Deliberately "whatever is new" rather than "this one". The same call then
+   * serves a submission accepted here, a correction that added a plugin, and
+   * an ingest run that happened alongside — and it cannot be given the wrong
+   * IRI, because it is not given one.
+   *
+   * **It never throws.** The caller has already accepted the submission and
+   * written it; embedding needs Ollama, which may be down, and a plugin that
+   * is in the catalogue but not yet in the index is a worse outcome recorded
+   * than an acceptance reversed. What is missed here is picked up by
+   * `bin/ingest.js --only-new`, which is the nightly backstop.
+   */
+  async takeUpNewPlugins () {
+    const before = this.documents.size
+    try {
+      // Rebuilds documents, sources and the lexical index together. Document
+      // frequencies are corpus-wide, so a new plugin changes them and the
+      // index has to be rebuilt rather than appended to.
+      await this.loadDocuments()
+
+      const missing = [...this.documents.values()]
+        .filter(doc => !this.index.positionByIri.has(doc.iri))
+      for (const doc of missing) {
+        this.index.add(doc.iri, await this.embeddings.embed(composeText(doc)))
+      }
+      if (missing.length > 0) await this.index.save()
+
+      return { plugins: this.documents.size, gained: this.documents.size - before, embedded: missing.length }
+    } catch (error) {
+      logger.warn(
+        `[search] could not take up new plugins: ${error.message}. ` +
+        'They are in the catalogue and will be found by the next ' +
+        'bin/ingest.js --only-new; search will not show them until then.')
+      return { plugins: this.documents.size, gained: this.documents.size - before, embedded: 0, error: error.message }
     }
   }
 
