@@ -23,6 +23,14 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
  * enough to copy anywhere as often as you like. `full` is the whole store, for
  * the ordinary case of undoing a bad ingest without re-harvesting for an hour.
  *
+ * A third scope, `measurements`, is not a backup at all — it is a delivery.
+ * The profiler runs untrusted native code and wants a machine with room, so it
+ * runs on a workstation; the catalogue is served from a small server that
+ * should not be profiling while it serves. Measurements carry their platform
+ * and timestamp precisely so that they are portable, and this is what carries
+ * them. It selects the profiler run graphs and nothing else, so restoring one
+ * on the server adds readings without touching a single harvested graph.
+ *
  * One Turtle file per graph plus a manifest, as with the dump: Turtle carries no
  * graph name, so the manifest is what makes a restore able to put each file back
  * where it came from.
@@ -49,6 +57,15 @@ export function isIrreplaceable (graph) {
     graph.startsWith('graph:user/') ||
     graph === `${pu}graphs`
 }
+
+/** Graphs written by a profiler run. One graph per run, droppable on its own. */
+export const MEASUREMENT_PREFIX = 'graph:profiler/'
+
+export function isMeasurement (graph) {
+  return graph.startsWith(MEASUREMENT_PREFIX)
+}
+
+export const SCOPES = Object.freeze(['full', 'essential', 'measurements'])
 
 export class BackupBuilder {
   constructor (client, { registry = new GraphRegistry(client) } = {}) {
@@ -92,16 +109,33 @@ export class BackupBuilder {
    */
   async backup ({ outputDir, scope = 'full', now = new Date() }) {
     if (!outputDir) throw new BackupError('A backup needs somewhere to go')
-    if (!['full', 'essential'].includes(scope)) {
-      throw new BackupError(`Unknown backup scope "${scope}"; use full or essential`)
+    if (!SCOPES.includes(scope)) {
+      throw new BackupError(`Unknown backup scope "${scope}"; use ${SCOPES.join(', ')}`)
     }
     const all = await this.graphs()
     if (all.length === 0) throw new BackupError('The store holds no graphs; refusing to write an empty backup.')
 
-    const wanted = scope === 'essential' ? all.filter(isIrreplaceable) : all
+    const select = {
+      full: () => all,
+      essential: () => all.filter(isIrreplaceable),
+      measurements: () => all.filter(isMeasurement)
+    }[scope]
+    const wanted = select()
     if (wanted.length === 0) {
-      throw new BackupError('No graph matched the requested scope; refusing to write an empty backup.')
+      throw new BackupError(
+        `No graph matched the scope "${scope}"; refusing to write an empty backup.` +
+        (scope === 'measurements' ? ' Nothing here has been profiled: run bin/profile.js first.' : ''))
     }
+
+    // A measurement graph carried to another store arrives as data with no
+    // index: the registry is what says what licence it holds and which run
+    // made it, and the dump is assembled by querying exactly that. So each
+    // one's registration travels with it, to be replayed there rather than
+    // guessed at — and only its own, never the whole registry, which on the
+    // receiving host describes a hundred graphs this backup knows nothing of.
+    const registrations = scope === 'measurements'
+      ? new Map((await this.registry.list()).map(row => [row.graph, row]))
+      : new Map()
 
     await fs.promises.mkdir(outputDir, { recursive: true })
     const graphs = []
@@ -110,7 +144,25 @@ export class BackupBuilder {
         `CONSTRUCT { ?s ?p ?o } WHERE { GRAPH ${iri(graph)} { ?s ?p ?o } }`)
       const file = BackupBuilder.fileNameFor(graph)
       await fs.promises.writeFile(path.join(outputDir, file), turtle)
-      graphs.push({ graph, file, triples: await this.#countTriples(graph), bytes: Buffer.byteLength(turtle) })
+      const entry = { graph, file, triples: await this.#countTriples(graph), bytes: Buffer.byteLength(turtle) }
+      const registration = registrations.get(graph)
+      if (scope === 'measurements') {
+        if (!registration) {
+          throw new BackupError(
+            `${graph} holds data but is not in the registry, so nothing records its licence or ` +
+            'which run made it. Refusing to carry a graph that would arrive unattributable.')
+        }
+        entry.registration = {
+          kind: registration.kind,
+          id: registration.identifier,
+          licence: registration.licence,
+          derivedFrom: registration.derivedFrom,
+          runId: registration.harvestRun ?? null,
+          comment: registration.comment ?? null,
+          generatedAt: registration.generatedAtTime ?? null
+        }
+      }
+      graphs.push(entry)
     }
 
     const manifest = {
@@ -123,7 +175,7 @@ export class BackupBuilder {
       triples: graphs.reduce((total, graph) => total + graph.triples, 0),
       // What was deliberately left out, so an essential backup cannot be
       // mistaken for a whole one at the moment somebody needs it to be.
-      omitted: scope === 'essential' ? all.filter(graph => !isIrreplaceable(graph)) : []
+      omitted: scope === 'full' ? [] : all.filter(graph => !wanted.includes(graph))
     }
     await fs.promises.writeFile(
       path.join(outputDir, 'MANIFEST.json'), JSON.stringify(manifest, null, 2))
@@ -182,6 +234,25 @@ export class BackupBuilder {
     const restored = []
     for (const entry of wanted) {
       const turtle = await fs.promises.readFile(path.join(directory, entry.file), 'utf8')
+
+      // A carried measurement graph has to be registered here before it is
+      // loaded, or it arrives as triples nothing can account for: no licence,
+      // so the CC0 dump cannot see it, and no run, so nothing says which
+      // machine produced it. register() replaces this one graph's row and
+      // leaves every other graph's alone, which is what makes it safe to do on
+      // a store full of data this backup has never heard of.
+      if (entry.registration) {
+        const { generatedAt, ...registration } = entry.registration
+        await this.registry.register({
+          ...registration,
+          // The run's own time, not the time it was carried. A measurement is
+          // an observation made on a machine at a moment, and re-stamping it
+          // on arrival would make the graph claim to be newer than its own
+          // readings.
+          ...(generatedAt ? { generatedAt: new Date(generatedAt) } : {})
+        })
+      }
+
       await this.client.update(`DROP SILENT GRAPH ${iri(entry.graph)}`)
       const written = await loadTurtleIntoGraph(this.client, entry.graph, turtle)
       const now = await this.#countTriples(entry.graph)

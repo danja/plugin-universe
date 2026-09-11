@@ -4,7 +4,7 @@
 # derivedFrom and identifier are here because a plugin profile page has to name
 # its source and link to it: a catalogue that cannot say where a fact came from
 # is asking to be trusted rather than checked.
-SELECT ?graph ?kind ?identifier ?licence ?redistributable ?inCC0Dump ?precedence ?derivedFrom ?generatedAtTime
+SELECT ?graph ?kind ?identifier ?licence ?redistributable ?inCC0Dump ?precedence ?derivedFrom ?generatedAtTime ?harvestRun ?comment
 WHERE {
   GRAPH ${metadataGraph} {
     ?graph a pu:SourceGraph ;
@@ -16,6 +16,11 @@ WHERE {
     OPTIONAL { ?graph dcterms:identifier ?identifier }
     OPTIONAL { ?graph prov:wasDerivedFrom ?derivedFrom }
     OPTIONAL { ?graph prov:generatedAtTime ?generatedAtTime }
+    # Carried so a registration can be reproduced exactly on another host: a
+    # measurement graph moved from the machine that made it must arrive with
+    # the run that made it, not with a fresh registration that has forgotten.
+    OPTIONAL { ?graph pu:harvestRun ?harvestRun }
+    OPTIONAL { ?graph rdfs:comment ?comment }
   }
 }
 ORDER BY DESC(?precedence) ?graph

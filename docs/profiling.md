@@ -259,6 +259,37 @@ profiling competes with serving. The measurements are portable — they carry
 their platform — so profiling on a workstation and publishing to the server is
 the intended shape.
 
+That was the intent for a while before anything implemented it, and the cost
+was quiet: the live catalogue held **zero** measurements while `/about/measurements`
+explained to readers what the verdicts meant. The delivery path is a backup
+scope:
+
+```sh
+node bin/backup.js --scope measurements          # here
+rsync -a <dir>/ danny@hyperdata.it:/tmp/measurements/
+# there:
+docker compose run --rm -v /tmp/measurements:/measurements app \
+  node bin/restore.js /measurements --into plugin-universe
+docker compose run --rm app node bin/ingest.js --vocabs-only
+docker compose restart app
+```
+
+`bin/backup.js` prints those steps for you. Three things about it are
+load-bearing:
+
+- **It selects `graph:profiler/*` and nothing else.** A run graph is droppable
+  on its own by design, so restoring one on the server adds readings and does
+  not touch a single harvested, account or contribution graph.
+- **Each graph carries its own registration**, replayed there through
+  `GraphRegistry.register()`, which replaces one row and leaves the rest alone.
+  Bare triples would arrive with no licence — invisible to the CC0 dump — and
+  no run, so nothing would say which machine produced them. Carrying the whole
+  registry instead would clobber the hundred graphs on the server that this
+  backup has never heard of.
+- **`--vocabs-only` is not optional.** Metric labels come from the store's copy
+  of `vocabs/plugin-universe.ttl`, not from the file on disk. Skip it and every
+  reading renders as a bare local name with no label or unit.
+
 Do not weaken the sandbox to make something work. If a tool needs the network,
 it is the wrong tool.
 

@@ -4,7 +4,8 @@ import path from 'path'
 import os from 'os'
 import Config from '../../src/Config.js'
 import SPARQLClient from '../../src/store/SPARQLClient.js'
-import BackupBuilder, { BackupError, isIrreplaceable } from '../../src/store/BackupBuilder.js'
+import BackupBuilder, { BackupError, isIrreplaceable, isMeasurement, SCOPES } from '../../src/store/BackupBuilder.js'
+import GraphRegistry from '../../src/store/GraphRegistry.js'
 import { iri, literal, insertDataQuery } from '../../src/store/SPARQLHelper.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
@@ -196,4 +197,110 @@ describe('putting it back', () => {
       await fs.promises.rm(tampered, { recursive: true, force: true })
     }
   }, 120000)
+})
+
+/**
+ * Carrying measurements from the machine that made them to the one that serves.
+ *
+ * The profiler runs untrusted native code and wants room; the catalogue is
+ * served from a small box that should not be profiling while it serves. So a
+ * run is made here and delivered there, which the architecture always intended
+ * ("measurements are portable — they carry their platform") and nothing
+ * implemented: the live catalogue held zero measurements while /about/measurements
+ * explained what they meant.
+ *
+ * The thing that makes this more than a file copy is the registry. A graph
+ * arriving as bare triples has no licence, so the CC0 dump cannot see it, and
+ * no run, so nothing says which machine produced it. The whole registry cannot
+ * travel with it — on the receiving host that row set describes a hundred
+ * graphs this backup has never heard of.
+ */
+describe('carrying measurements to another host', () => {
+  const RUN = 'graph:profiler/test-carry'
+  const registry = new GraphRegistry(client)
+  let carried
+
+  beforeAll(async () => {
+    await registry.register({
+      kind: 'profiler',
+      id: 'test-carry',
+      licence: 'CC0-1.0',
+      derivedFrom: `${NAMESPACES.pu}profiler/test-carry`,
+      runId: 'test-carry-run',
+      comment: 'a scan that happened somewhere else',
+      generatedAt: new Date('2020-01-02T03:04:05Z')
+    })
+    await client.update(insertDataQuery(RUN, [
+      `${iri(subject)} ${iri(NAMESPACES.pu + 'metric')} ${iri(NAMESPACES.pu + 'ScanTime')} .`
+    ]))
+    carried = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pu-carry-'))
+  }, 60000)
+
+  afterAll(async () => {
+    await registry.drop('profiler', 'test-carry')
+    await client.update(`DROP SILENT GRAPH ${iri(RUN)}`)
+    if (carried) await fs.promises.rm(carried, { recursive: true, force: true })
+  })
+
+  it('is one of the scopes, and knows a profiler graph from any other', () => {
+    expect(SCOPES).toContain('measurements')
+    expect(isMeasurement(RUN)).toBe(true)
+    expect(isMeasurement('graph:source/downspout')).toBe(false)
+    expect(isMeasurement(SCRATCH)).toBe(false)
+  })
+
+  it('carries the profiler runs and nothing else', async () => {
+    const manifest = await backups.backup({ outputDir: carried, scope: 'measurements' })
+    expect(manifest.graphs.length).toBeGreaterThan(0)
+    expect(manifest.graphs.every(entry => isMeasurement(entry.graph))).toBe(true)
+    // The scratch graph is in the store and must not be in this backup: a
+    // delivery that quietly included a harvested source would overwrite it on
+    // arrival with whatever this machine happened to hold.
+    expect(manifest.graphs.map(entry => entry.graph)).not.toContain(SCRATCH)
+  })
+
+  it('gives every graph its registration, so it arrives attributable', async () => {
+    const manifest = await BackupBuilder.readManifest(carried)
+    const entry = manifest.graphs.find(graph => graph.graph === RUN)
+    expect(entry.registration).toMatchObject({
+      kind: 'profiler',
+      id: 'test-carry',
+      licence: 'CC0-1.0',
+      runId: 'test-carry-run'
+    })
+    // The run's own time, not the time of the copy.
+    expect(entry.registration.generatedAt).toContain('2020-01-02')
+  })
+
+  it('refuses to carry a graph the registry cannot account for', async () => {
+    const orphan = 'graph:profiler/test-orphan'
+    await client.update(insertDataQuery(orphan, [
+      `${iri(subject)} ${iri(NAMESPACES.rdfs + 'label')} ${literal('orphan')} .`
+    ]))
+    try {
+      await expect(backups.backup({ outputDir: carried, scope: 'measurements' }))
+        .rejects.toThrow(/not in the registry/)
+    } finally {
+      await client.update(`DROP SILENT GRAPH ${iri(orphan)}`)
+    }
+  })
+
+  it('restores the registration as well as the triples, and leaves the rest of the registry alone', async () => {
+    const before = (await registry.list()).length
+    await registry.drop('profiler', 'test-carry')
+    await client.update(`DROP SILENT GRAPH ${iri(RUN)}`)
+    expect((await registry.list()).length).toBe(before - 1)
+
+    await backups.restore({ directory: carried, confirm: true, only: [RUN] })
+
+    const after = await registry.list()
+    expect(after.length, 'the registry gained or lost rows it should not have').toBe(before)
+    const row = after.find(entry => entry.graph === RUN)
+    expect(row.licence).toBe('CC0-1.0')
+    expect(row.harvestRun).toBe('test-carry-run')
+    // Re-stamping this on arrival would make the graph claim to be newer than
+    // the readings inside it.
+    expect(row.generatedAtTime).toContain('2020-01-02')
+    expect(await count(RUN)).toBe(1)
+  })
 })

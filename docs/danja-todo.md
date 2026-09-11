@@ -8,6 +8,38 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 public site, and `npm run test:live` does that from here. Anything below
 asserted about the deployment came from that, not from looking.
 
+## 1. The live catalogue has no measurements — carry them over
+
+Everything the profiler has ever measured lives in the Fuseki on **this**
+machine. The deployment has none: `measured=passed` returns 0, the `measured`
+facet does not appear, and `/about/measurements` is a published page explaining
+readings nobody can see.
+
+Four commands, all on you because they need the server:
+
+```sh
+node bin/backup.js --scope measurements       # prints the rest for you
+rsync -a <the dir it names>/ danny@hyperdata.it:/tmp/measurements/
+```
+
+then on the server:
+
+```sh
+docker compose run --rm -v /tmp/measurements:/measurements app \
+  node bin/restore.js /measurements --into plugin-universe
+docker compose run --rm app node bin/ingest.js --vocabs-only
+docker compose restart app
+```
+
+- [ ] carry the measurements over, then `npm run test:live`
+
+**A choice while you are there.** The backup will offer three runs: two `lv2-scan`
+graphs over the same flues directory fifty seconds apart, and the pluginval run.
+The two lv2 scans are the ones this file has been calling "harmless" — they were,
+while nothing published them. Only the newest run shows on a plugin page, so
+carrying both is untidy rather than wrong; `--graph <iri>` on the restore takes
+one at a time if you would rather carry just the later one.
+
 ## 2. Two findings from the first pluginval sweep
 
 `pluginval` is built into the profiler image and has been run over all 51 built
@@ -92,6 +124,10 @@ Nothing here needs server access. The profiler runs on this machine.
 * **Vocabulary change:** `node bin/ingest.js --vocabs-only`, then restart the
   app. The store holds its own copy of `vocabs/*.ttl`, and it is that copy that
   tells a plugin page what `pu:OpenTimeCold` means.
+* **Profiler run:** measure here, then `node bin/backup.js --scope measurements`
+  and carry it over — it prints the steps. Profiling on the server competes with
+  serving, and measurements carry their platform precisely so they need not be
+  made where they are served.
 * **Profiler run:** `docker build -f docker/profiler.Dockerfile -t plugin-universe-profiler .`
   once, then `node bin/profile.js --path <dir of built plugins> --tool pluginval`.
   Add `--dry-run` to see the verdicts without writing anything.

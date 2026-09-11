@@ -48,6 +48,17 @@ console.log(`${manifest.scope} backup from ${manifest.generatedAt}`)
 console.log(`Restoring into dataset "${dataset}" would DROP and rewrite:\n`)
 for (const graph of wanted) console.log(`  ${graph.graph.padEnd(44)} ${graph.triples} triples`)
 
+if (manifest.scope === 'measurements') {
+  // Worth saying, because the warning above is the one written for a full
+  // restore and reads far more alarming than what this actually does. Every
+  // graph listed is one profiler run, and a run graph is droppable on its own
+  // by design — that is why measurements are written one graph per run.
+  console.log('\nNothing else is touched. These are profiler run graphs; no harvested')
+  console.log('source, account or contribution graph appears in this backup, and each')
+  console.log('graph carries its own registration so it arrives with its licence and')
+  console.log('the run that made it.')
+}
+
 const into = flag('into')
 if (into !== dataset) {
   console.log(`\nNothing done. To go ahead, name the dataset:\n  --into ${dataset}`)
@@ -60,3 +71,10 @@ console.log(`\nRestored ${report.restored.length} graph(s):`)
 for (const graph of report.restored) console.log(`  ${graph.graph.padEnd(44)} ${graph.triples} triples`)
 console.log('\nEach graph was counted after loading and matched the backup.')
 console.log('The app loads its index at start — restart it if plugin data changed.')
+
+if (manifest.scope === 'measurements') {
+  console.log('\nTwo more steps, or the readings arrive unreadable:')
+  console.log('  node bin/ingest.js --vocabs-only   # metric labels live in the store\'s')
+  console.log('                                     # copy of vocabs/plugin-universe.ttl')
+  console.log('  then restart the app               # it loads measurements at startup')
+}

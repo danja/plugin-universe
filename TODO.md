@@ -43,6 +43,10 @@ graphs, and the readings surfaced on plugin pages and as a `measured=` filter.
 VST3s: **45 pass, 1 crashes, 4 have no binary in the bundle at all.** 57 plugins in the
 catalogue now carry a reading.
 
+* **Nothing publishes a measurement.** *Done 2026-09-11:* `bin/backup.js --scope
+  measurements` carries profiler runs from the machine that made them to the one
+  that serves, registrations and all. The live catalogue still holds none until
+  that is actually run — it is the first item in `docs/danja-todo.md`.
 * **CPU load** needs a host that runs audio through the plugin — `lv2bm`, or an in-house one.
   `pu:CpuLoad` is defined and nothing produces it. This is now the largest gap: pluginval
   instantiates and exercises a plugin but does not report what it cost.

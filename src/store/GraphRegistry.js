@@ -141,7 +141,14 @@ export class GraphRegistry {
    * @param {string} [spec.runId] - harvest run identifier
    * @param {string} [spec.comment]
    */
-  async register ({ kind, id, licence, derivedFrom, runId = null, comment = null }) {
+  async register ({
+    kind, id, licence, derivedFrom, runId = null, comment = null,
+    // When the graph's contents were generated. Defaults to now, which is right
+    // for a harvest happening here and wrong for a measurement graph carried
+    // from the workstation that made it — a reading's provenance is the run,
+    // not the copy.
+    generatedAt = new Date()
+  }) {
     if (!licence) {
       throw new GraphError(
         `Graph ${kind}/${id} was registered without a licence. Every graph must declare one — ` +
@@ -157,7 +164,7 @@ export class GraphRegistry {
     }
 
     const graph = GraphRegistry.graphIri(kind, id)
-    const now = new Date()
+    const now = generatedAt
     const terms = LICENCES[licence]
 
     // Optional provenance, appended as extra predicate-object pairs so the
