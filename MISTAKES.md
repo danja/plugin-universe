@@ -56,6 +56,34 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — Printed a server command with a value only the server knows
+
+**What happened.** `bin/backup.js --scope measurements` printed a ready-to-paste
+sequence for carrying profiler readings to the server, including
+`node bin/restore.js /measurements --into plugin-universe`. The dataset name is
+`${SPARQL_DATASET}` from the server's own environment. `restore.js` compares
+`--into` against it and, on a mismatch, prints the real name and exits 1 without
+writing — correct behaviour, and easy to lose in the output of a long
+`docker compose run`. The delivery looked done and the catalogue stayed empty.
+
+**Root cause.** I hardcoded a guess about another machine's configuration into
+an instruction. CLAUDE.md's first line is that there are to be no inline
+fallbacks — "if a value is not successfully retrieved from config then that is
+an error that needs fixing" — and this is that rule applied to a value that
+cannot be retrieved here at all.
+
+**Prevention.** The printed sequence now runs `restore.js` once with no `--into`,
+which is the mode that *reports* the dataset name, and tells the reader to paste
+what it prints. Two steps instead of one, and neither contains a guess.
+
+**What made it findable at all.** Nothing did, for a while. The symptom was an
+absent `measured` facet, which is indistinguishable from a feature nobody built.
+`/health` now reports `measured` and `measuredAt`, and a live test binds that
+count to the sum of the facet counts — so "did the delivery land" is one request
+rather than an inference. The lesson generalises past this bug: **an operation
+carried out on another machine needs a way to ask whether it worked**, and a
+missing feature and a failed delivery must not look the same.
+
 ## 2026-09-11 — A live test sat red for several commits because nothing runs it
 
 **What happened.** `npm run test:live` reported two failures. One was mine —

@@ -22,13 +22,21 @@ node bin/backup.js --scope measurements       # prints the rest for you
 rsync -a <the dir it names>/ danny@hyperdata.it:/tmp/measurements/
 ```
 
-then on the server:
+then on the server. **Run the restore twice** — the first time with no `--into`,
+because it prints the dataset name to use, and that name comes from
+`SPARQL_DATASET` in the server's environment, which this machine cannot know.
+Naming the wrong one is refused, and the refusal is easy to lose in a long
+`docker compose run`. That is what happened on the first attempt.
 
 ```sh
 docker compose run --rm -v /tmp/measurements:/measurements app \
-  node bin/restore.js /measurements --into plugin-universe
+  node bin/restore.js /measurements                       # what it would do
+docker compose run --rm -v /tmp/measurements:/measurements app \
+  node bin/restore.js /measurements --into <name it printed>
 docker compose run --rm app node bin/ingest.js --vocabs-only
+docker compose run --rm app node bin/publish.js
 docker compose restart app
+curl -s https://plugin-universe.com/health                # "measured" > 0
 ```
 
 - [ ] carry the measurements over, then `npm run test:live`
