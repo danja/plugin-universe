@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'fs'
 import { renderSearchPage, renderPluginPage } from '../../src/api/render.js'
 
 /**
@@ -107,5 +108,32 @@ describe('what the desktop layout keeps', () => {
     const plugin = renderPluginPage({ ...DOC, image: 'https://example.invalid/a.jpg' })
     expect(plugin).toMatch(/\.shot-full\s*\{[^}]*max-width/)
     expect(plugin).toMatch(/img\s*\{[^}]*max-width:\s*100%|\.shot\b/)
+  })
+})
+
+/**
+ * Links are styled by default, not by a list somebody has to remember.
+ *
+ * The colour used to be opt-in per context — `.account a`, `.pager a`,
+ * `footer a`, `.prov a`, `.prose a` — so a block added later fell off the list
+ * without anything complaining. Seventeen of the thirty-five links on the front
+ * page rendered in the browser's default blue: the services note, and every tag
+ * link on every result. Nobody chose that; it was what happens when a default
+ * is a list.
+ *
+ * This is the same shape as the recurring failure in CLAUDE.md, in CSS. The
+ * test asserts the base rule exists, because its absence is what let the gap
+ * open and reappear silently.
+ */
+describe('link colour', () => {
+  const CSS = readFileSync('templates/site.css', 'utf8')
+
+  it('sets a colour for every link, not one context at a time', () => {
+    expect(CSS).toMatch(/^a \{[^}]*color:\s*var\(--accent\)/m)
+  })
+
+  it('keeps the deliberate exceptions, which are exceptions and not omissions', () => {
+    // The site title is a link and must not look like one.
+    expect(CSS).toMatch(/h1 a \{[^}]*color:\s*inherit/)
   })
 })
