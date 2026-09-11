@@ -46,3 +46,43 @@ chmod -R a+rX $DIRS
 
 echo "handed $DIRS to $OWNER"
 ls -ld $DIRS
+
+# nginx serves these directly and runs as its own user — www-data on Debian.
+# Reading a file needs every directory on the way to it to be traversable, and
+# a repository under /home is the usual place that breaks: a home directory is
+# commonly 0750, which stops www-data at the first step and produces a 403 on a
+# path /services advertises.
+#
+# Checked rather than assumed, and reported rather than fixed: making somebody's
+# home directory world-traversable is their decision, not this script's.
+blocked=""
+for dir in $DIRS; do
+  path=$(cd "$dir" && pwd)
+  while [ "$path" != "/" ]; do
+    perms=$(stat -c '%a' "$path" 2>/dev/null || echo "")
+    case "$perms" in
+      *1|*3|*5|*7) ;;                       # other has +x, so traversable
+      "") ;;                                # could not stat; not our problem
+      *) case " $blocked " in
+           *" $path($perms) "*) ;;          # already reported for another dir
+           *) blocked="$blocked $path($perms)" ;;
+         esac ;;
+    esac
+    path=$(dirname "$path")
+  done
+done
+
+if [ -n "$blocked" ]; then
+  echo
+  echo "!! nginx cannot reach these directories. It serves them as its own user"
+  echo "!! (www-data), and every directory on the way has to be traversable."
+  echo "!! Not traversable by others:$blocked"
+  echo "!!"
+  echo "!! The usual fix, if you are content with it:"
+  for dir in $blocked; do
+    echo "!!   sudo chmod o+x ${dir%%(*}"
+  done
+  echo "!!"
+  echo "!! Left alone deliberately — a home directory's permissions are yours."
+  echo "!! Without this, /image/ and /dumps/ return 403."
+fi

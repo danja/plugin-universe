@@ -297,6 +297,19 @@ sudo nginx -t && sudo systemctl reload nginx
 The full config proxies to `127.0.0.1:4100` and `127.0.0.1:3030`, which is where
 compose publishes the app and the store.
 
+**It also serves two directories straight off disk** — `/image/` from
+`data/images` and `/dumps/` from `data/dumps`. Those are absolute paths in the
+host config, because nginx is on the machine rather than in a container with
+mounts, so a repository checked out anywhere but
+`/home/github/plugin-universe` needs them edited.
+
+Run `sudo ./deploy/prepare-data-dirs.sh` before reloading. nginx reads these as
+its own user — `www-data` on Debian — which needs every directory on the way
+traversable, and a home directory is commonly `0750`. The script reports what is
+in the way rather than changing it: making somebody's home world-traversable is
+their decision. Without it, `/image/` and `/dumps/` return 403 while everything
+else works.
+
 ### HTTP/2 on a shared host
 
 `plugin-universe.host.conf` does not enable HTTP/2, deliberately. **HTTP/2 is a
