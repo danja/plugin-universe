@@ -105,6 +105,7 @@ complained, and each was found in production or by accident:
 | Saved a test fixture as `*.log` | `.gitignore`, which excludes `*.log` | a test that passes here and fails on a fresh clone |
 | Stored uploaded images under `data/` | a volume in `docker-compose.yml` | uploads written into the container, gone on the next rebuild |
 | Stored something irreplaceable that is not a triple | `BackupBuilder`, which reasons only about graphs | an "essential" backup that silently omits every picture |
+| Added a `volumes:` block to a compose service | the `volumes:` it already had, forty lines down | duplicate YAML key; the deploy failed before anything started |
 | Added a facet to the search | the copy of the facet list in `/plugins` | `?category=reverb` silently ignored on the browse list |
 | Added a block to `site.css` | its `a { color: … }` rule, one of five opt-ins | 17 of 35 front-page links in browser-default blue |
 
@@ -123,6 +124,15 @@ Specifically, before finishing a change, check:
 - Does `.gitignore` exclude a file a test reads? A fixture is source, not output.
 - Does anything new persist outside the triple store? Then `.dockerignore`, a compose
   volume and `BackupBuilder` all have to know, and none of them will complain.
+- **A manual step that has failed twice is a script.** `deploy/prepare-data-dirs.sh` exists
+  because "create the directory and check the app can write to it" was written in the
+  runbook, read, and got wrong anyway. Where a failure has one cause, the error message
+  should name the remedy — see `explain()` in `src/api/AdminActions.js`.
+- **Every configuration file consumed somewhere else deserves a check that runs here.**
+  `deploy/nginx/check.sh` for nginx, `tests/api/compose.test.js` for docker-compose. A
+  syntax error in either is a failed deploy and a round trip through a person. When adding
+  to a service or a server block, read the whole of it first — `grep -A 14` is how a second
+  `volumes:` key got written under one that was already there.
 - Did a new term in `vocabs/` reach the *store's* copy? `bin/ingest.js --vocabs-only`.
 
 **Where a list must exist, make it one list and export it.** `FACET_NAMES` in

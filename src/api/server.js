@@ -520,12 +520,10 @@ export function createServer ({
               try {
                 message = await runAction(form.get('action'), { client: search.client, config, search })
               } catch (error) {
-                if (!(error instanceof AdminActionError)) {
-                  // An action that failed for a reason of its own is worth
-                  // showing rather than turning into a 500: the administrator
-                  // pressed the button and is owed the answer.
-                  logger.warn(`[admin] ${form.get('action')} failed: ${error.message}`)
-                }
+                // Shown rather than turned into a 500: the administrator
+                // pressed the button and is owed the answer. runAction has
+                // already translated the common causes into a remedy.
+                logger.warn(`[admin] ${form.get('action')} failed: ${error.message}`)
                 message = `${form.get('action')} failed: ${error.message}`
               }
               return sendText(response, 200, renderAdminPage(await corrections.pending(), {

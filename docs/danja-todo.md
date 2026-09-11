@@ -13,12 +13,17 @@ asserted about the deployment came from that, not from looking.
 nginx serves `/image/` and `/dumps/` straight off disk, read-only; the app
 writes both.
 
-- [ ] **`mkdir -p data/images data/dumps` on the server** before the next
-  deploy, and check the app's uid can write to both. `docker run -v` creates a
-  missing source directory **as root**, and the app does not run as root — the
-  same trap the measurements handoff hit. The backup script already does this
-  dance for `/var/backups`; there is no equivalent here because the directories
-  live in the repository.
+- [ ] **Run `sudo ./deploy/prepare-data-dirs.sh`** on the server. It creates
+  `data/images` and `data/dumps` and hands them to whichever user the app image
+  runs as — asked of the image, not assumed, because `APP_UID` is a build
+  argument.
+
+  This was a documented manual step and it failed twice, which is what the
+  script is for. `docker run -v` creates a missing source directory **as root**,
+  the app does not run as root, and the Dockerfile's `chown /app/data` does
+  nothing for these because a bind mount replaces that directory with the
+  host's, ownership and all. The symptom is
+  `EACCES: permission denied, mkdir 'data/dumps/cc0'`.
 - [ ] **Rebuild the dumps once**, or `/dumps/` is an advertised path with an
   empty directory behind it — the defect this project already shipped as a
   contact page that 404d. Either `docker compose run --rm app node bin/dump.js`

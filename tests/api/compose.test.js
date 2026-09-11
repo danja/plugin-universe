@@ -77,3 +77,46 @@ describe('the compose file', () => {
     expect(output).toContain('plugin-universe-app')
   })
 })
+
+/**
+ * What an administrator is told when an action fails.
+ *
+ * `EACCES: permission denied, mkdir 'data/dumps/cc0'` is accurate and says
+ * nothing about what to do. It has one cause here and always the same one: the
+ * host directory is bind-mounted, `docker run -v` created it as root, and the
+ * app does not run as root. It has now been a documented manual step twice and
+ * failed twice, so the message carries the remedy.
+ */
+describe('explaining a failed action', () => {
+  it('names the fix for the permission error these mounts cause', async () => {
+    const { explain } = await import('../../src/api/AdminActions.js')
+    const error = Object.assign(new Error("EACCES: permission denied, mkdir 'data/dumps/cc0'"),
+      { code: 'EACCES' })
+    expect(explain(error)).toContain('prepare-data-dirs.sh')
+    expect(explain(error)).toContain('not writable by the user this container runs as')
+  })
+
+  it('keeps the original message, rather than replacing it', () => {
+    // The remedy is a guess about the cause; the message is the evidence.
+    return import('../../src/api/AdminActions.js').then(({ explain }) => {
+      expect(explain(Object.assign(new Error('EACCES: x'), { code: 'EACCES' }))).toContain('EACCES: x')
+    })
+  })
+
+  it('says when the disk is full, and when a service is not answering', async () => {
+    const { explain } = await import('../../src/api/AdminActions.js')
+    expect(explain(Object.assign(new Error('ENOSPC: no space'), { code: 'ENOSPC' })))
+      .toContain('disk is full')
+    expect(explain(new Error('fetch failed'))).toContain('not answering')
+  })
+
+  it('passes anything it does not recognise through unchanged', async () => {
+    const { explain } = await import('../../src/api/AdminActions.js')
+    expect(explain(new Error('something else entirely'))).toBe('something else entirely')
+  })
+
+  it('has a script at the path it tells people to run', async () => {
+    const { existsSync } = await import('fs')
+    expect(existsSync('deploy/prepare-data-dirs.sh')).toBe(true)
+  })
+})

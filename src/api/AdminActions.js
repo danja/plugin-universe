@@ -108,7 +108,36 @@ export async function runAction (name, context) {
   if (!action) {
     throw new AdminActionError(`No such action "${name}". Known: ${Object.keys(ACTIONS).join(', ')}.`)
   }
-  return action.run(context)
+  try {
+    return await action.run(context)
+  } catch (error) {
+    throw new AdminActionError(explain(error))
+  }
+}
+
+/**
+ * Turn a failure into something the person who pressed the button can act on.
+ *
+ * `EACCES: permission denied, mkdir 'data/dumps/cc0'` is accurate and tells a
+ * reader nothing about what to do. It has one cause here and it is always the
+ * same one: these directories are bind-mounted from the host, `docker run -v`
+ * creates a missing one as root, and the app does not run as root. A message
+ * that names the remedy is the difference between a five-second fix and a
+ * round trip.
+ */
+export function explain (error) {
+  const message = error?.message ?? String(error)
+  if (error?.code === 'EACCES' || /EACCES/.test(message)) {
+    return `${message} — the host directory is not writable by the user this ` +
+      'container runs as. On the server: ./deploy/prepare-data-dirs.sh'
+  }
+  if (error?.code === 'ENOSPC' || /ENOSPC/.test(message)) {
+    return `${message} — the disk is full.`
+  }
+  if (/ECONNREFUSED|fetch failed/.test(message)) {
+    return `${message} — a service this needs is not answering. Check Fuseki and Ollama are up.`
+  }
+  return message
 }
 
 export default ACTIONS

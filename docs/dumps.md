@@ -68,6 +68,16 @@ container, reports a file count, and changes nothing anybody can fetch — the
 dump appears to work and nginx serves whatever was there before. The same mount
 is what makes the `/admin` button do anything at all.
 
-**The directory must exist before the first `docker compose up`.** `docker run
--v` creates a missing source directory as *root*, and the app does not run as
-root, so it then cannot write: `mkdir -p data/dumps` first.
+**The directory must exist and be owned by the container's user.** `docker run
+-v` creates a missing source directory as *root*, the app does not run as root,
+and the Dockerfile's `chown /app/data` does nothing here — a bind mount replaces
+that directory with the host's, ownership and all. The symptom is
+`EACCES: permission denied, mkdir 'data/dumps/cc0'`.
+
+```sh
+sudo ./deploy/prepare-data-dirs.sh
+```
+
+It asks the image which uid it runs as rather than assuming 1001, because
+`APP_UID` is a build argument. Safe to re-run, and needed again after any change
+to that argument.

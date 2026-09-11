@@ -56,6 +56,33 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — A duplicate YAML key that stopped the deploy
+
+**What happened.** Adding bind mounts for the uploaded images, I wrote a
+`volumes:` block into the `app` service. It already had one, forty lines
+further down. YAML does not merge duplicate mapping keys, it rejects the
+document — so the next deploy failed with
+`mapping key "volumes" already defined at line 112`, before anything started.
+
+**Root cause.** I checked the service with `grep -A 14` and concluded it had no
+volumes. The service is longer than fourteen lines. Worse, the block I did not
+see was the one that mattered: it mounts a **named volume at `/app/data`**, so
+`data/images` inside the container was never the host directory anyway, and the
+mount had to be nested beneath it exactly as `./data/curation` already was —
+with a comment two lines away explaining that very rule.
+
+**Prevention.** `tests/api/compose.test.js`. It asserts no service defines a key
+twice, that the app and nginx mount the same two directories, and that the paths
+match what the nginx config actually reads — then runs `docker compose config`
+when Docker is present, and skips that when it is not, so the suite does not
+require a daemon. Verified to fail on exactly the duplicate that shipped.
+
+**The wider point.** There is a `deploy/nginx/check.sh` because six nginx
+configurations reached the server broken. `docker-compose.yml` is the same kind
+of file — parsed by something else, on another machine, where a syntax error is
+a failed deploy rather than a test — and it had nothing. **Every configuration
+file that is consumed somewhere I cannot see deserves a check that runs here.**
+
 ## 2026-09-11 — A form inside a paragraph, rearranged by the browser and rendered wrong
 
 **What happened.** The account bar was `<p class="account">…<form>Sign out</form></p>`.
