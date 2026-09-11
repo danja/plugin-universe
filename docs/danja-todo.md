@@ -19,20 +19,25 @@ Four commands, all on you because they need the server:
 
 ```sh
 node bin/backup.js --scope measurements       # prints the rest for you
-rsync -a <the dir it names>/ danny@hyperdata.it:/tmp/measurements/
 ```
 
-then on the server. **Run the restore twice** — the first time with no `--into`,
+then carry it and restore it on the server. **Run the restore twice** — the first time with no `--into`,
 because it prints the dataset name to use, and that name comes from
 `SPARQL_DATASET` in the server's environment, which this machine cannot know.
 Naming the wrong one is refused, and the refusal is easy to lose in a long
 `docker compose run`. That is what happened on the first attempt.
 
+Copy the **whole** backup directory, manifest included — Turtle carries no graph
+name, so the manifest is the only thing that says which graph each file belongs
+in. Select a single run at the restore, with `--graph`, not at the copy.
+
 ```sh
+rsync -a <the dir backup.js named>/ <server>:/tmp/measurements/   # trailing slash
 docker compose run --rm -v /tmp/measurements:/measurements app \
   node bin/restore.js /measurements                       # what it would do
 docker compose run --rm -v /tmp/measurements:/measurements app \
-  node bin/restore.js /measurements --into <name it printed>
+  node bin/restore.js /measurements --into <name it printed> \
+  --graph graph:profiler/pluginval-1789114466917          # just the pluginval run
 docker compose run --rm app node bin/ingest.js --vocabs-only
 docker compose run --rm app node bin/publish.js
 docker compose restart app

@@ -200,7 +200,37 @@ export class BackupBuilder {
           : ` Neither does ${parent}. If this is running in a container, the backups are on the ` +
             'host and need mounting: docker compose run --rm -v /var/backups/plugin-universe:/backups app …'))
     }
-    if (!fs.existsSync(file)) throw new BackupError(`${directory} has no MANIFEST.json; it is not a backup.`)
+    if (!fs.existsSync(file)) {
+      // Say what is there. "No MANIFEST.json" names the thing that is missing
+      // and leaves the reader to work out why, and the two usual whys are both
+      // visible from a directory listing: the backup is one level down because
+      // an rsync lost its trailing slash, or somebody copied the graph files
+      // they wanted and left the manifest — which is the one file that says
+      // which graph each of them belongs in.
+      const entries = fs.readdirSync(directory, { withFileTypes: true })
+      const nested = entries
+        .filter(entry => entry.isDirectory())
+        .map(entry => path.join(directory, entry.name))
+        .filter(child => fs.existsSync(path.join(child, 'MANIFEST.json')))
+      if (nested.length === 1) {
+        throw new BackupError(
+          `${directory} has no MANIFEST.json, but ${nested[0]} does. ` +
+          `Point at that instead — or re-copy with a trailing slash on the source ` +
+          `(rsync -a <dir>/ host:${directory}/) so the contents land here rather than a directory.`)
+      }
+      const turtle = entries.filter(entry => entry.name.endsWith('.ttl')).map(entry => entry.name)
+      if (turtle.length > 0) {
+        throw new BackupError(
+          `${directory} holds ${turtle.length} Turtle file(s) and no MANIFEST.json, so nothing ` +
+          'says which graph each belongs in. Turtle carries no graph name; the manifest is what ' +
+          'makes a restore able to put a file back where it came from. Copy the whole backup ' +
+          `directory, then select what to load with --graph. Found: ${turtle.slice(0, 5).join(', ')}`)
+      }
+      const listing = entries.map(entry => entry.name).filter(name => !name.startsWith('.')).slice(0, 8)
+      throw new BackupError(
+        `${directory} has no MANIFEST.json; it is not a backup.` +
+        (listing.length ? ` It holds: ${listing.join(', ')}` : ' It is empty.'))
+    }
     const manifest = JSON.parse(await fs.promises.readFile(file, 'utf8'))
     if (manifest.format !== 'turtle-per-graph/1') {
       throw new BackupError(`${directory} is format ${manifest.format}, which this version cannot restore.`)

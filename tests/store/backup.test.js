@@ -304,3 +304,61 @@ describe('carrying measurements to another host', () => {
     expect(await count(RUN)).toBe(1)
   })
 })
+
+/**
+ * What a restore says when it is pointed at something that is not a backup.
+ *
+ * All three of these happened on the way to delivering measurements to the
+ * server, and the message was the same for each: "has no MANIFEST.json; it is
+ * not a backup." True, and it names the file that is missing rather than the
+ * reason it is missing — which is the part the reader is standing in front of a
+ * server trying to work out.
+ */
+describe('being pointed at something that is not a backup', () => {
+  let scratch
+
+  beforeAll(async () => {
+    scratch = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pu-notbackup-'))
+  })
+
+  afterAll(async () => {
+    if (scratch) await fs.promises.rm(scratch, { recursive: true, force: true })
+  })
+
+  it('finds a backup one directory down and says so', async () => {
+    // `rsync -a dir host:/dest/` without the trailing slash on the source puts
+    // the backup at /dest/dir, and the restore is then pointed at its parent.
+    const parent = path.join(scratch, 'parent')
+    const inner = path.join(parent, 'the-backup')
+    await fs.promises.mkdir(inner, { recursive: true })
+    await fs.promises.writeFile(path.join(inner, 'MANIFEST.json'),
+      JSON.stringify({ format: 'turtle-per-graph/1', scope: 'full', graphs: [] }))
+
+    await expect(BackupBuilder.readManifest(parent)).rejects.toThrow(/but .*the-backup does/)
+    await expect(BackupBuilder.readManifest(parent)).rejects.toThrow(/trailing slash/)
+  })
+
+  it('recognises graph files copied without their manifest', async () => {
+    // Turtle carries no graph name, so the files alone cannot say where they
+    // go. Somebody carrying "just the one run" copies the .ttl they want.
+    const partial = path.join(scratch, 'partial')
+    await fs.promises.mkdir(partial, { recursive: true })
+    await fs.promises.writeFile(path.join(partial, 'profiler-pluginval-1.ttl'), '# turtle\n')
+
+    await expect(BackupBuilder.readManifest(partial)).rejects.toThrow(/Turtle carries no graph name/)
+    await expect(BackupBuilder.readManifest(partial)).rejects.toThrow(/--graph/)
+  })
+
+  it('lists what it did find, when it is neither of those', async () => {
+    const other = path.join(scratch, 'other')
+    await fs.promises.mkdir(other, { recursive: true })
+    await fs.promises.writeFile(path.join(other, 'notes.txt'), 'hello')
+
+    await expect(BackupBuilder.readManifest(other)).rejects.toThrow(/It holds: notes\.txt/)
+  })
+
+  it('still says plainly when the directory is not there at all', async () => {
+    await expect(BackupBuilder.readManifest(path.join(scratch, 'nope')))
+      .rejects.toThrow(/does not exist/)
+  })
+})
