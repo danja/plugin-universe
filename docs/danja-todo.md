@@ -8,52 +8,7 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 public site, and `npm run test:live` does that from here. Anything below
 asserted about the deployment came from that, not from looking.
 
-## 1. The live catalogue has no measurements — carry them over
-
-Everything the profiler has ever measured lives in the Fuseki on **this**
-machine. The deployment has none: `measured=passed` returns 0, the `measured`
-facet does not appear, and `/about/measurements` is a published page explaining
-readings nobody can see.
-
-Four commands, all on you because they need the server:
-
-```sh
-node bin/backup.js --scope measurements       # prints the rest for you
-```
-
-then carry it and restore it on the server. **Run the restore twice** — the first time with no `--into`,
-because it prints the dataset name to use, and that name comes from
-`SPARQL_DATASET` in the server's environment, which this machine cannot know.
-Naming the wrong one is refused, and the refusal is easy to lose in a long
-`docker compose run`. That is what happened on the first attempt.
-
-Copy the **whole** backup directory, manifest included — Turtle carries no graph
-name, so the manifest is the only thing that says which graph each file belongs
-in. Select a single run at the restore, with `--graph`, not at the copy.
-
-```sh
-rsync -a <the dir backup.js named>/ <server>:/tmp/measurements/   # trailing slash
-docker compose run --rm -v /tmp/measurements:/measurements app \
-  node bin/restore.js /measurements                       # what it would do
-docker compose run --rm -v /tmp/measurements:/measurements app \
-  node bin/restore.js /measurements --into <name it printed> \
-  --graph graph:profiler/pluginval-1789114466917          # just the pluginval run
-docker compose run --rm app node bin/ingest.js --vocabs-only
-docker compose run --rm app node bin/publish.js
-docker compose restart app
-curl -s https://plugin-universe.com/health                # "measured" > 0
-```
-
-- [ ] carry the measurements over, then `npm run test:live`
-
-**A choice while you are there.** The backup will offer three runs: two `lv2-scan`
-graphs over the same flues directory fifty seconds apart, and the pluginval run.
-The two lv2 scans are the ones this file has been calling "harmless" — they were,
-while nothing published them. Only the newest run shows on a plugin page, so
-carrying both is untidy rather than wrong; `--graph <iri>` on the restore takes
-one at a time if you would rather carry just the later one.
-
-## 2. Two findings from the first pluginval sweep
+## 1. Two findings from the first pluginval sweep
 
 `pluginval` is built into the profiler image and has been run over all 51 built
 downspout VST3s. It found two things in **your** code, which is the catalogue
@@ -71,7 +26,7 @@ doing its job on the one repository you can act on:
 
 Nothing here needs server access. The profiler runs on this machine.
 
-## 3. Decisions that are yours
+## 2. Decisions that are yours
 
 * **How the dumps get served.** `bin/dump.js` writes them to `data/dumps` and
   nothing publishes them. nginx from disk is the obvious answer — the app has no
@@ -83,14 +38,8 @@ Nothing here needs server access. The profiler runs on this machine.
   to, but the IRI-to-name mapping is in a withheld graph, so the dump alone does
   not say whom to credit. Closing it means publishing an IRI and a public login
   and nothing else — a decision about personal data I should not take alone.
-* **What the front page should show.** Most-recently-added means a run of
-  image-less LV2 utilities after the sweep: accurate, and a poor first
-  impression. Recent-but-only-with-a-picture, a curated handful, or
-  random-but-good. **Easier to answer now:** `/` no longer has to be the
-  exhaustive browse list — that is `/plugins` — so whatever `/` shows is a
-  glimpse of ten, and nothing is lost by curating it.
-* **What goes beside the results on a wide screen.** Facets, categories,
-  recently added, or a hamburger. A taste question.
+
+
 * **A sitemap.** `robots.txt` has no `Sitemap:` line because there is no
   sitemap, and pointing at a 404 is the same defect as advertising a contact
   page that does not exist. Worth having for 750-odd plugin pages. **Easier to
@@ -108,7 +57,7 @@ Nothing here needs server access. The profiler runs on this machine.
   loads, because an image in a wiki page is a URL every reader's browser fetches
   from a third party. A deliberate choice, not a missing feature.
 
-## 4. Worth doing when you have a moment
+## 3. Worth doing when you have a moment
 
 * **Tell the Open Audio Stack people the registry view exists.**
   `/registry/plugins/index.json` publishes the catalogue in their format, so
@@ -159,6 +108,21 @@ Nothing here needs server access. The profiler runs on this machine.
 * The public SPARQL endpoint, on a separate published dataset.
 * The MCP endpoint, and `/services` describing every way in.
 * Backups: nightly on the server, pulled here nightly, restore rehearsed.
+* **Browsing by format and category.** Formats in full and the twelve largest
+  categories, with counts, beside the results on a wide screen and behind a
+  toggle on a narrow one. Twelve of twenty-eight was confirmed as the right
+  number; it is `sidebarCategories` in `config/preferences.js` if that ever
+  changes. One list of links, no script.
+* **The front page shows plugins with a picture**, and the ordering claim it
+  could not support is gone — every plugin shares one `dcterms:created`, so
+  "most recently added" was alphabetical wearing a label. Recency becomes a real
+  signal after a second ingest spreads the dates; nothing needs changing then,
+  the sort is already asked for.
+* **Measurements are live.** 50 plugins carry pluginval readings — 45 passed,
+  4 failed, 1 crashed — with their labels, units and explanations resolving, and
+  288 measurement triples in the public SPARQL copy. The delivery path
+  (`bin/backup.js --scope measurements` → rsync → `bin/restore.js --graph`) is
+  proven end to end; `bin/backup.js` prints it with your paths filled in.
 * **`pluginval`.** Built from a pinned commit into the profiler image and run
   over the downspout VST3s. 45 pass, 1 crashes, 4 have no binary. The profiler
   now reaches VST3, and `pu:LatencySamples` — defined since Phase 2 and produced
@@ -181,4 +145,8 @@ Nothing here needs server access. The profiler runs on this machine.
 * There is very little irreplaceable data yet: one account, no corrections, no
   wiki revisions. The backup machinery is proven before there is anything to
   lose, which is the right order.
-* Two profiler scan graphs from test runs are still registered. Harmless.
+* Two `lv2-scan` graphs from early flues runs are registered here and were
+  deliberately **not** carried to the server — only the pluginval run was. They
+  measured 7 flues plugins and found the one real disagreement so far (Disyn
+  reporting 8 control ports against a profile recording 9). Worth carrying when
+  there is a reason to; harmless where they are.

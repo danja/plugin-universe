@@ -43,10 +43,12 @@ graphs, and the readings surfaced on plugin pages and as a `measured=` filter.
 VST3s: **45 pass, 1 crashes, 4 have no binary in the bundle at all.** 57 plugins in the
 catalogue now carry a reading.
 
-* **Nothing publishes a measurement.** *Done 2026-09-11:* `bin/backup.js --scope
+* **Measurements reach the deployment.** *Done 2026-09-11:* `bin/backup.js --scope
   measurements` carries profiler runs from the machine that made them to the one
-  that serves, registrations and all. The live catalogue still holds none until
-  that is actually run — it is the first item in `docs/danja-todo.md`.
+  that serves, registrations and all, and the first delivery is live — 50 plugins
+  with readings, 288 measurement triples in the public SPARQL copy. `/health`
+  reports `measured` and `measuredAt` so a future delivery can be checked rather
+  than assumed.
 * **CPU load** needs a host that runs audio through the plugin — `lv2bm`, or an in-house one.
   `pu:CpuLoad` is defined and nothing produces it. This is now the largest gap: pluginval
   instantiates and exercises a plugin but does not report what it cost.
@@ -71,13 +73,20 @@ catalogue now carry a reading.
 
 ## Phase 3b — the rest of the site
 
-* **`order: 'recent'` may not be doing anything.** The landing page asks
-  `search.browse({ order: 'recent' })` and says "Most recently added:", but the
-  local store returns them alphabetically — which is what `byName` would give.
-  Either most plugins share a `dcterms:created` date from a bulk harvest and the
-  sort is stable, or the ordering is not being applied. Worth a look before the
-  front-page decision is made, because that decision assumes "recent" means
-  something.
+* **"Most recently added" is alphabetical, and the label is false.** Checked
+  2026-09-11: `byRecency` is correct and the ordering *is* applied — but all 752
+  plugins on the deployment share one `dcterms:created`, `2026-09-10`, because
+  the dated ingest has run once. With every date equal the comparator falls
+  through to `byName` by design, so the front page lists the alphabetical head
+  of the catalogue under a heading that claims otherwise. The first hundred of
+  them have no image at all.
+
+  `IngestPipeline` carries first-seen dates across a re-harvest, so dates will
+  differentiate from the next new source onward. Until then **recency is not an
+  available option for the front page** — it is alphabetical wearing a label.
+  Either stop claiming it, or pick a glimpse that is a real signal.
+  (The local store has no dates at all, which is a separate staleness: it
+  predates the dated ingest.)
 
 Built on the accounts and moderation machinery Phase 3 finished, so none of this needs new
 foundations.

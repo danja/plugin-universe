@@ -137,3 +137,72 @@ describe('link colour', () => {
     expect(CSS).toMatch(/h1 a \{[^}]*color:\s*inherit/)
   })
 })
+
+/**
+ * Browsing by format and category.
+ *
+ * One list of links, placed beside the results on a wide screen and collapsed
+ * behind a toggle on a narrow one. Two lists would be two things to keep
+ * correct, and the counts beside each link come from the same facet query the
+ * dropdowns are built from — so the nav cannot offer a category nothing is in.
+ *
+ * The toggle is a checkbox, not script. These assert the properties that make
+ * that acceptable rather than merely clever: the control stays in the focus
+ * order, and the label is tied to it.
+ */
+describe('the browse panel', () => {
+  const CSS = readFileSync('templates/site.css', 'utf8')
+  const page = renderSearchPage({
+    query: null,
+    facets: {},
+    results: [],
+    total: 0,
+    corpus: 645,
+    facetValues: {
+      format: [{ value: 'VST3', count: 499 }, { value: 'LV2', count: 201 }],
+      category: [{ value: 'reverb', count: 43 }, { value: 'delay', count: 35 }]
+    }
+  })
+
+  it('links formats to the filtered browse list and categories to their pages', () => {
+    expect(page).toContain('href="/plugins?format=VST3"')
+    expect(page).toContain('href="/category/reverb"')
+  })
+
+  it('shows how much is behind each link', () => {
+    // A category with 43 plugins and one with 2 are different invitations.
+    expect(page).toContain('499')
+    expect(page).toContain('43')
+  })
+
+  it('offers a way to the whole catalogue, not just the parts', () => {
+    expect(page).toContain('href="/plugins"')
+  })
+
+  it('collapses on a narrow screen and opens without script', () => {
+    expect(CSS).toMatch(/\.side\s*\{[^}]*display:\s*none/)
+    expect(CSS).toMatch(/\.browse-toggle:checked\s*~\s*\.side\s*\{[^}]*display:\s*block/)
+    expect(page).toContain('type="checkbox"')
+    expect(page).not.toMatch(/<script/i)
+  })
+
+  it('keeps the toggle reachable by keyboard', () => {
+    // `display:none` and the `hidden` attribute both take a control out of the
+    // focus order. Moved off-screen instead, so it can still be tabbed to.
+    expect(page).not.toMatch(/<input[^>]*class="browse-toggle"[^>]*hidden/)
+    expect(CSS).toMatch(/\.browse-toggle\s*\{[^}]*position:\s*absolute/)
+    expect(CSS).not.toMatch(/\.browse-toggle\s*\{[^}]*display:\s*none/)
+    expect(page).toContain('for="browse-toggle"')
+    expect(page).toContain('id="browse-toggle"')
+  })
+
+  it('shows the panel and hides the toggle on a wide screen', () => {
+    const wide = CSS.slice(CSS.indexOf('@media (min-width: 58rem)'))
+    expect(wide).toMatch(/\.with-side \.side\s*\{[^}]*display:\s*block/)
+    expect(wide).toMatch(/\.browse-button\s*\{\s*display:\s*none/)
+  })
+
+  it('is labelled, because a list of links with no heading is a list of words', () => {
+    expect(page).toContain('aria-label="Browse the catalogue"')
+  })
+})

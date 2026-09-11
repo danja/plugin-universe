@@ -51,51 +51,70 @@ console.log(`${manifest.scope} backup: ${manifest.graphs.length} graphs, ${manif
 console.log(`  ${outputDir}`)
 
 if (manifest.scope === 'measurements') {
-  console.log('\nTo carry these to the server — from the deployment directory there:')
-  console.log(`  rsync -a ${outputDir}/ <server>:/tmp/measurements/`)
-  console.log('  #        ^ the trailing slash matters, and copy the whole directory:')
-  console.log('  #          Turtle carries no graph name, so MANIFEST.json is the only')
-  console.log('  #          thing that says which graph each file belongs in. Pick a')
-  console.log('  #          single run with --graph at the restore, not at the copy.')
+  // Listed before the steps, not after: step 2 takes one of these IRIs.
+  console.log(`\n  ${manifest.graphs.length} profiler run(s), and nothing else:`)
+  for (const graph of manifest.graphs) {
+    console.log(`\n    ${graph.graph}`)
+    console.log(`      ${String(graph.triples).padStart(5)} triples` +
+      (graph.registration?.comment ? ` — ${graph.registration.comment}` : ''))
+  }
+}
+
+if (manifest.scope === 'measurements') {
+  // Spelled out per machine, because it is two machines and the last attempt
+  // failed twice on exactly that: a directory copied without its manifest, and
+  // a dataset name guessed from here that only the server knows.
+  console.log('\n── to put these on the server ' + '─'.repeat(46))
+  console.log('\nON THIS MACHINE:\n')
+  console.log('  ssh danny@hyperdata mkdir -p /tmp/pu-measurements')
+  console.log(`  rsync -rtv ${outputDir}/ danny@hyperdata:/tmp/pu-measurements/`)
   console.log('')
-  console.log('  # 1. See what it would do. This prints the dataset name to use,')
-  console.log('  #    which comes from SPARQL_DATASET in the server\'s environment')
-  console.log('  #    and is not something this machine can know.')
-  console.log('  docker compose run --rm -v /tmp/measurements:/measurements app \\')
+  console.log('  Make the directory first, as yourself. `docker run -v /path:...` creates')
+  console.log('  a missing source directory as **root**, so a failed restore attempt')
+  console.log('  leaves behind somewhere you can no longer rsync into — "mkstemp ...')
+  console.log('  Permission denied". If that has happened: sudo rm -rf the directory, or')
+  console.log('  use a name nothing has mounted yet.')
+  console.log('')
+  console.log('  -rtv, not -a. The archive flag implies -o and -g, and preserving owner')
+  console.log('  and group across hosts is something only root may do — it fails with')
+  console.log('  "chgrp ... Operation not permitted". Nothing here needs either: these')
+  console.log('  files are a handoff, and the container reads them as uid 1001, which')
+  console.log('  works because /tmp is 1777 and the files land world-readable.')
+  console.log('')
+  console.log('  The trailing slash on the source copies the contents. Copy the whole')
+  console.log('  directory: Turtle carries no graph name, so MANIFEST.json is the only')
+  console.log('  thing that says which graph each file belongs in. To load a single run,')
+  console.log('  select it at step 2 with --graph, not here.')
+  console.log('\nON THE SERVER — ssh danny@hyperdata, then cd /home/github/plugin-universe:\n')
+  console.log('  # 1. What it would do. Prints the dataset name for step 2; that name')
+  console.log('  #    comes from SPARQL_DATASET in the server\'s .env and is not')
+  console.log('  #    something this machine can know.')
+  console.log('  docker compose run --rm -v /tmp/pu-measurements:/measurements app \\')
   console.log('    node bin/restore.js /measurements')
   console.log('')
-  console.log('  # 2. Repeat with the --into it named. It refuses any other name.')
-  console.log('  docker compose run --rm -v /tmp/measurements:/measurements app \\')
-  console.log('    node bin/restore.js /measurements --into <the name step 1 printed>')
+  console.log('  # 2. Load it. Append --graph <iri> to take one run rather than all.')
+  console.log('  docker compose run --rm -v /tmp/pu-measurements:/measurements app \\')
+  console.log('    node bin/restore.js /measurements --into <name from step 1>')
   console.log('')
+  console.log('  # 3. Metric labels live in the store\'s copy of the vocabulary, not the')
+  console.log('  #    file on disk. Without this every reading shows as a bare local name.')
   console.log('  docker compose run --rm app node bin/ingest.js --vocabs-only')
-  console.log('  docker compose run --rm app node bin/publish.js')
-  console.log('  docker compose restart app')
   console.log('')
-  console.log('  curl -s https://plugin-universe.com/health   # "measured" should be > 0')
-  console.log('\nNone of the last four steps is optional:')
-  console.log('  --vocabs-only  metric labels live in the store\'s copy of the vocabulary,')
-  console.log('                 not the file on disk; without it every reading shows as a')
-  console.log('                 bare local name with no label or unit')
-  console.log('  publish.js     the public SPARQL endpoint is a separate copy and stays')
-  console.log('                 behind otherwise')
-  console.log('  restart        the app loads measurements once, at startup')
-  console.log('  /health        the only way to confirm the delivery landed')
+  console.log('  # 4. The public SPARQL endpoint is a separate copy and stays behind.')
+  console.log('  docker compose run --rm app node bin/publish.js')
+  console.log('')
+  console.log('  # 5. The app reads measurements once, at startup.')
+  console.log('  docker compose restart app')
+  console.log('\nBACK HERE, to confirm it landed:\n')
+  console.log('  curl -s https://plugin-universe.com/health | grep measured')
+  console.log('  npm run test:live')
+  console.log('')
+  console.log('  "measured" is 0 until step 2 succeeds, and counts plugins once it has.')
+  console.log('')
 }
 if (manifest.omitted.length > 0 && manifest.scope === 'essential') {
   console.log(`\n  ${manifest.omitted.length} rebuildable graph(s) omitted from an essential backup:`)
   for (const graph of manifest.omitted) console.log(`    ${graph}`)
   console.log('  Re-run the harvesters to get these back; nothing else can.')
 }
-if (manifest.scope === 'measurements') {
-  // Not "omitted" in the sense the essential backup means it — this scope is a
-  // delivery of profiler runs, and everything else being absent is the point
-  // rather than a caveat. Listing thirteen harvested graphs as though they had
-  // gone missing would read as a warning about nothing.
-  console.log(`\n  ${manifest.graphs.length} profiler run(s), and nothing else:`)
-  for (const graph of manifest.graphs) {
-    console.log(`    ${graph.graph.padEnd(44)} ${String(graph.triples).padStart(5)} triples`)
-    if (graph.registration?.comment) console.log(`      ${graph.registration.comment}`)
-  }
-  console.log('\n  Restore one at a time with --graph <iri> if any of these is a test run.')
-}
+

@@ -1,5 +1,5 @@
 import { TRUST } from '../auth/Accounts.js'
-import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
+import { CONTRIBUTION_CONFIG, RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // One-way: the HTML pages embed the JSON-LD, the serialisations know nothing
 // about HTML.
@@ -202,13 +202,39 @@ function facetControls (facetValues, facets) {
   return ['format', 'category', 'pricing', 'source'].map(facetSelect).join('\n  ')
 }
 
-/** The shared shell: the form, a summary line, results, and two optional slots. */
-function searchShell ({ query, facets, facetValues, summary, results, services, more, pager: pagerHtml }) {
+/**
+ * Navigation by format and category, beside the results on a wide screen and
+ * behind a toggle on a narrow one.
+ *
+ * Both lists come from the facet counts the page already has, so this cannot
+ * offer a category nothing is in — the counts and the links are the same query.
+ * Formats are shown whole; there are seven. Categories are not: there are
+ * twenty-eight, and a column of twenty-eight is a wall rather than a way in, so
+ * this takes the largest few and links the rest through the browse list.
+ */
+function sidebar (facetValues, total) {
+  const link = (href, label, count) => ({ href, label, count })
+  const formats = templates.each('sidebar-link',
+    (facetValues?.format ?? []).map(value =>
+      link(`/plugins?format=${encodeURIComponent(value.value)}`, value.value, value.count)),
+    row => row)
+  const categories = templates.each('sidebar-link',
+    (facetValues?.category ?? []).slice(0, RETRIEVAL_CONFIG.sidebarCategories).map(value =>
+      link(`/category/${encodeURIComponent(value.value)}`, value.value, value.count)),
+    row => row)
+  return templates.render('sidebar', { formats, categories, total })
+}
+
+/** The shared shell: the form, a summary line, results, and the optional slots. */
+function searchShell ({
+  query, facets, facetValues, summary, results, services, more, pager: pagerHtml, total
+}) {
   return templates.render('search', {
     query: query ?? '',
     facets: facetControls(facetValues, facets),
     summary: templates.render('meta-line', { text: summary }),
     services,
+    side: sidebar(facetValues, total),
     results: results.length
       ? results.map(resultItem).join('\n')
       : templates.when(Boolean(query), 'empty', { text: 'Nothing matched.' }),
@@ -230,9 +256,12 @@ export function renderLandingPage ({ corpus, results, facetValues, viewer = {} }
     query: null,
     facets: {},
     facetValues,
-    summary: `${corpus} plugins indexed. Search by what a plugin does, not just its name.` +
-      `${results.length ? ' Most recently added:' : ''}`,
+    // No claim about ordering. Every plugin in the catalogue carries the same
+    // dcterms:created — one dated ingest — so "most recently added", which this
+    // said for a while, was alphabetical wearing a label.
+    summary: `${corpus} plugins indexed. Search by what a plugin does, not just its name.`,
     results,
+    total: corpus,
     // Only here: somebody who has typed a query is looking for a plugin, not
     // for an endpoint.
     services: templates.render('services-note', {}),
@@ -257,7 +286,8 @@ export function renderSearchPage ({
     results,
     services: '',
     more: '',
-    pager: ''
+    pager: '',
+    total: corpus
   })
   return layout(query ? `${query} — Plugin Universe` : 'Search — Plugin Universe', body, {
     description: 'An open, machine-readable database of DAW plugins with semantic search.',
@@ -273,13 +303,18 @@ export function renderBrowsePage ({
     query: null,
     facets,
     facetValues,
+    // No ordering claim here either. `recent` is still what is asked for, and
+    // it will mean something once a second ingest spreads the first-seen dates
+    // — but today every plugin carries the same one, so saying "most recently
+    // added first" over an alphabetical list is a claim the data cannot support.
     summary: Object.values(facets).some(Boolean)
-      ? `${total} of ${corpus} plugins, most recently added first:`
-      : `All ${total} plugins, most recently added first:`,
+      ? `${total} of ${corpus} plugins`
+      : `All ${total} plugins`,
     results,
     services: '',
     more: '',
-    pager: pager({ total, offset, limit, params: facets, base: '/plugins' })
+    pager: pager({ total, offset, limit, params: facets, base: '/plugins' }),
+    total: corpus
   })
   return layout('All plugins — Plugin Universe', body, {
     description: 'Every plugin in the Plugin Universe catalogue, most recently added first.',

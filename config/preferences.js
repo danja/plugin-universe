@@ -45,6 +45,13 @@ export const RETRIEVAL_CONFIG = {
   // be scanned in one screen.
   browsePageSize: 10,
 
+  // Categories listed in the sidebar. There are twenty-eight; a column of
+  // twenty-eight is a wall rather than a way in, and the rest are one click
+  // away through the browse list. Ordered by count, so these are the ones most
+  // of the catalogue is actually in. Twelve is a settled choice, not a
+  // placeholder — it reaches down to categories of around forty plugins.
+  sidebarCategories: 12,
+
   // Results on an HTML search page. Fixed rather than caller-chosen, because
   // nobody reading a page asked for a page size, and relevance past the first
   // screen or two is noise. The JSON caller still chooses its own, up to

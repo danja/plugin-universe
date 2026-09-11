@@ -285,8 +285,12 @@ export function createServer ({
             return redirect(response, `/plugins?${params.toString()}`)
           }
 
+          // Only plugins with a picture. A grid of grey rectangles is a worse
+          // first impression than a shorter list, and about three quarters of
+          // the catalogue has an image, so this narrows the pool rather than
+          // emptying it. The complete list, pictures or not, is /plugins.
           const outcome = await search.browse({
-            limit: RETRIEVAL_CONFIG.browsePageSize, offset: 0, order: 'recent'
+            limit: RETRIEVAL_CONFIG.browsePageSize, offset: 0, hasImage: true
           })
           return sendText(response, 200, renderLandingPage({
             corpus: search.documents.size,

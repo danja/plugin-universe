@@ -56,6 +56,44 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — Four wrong instructions for a machine I cannot see
+
+**What happened.** Carrying profiler measurements to the server took five
+attempts, and every failure was in an instruction rather than in the code:
+
+| Printed | Failed with |
+|---|---|
+| `--into plugin-universe` | the dataset name is `${SPARQL_DATASET}` on that host; restore refused and exited 1 |
+| `cd /chalet/github/plugin-universe` | that is the path *here*; the runbook says `/home/github/plugin-universe` |
+| `rsync -a …` | `-a` implies `-o -g`; only root may set owner across hosts |
+| `-v /tmp/measurements:…` before the directory existed | docker created it as **root**, and the next rsync could not write into it |
+
+**Root cause.** Writing operational instructions for a machine I have no access
+to and cannot test against, with the confidence of something I had run. Each was
+a guess about another host's state dressed as a command to paste. The one that
+cost the most — the root-owned directory — was caused by an *earlier* failed
+instruction, so the errors compounded.
+
+**Prevention.** Three changes, in descending order of how much they help.
+
+1. **The real values now come from `docs/deployment.md`**, which records the
+   host and the repository path, rather than from memory.
+2. **Every step that cannot be known from here now says so and prints itself.**
+   `restore.js` run bare reports the dataset name; the instruction is to paste
+   what it says.
+3. **Each command carries its reason**, so a reader can tell whether it still
+   applies on their machine rather than only whether it worked.
+
+The deeper point is in the last row of that table: `docker run -v /path:…`
+silently creating a root-owned directory means a *failed* step leaves the
+system in a state where the retry also fails, differently. Anything that
+mounts a host path should have the path created deliberately first.
+
+**What did not go wrong.** The code. `restore()` refused every wrong invocation,
+named what it wanted, and never half-wrote. The counting, the registry replay
+and the manifest checks all held. The failures were entirely in the prose around
+them — which is worth remembering next time prose feels like the cheap part.
+
 ## 2026-09-11 — Printed a server command with a value only the server knows
 
 **What happened.** `bin/backup.js --scope measurements` printed a ready-to-paste

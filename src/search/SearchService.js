@@ -316,11 +316,20 @@ export class SearchService {
    * plugins held in memory and sorted per request, so the cost is the sort and
    * a cursor would buy nothing.
    */
-  async browse ({ facets = {}, limit = RETRIEVAL_CONFIG.defaultPageSize, offset = 0, order = 'name' } = {}) {
+  async browse ({
+    facets = {}, limit = RETRIEVAL_CONFIG.defaultPageSize, offset = 0, order = 'name',
+    // Only plugins that have a picture. For the landing page, where a grid of
+    // grey rectangles is a worse first impression than a shorter list: about
+    // three quarters of the catalogue has an image, so this narrows the pool
+    // rather than emptying it. Not a facet — nobody would choose to filter a
+    // search by whether a screenshot happens to exist.
+    hasImage = false
+  } = {}) {
     const allowed = await this.#filterSet(facets)
     const compare = order === 'recent' ? byRecency : byName
     const results = [...this.documents.values()]
       .filter(doc => !allowed || allowed.has(doc.iri))
+      .filter(doc => !hasImage || Boolean(doc.image))
       .sort(compare)
     // Clamped to the last page rather than left to run off the end: `?from=`
     // is a number in a URL and `from=1e99` should show the oldest plugins, not

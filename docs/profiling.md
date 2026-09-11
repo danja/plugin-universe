@@ -266,9 +266,10 @@ scope:
 
 ```sh
 node bin/backup.js --scope measurements          # here
-rsync -a <dir>/ danny@hyperdata.it:/tmp/measurements/
+ssh danny@hyperdata mkdir -p /tmp/pu-measurements   # as you, not as docker's root
+rsync -rtv <dir>/ danny@hyperdata:/tmp/pu-measurements/   # -rtv: -a implies -o -g
 # there:
-docker compose run --rm -v /tmp/measurements:/measurements app \
+docker compose run --rm -v /tmp/pu-measurements:/measurements app \
   node bin/restore.js /measurements --into plugin-universe
 docker compose run --rm app node bin/ingest.js --vocabs-only
 docker compose restart app

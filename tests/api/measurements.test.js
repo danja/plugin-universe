@@ -100,3 +100,32 @@ describe('the plugin page', () => {
     expect(page).not.toContain('Measured')
   })
 })
+
+/**
+ * The landing page shows plugins that have a picture.
+ *
+ * A grid of grey rectangles is a worse first impression than a shorter list,
+ * and about three quarters of the catalogue has an image — so this narrows the
+ * pool rather than emptying it. The complete list, pictures or not, is
+ * /plugins, which is why the landing page could stop being it.
+ */
+describe('the landing page glimpse', () => {
+  it('asks the search service for plugins with an image', async () => {
+    const { default: fs } = await import('fs')
+    const server = fs.readFileSync('src/api/server.js', 'utf8')
+    const root = server.slice(server.indexOf("case '/':"), server.indexOf("case '/health':"))
+    expect(root).toContain('hasImage: true')
+  })
+
+  it('makes no claim about ordering, because the dates cannot support one', async () => {
+    // Every plugin carries the same dcterms:created — one dated ingest — so
+    // "most recently added", which this said for a while, was alphabetical
+    // wearing a label.
+    const { renderLandingPage } = await import('../../src/api/render.js')
+    const html = renderLandingPage({
+      corpus: 645, results: [], facets: {}, facetValues: {}
+    })
+    expect(html).not.toContain('Most recently added')
+    expect(html).toContain('645 plugins indexed')
+  })
+})
