@@ -56,6 +56,30 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — A live test sat red for several commits because nothing runs it
+
+**What happened.** `npm run test:live` reported two failures. One was mine —
+paging moved from `/` to `/plugins` and the test still asserted the old shape.
+The other was not: `resolves every vocabulary IRI the data uses` called
+`get('/ns').json()`, `/ns` had since become an HTML page that keeps its JSON for
+machines, and the test asked for neither representation. It received the page
+and failed parsing it as JSON.
+
+**Root cause.** The same recurring pattern — a route changed representation and
+a second file that depended on it did not — with one addition that made it
+worse. `test:live` is deliberately excluded from `npm test`, correctly, because
+it tests the deployed site over the internet. So the one suite that would have
+caught it is the one suite nobody runs by accident. `git log` puts the test
+(`8f8a71d`) three commits before the change that broke it (`812fd08`): it had
+been red through every deploy since.
+
+**Prevention.** The tests now ask for the representation they want rather than
+taking the default, and `/ns` gained the test its own change never got — that a
+person gets a page and a machine gets the index. The wider point is in
+docs/danja-todo.md already and is worth keeping there: **`npm run test:live` is
+the only check that sees the deployment**, and a red test in a suite that is
+never run is indistinguishable from no test.
+
 ## 2026-09-11 — The profiler's own container made 46 working plugins look broken
 
 **What happened.** The first profiler image with `pluginval` in it was built on

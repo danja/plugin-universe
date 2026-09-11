@@ -223,10 +223,46 @@ describe('the deployed data is the current data', () => {
     for (const result of dated) expect(new Date(result.created).getTime()).not.toBeNaN()
   })
 
-  it('pages the front listing instead of showing everything or nothing', async () => {
-    expect(front).toMatch(/page 1 of \d+/)
-    const second = await (await get('/?from=10')).text()
+  it('pages the browse list instead of showing everything or nothing', async () => {
+    // Paging moved off the front page: `/` is a landing page with a glimpse of
+    // ten, and `/plugins` is the complete list. The front page must therefore
+    // *not* page, and must say where the rest is.
+    expect(front, 'the front page still has a pager').not.toMatch(/page 1 of \d+/)
+    expect(front, 'the front page does not link the full list').toContain('href="/plugins"')
+
+    const list = await (await get('/plugins', { headers: { Accept: 'text/html' } })).text()
+    expect(list).toMatch(/page 1 of \d+/)
+    const second = await (await get('/plugins?from=10', { headers: { Accept: 'text/html' } })).text()
     expect(second).toMatch(/page 2 of \d+/)
+    expect(second, 'the pager still points at the old home').toContain('/plugins?from=')
+  })
+
+  it('sends the URL shapes that moved to where they went', async () => {
+    // `/?q=` and `/?from=` were the search and the browse list until each got
+    // its own address. Every bookmark, shared link and crawler index still
+    // holds the old shape, so they redirect rather than 404 or silently show
+    // something else.
+    const search = await get('/?q=reverb', { headers: { Accept: 'text/html' }, redirect: 'manual' })
+    expect(search.status).toBe(302)
+    expect(search.headers.get('location')).toBe('/search?q=reverb')
+
+    const paged = await get('/?from=10', { headers: { Accept: 'text/html' }, redirect: 'manual' })
+    expect(paged.status).toBe(302)
+    expect(paged.headers.get('location')).toBe('/plugins?from=10')
+  })
+
+  it('answers /search and /plugins in whichever language was asked for', async () => {
+    // Both are documented JSON endpoints that gained a page. A caller sending
+    // no Accept header — curl, fetch() with no options — must still get JSON,
+    // because that is what it has always got.
+    for (const path of ['/search?q=reverb', '/plugins?limit=5']) {
+      const json = await get(path)
+      expect(json.headers.get('content-type'), path).toMatch(/application\/json/)
+      expect(json.headers.get('vary'), `${path} does not vary on Accept`).toMatch(/accept/i)
+
+      const html = await get(path, { headers: { Accept: 'text/html' } })
+      expect(html.headers.get('content-type'), path).toMatch(/text\/html/)
+    }
   })
 
   it('shows plugin images, over https only', async () => {
@@ -546,7 +582,12 @@ describe('the promises the catalogue makes to other people', () => {
   })
 
   it('resolves every vocabulary IRI the data uses, as parseable Turtle', async () => {
-    const index = await (await get('/ns')).json()
+    // Ask for the representation this test wants. /ns became an HTML page for
+    // people and kept the JSON for machines, and this went on requesting
+    // neither — so it received the page and failed parsing it as JSON. It had
+    // been broken since that change, and was not caught because test:live is
+    // deliberately not part of a sweep.
+    const index = await (await get('/ns', { headers: { Accept: 'application/json' } })).json()
     expect(index.vocabularies.length).toBeGreaterThan(3)
     for (const vocabulary of index.vocabularies) {
       const response = await get(vocabulary.url)
@@ -555,6 +596,17 @@ describe('the promises the catalogue makes to other people', () => {
       const dataset = await parseTurtle(await response.text())
       expect(dataset.size, vocabulary.url).toBeGreaterThan(0)
     }
+  })
+
+  it('gives a person reading /ns a page, and a machine the index', async () => {
+    // The change that broke the test above, now asserted rather than assumed.
+    const page = await get('/ns', { headers: { Accept: 'text/html' } })
+    expect(page.headers.get('content-type')).toMatch(/text\/html/)
+    expect(await page.text()).toContain('Plugin Universe')
+
+    const index = await get('/ns', { headers: { Accept: 'application/json' } })
+    expect(index.headers.get('content-type')).toMatch(/application\/json/)
+    expect((await index.json()).vocabularies.length).toBeGreaterThan(3)
   })
 
   it('publishes an Open Audio Stack compatible registry', async () => {
