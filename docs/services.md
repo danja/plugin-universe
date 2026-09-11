@@ -167,5 +167,5 @@ The API and the SPARQL endpoint are rate-limited, and SPARQL queries time out at
 thirty seconds. This runs on one small machine.
 
 If something here is broken, insufficient, or you need access in a shape that is
-not offered, the crawler contact page has a working address:
-[/about/crawler](/about/crawler).
+not offered, [get in touch](/about/contact). A bulk consumer paginating the
+SPARQL endpoint costs this server far more than answering the email would.

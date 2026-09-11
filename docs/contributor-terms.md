@@ -173,7 +173,10 @@ repository.
 
 ## 10. Contact
 
-**Danny Ayers — danny.ayers@gmail.com**, or an issue on the repository.
+**Danny Ayers — danny.ayers@gmail.com**, or an issue on the repository. Other
+routes are on the [contact page](/about/contact); the address is repeated here
+because a document setting out terms should not send you elsewhere to find out
+how to invoke them.
 
 Email is the right route for anything about your account or your data:
 withdrawal, removal, or a correction to what is recorded about you. It is also

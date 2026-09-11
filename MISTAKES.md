@@ -56,6 +56,32 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — A form inside a paragraph, rearranged by the browser and rendered wrong
+
+**What happened.** The account bar was `<p class="account">…<form>Sign out</form></p>`.
+`<form>` is not permitted inside `<p>`: the HTML parser closes the paragraph
+before it. The sign-out button was therefore never inside the bar — it was
+hoisted into normal flow and rendered at the *left* of the page, above the site
+title, while the links stayed in the corner.
+
+**Root cause.** Invalid markup that no tool checked. It was accepted, silently
+rearranged, and rendered — the failure mode CLAUDE.md already describes for
+templates ("markup is a document with its own syntax that an editor can check")
+except that nothing was checking. It had been wrong for some time and was only
+noticed because adding a third link pushed the bar off the right edge and made
+the stray button obvious.
+
+**Prevention.** The bar is a `<div>`, and `tests/api/responsive.test.js` asserts
+the element containing the form is not a paragraph. It also asserts the bar
+wraps and has a max-width, because the second half of this is that an absolutely
+positioned corner has no way to say "I have run out of room" — this is the third
+time that bar has collided with something.
+
+**Worth generalising.** Two of this session's defects were HTML the browser
+accepted and reinterpreted; neither showed up in any test, because the tests
+assert substrings rather than parse. A guard that parsed the rendered pages and
+compared the tree to the source would have caught both.
+
 ## 2026-09-11 — Four wrong instructions for a machine I cannot see
 
 **What happened.** Carrying profiler measurements to the server took five

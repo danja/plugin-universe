@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
-import { renderSearchPage, renderPluginPage } from '../../src/api/render.js'
+import { renderSearchPage, renderPluginPage, renderDocPage } from '../../src/api/render.js'
 
 /**
  * The narrow-screen layout.
@@ -234,22 +234,76 @@ describe('the site links', () => {
     expect(shellPage).not.toContain('<footer>')
   })
 
-  it('are a footer on a page that does not', () => {
+  const prose = renderDocPage({ title: 'About', description: 'x', html: '<p>Words.</p>' })
+
+  it('are a footer on a page that has no columns', () => {
+    // The prose pages — /about, /terms, /services — are a single column of
+    // text and keep the footer they always had.
+    expect(prose).toContain('<footer>')
+    expect(prose).toContain('class="site-links"')
+  })
+
+  it('are a column on a plugin page, which gained them', () => {
     const plugin = renderPluginPage(DOC)
-    expect(plugin).toContain('<footer>')
+    expect(plugin).toContain('class="columns"')
+    expect(plugin).not.toContain('<footer>')
     expect(plugin).toContain('class="site-links"')
   })
 
   it('appear once per page, never twice', () => {
-    expect(shellPage.match(/class="site-links"/g)).toHaveLength(1)
-    expect(renderPluginPage(DOC).match(/class="site-links"/g)).toHaveLength(1)
+    for (const page of [shellPage, prose, renderPluginPage(DOC)]) {
+      expect(page.match(/class="site-links"/g)).toHaveLength(1)
+    }
   })
 
   it('carry the terms wherever they are, since that is the one that matters', () => {
-    for (const page of [shellPage, renderPluginPage(DOC)]) {
+    for (const page of [shellPage, prose, renderPluginPage(DOC)]) {
       expect(page).toContain('href="/terms"')
       expect(page).toContain('href="/services"')
       expect(page).toContain('CC0 1.0')
     }
+  })
+})
+
+/**
+ * The account bar.
+ *
+ * It has collided with the title twice — once when it grew from one link to two
+ * and a button, and again when a third was added. An absolutely positioned
+ * corner cannot say "I have run out of room", so these assert the two things
+ * that stop it overflowing silently: it folds, and its markup is valid enough
+ * that the browser does not rearrange it.
+ */
+describe('the account bar', () => {
+  const CSS = readFileSync('templates/site.css', 'utf8')
+  const signedIn = renderSearchPage({
+    query: null, facets: {}, results: [], total: 0, corpus: 0, facetValues: {},
+    viewer: { account: { login: 'danja', trustLevel: 'moderator' }, signInEnabled: true }
+  })
+
+  it('does not put a form inside a paragraph', () => {
+    // `<form>` is not permitted inside `<p>`: the parser closes the paragraph
+    // before it, which hoisted the sign-out button out of the bar and into
+    // normal flow at the left of the page. Nothing complained — the HTML was
+    // accepted, rearranged, and rendered wrong.
+    const bar = signedIn.slice(signedIn.indexOf('class="account"'))
+    const openTag = signedIn.slice(0, signedIn.indexOf('class="account"')).lastIndexOf('<p')
+    const divTag = signedIn.slice(0, signedIn.indexOf('class="account"')).lastIndexOf('<div')
+    expect(divTag, 'the account bar is a <p>, and it contains a <form>').toBeGreaterThan(openTag)
+    expect(bar).toContain('<form')
+  })
+
+  it('folds instead of running off the side', () => {
+    expect(CSS).toMatch(/\.account\s*\{[^}]*flex-wrap:\s*wrap/)
+    expect(CSS).toMatch(/\.account\s*\{[^}]*max-width/)
+  })
+
+  it('links the admin page for a moderator and not for anyone else', () => {
+    expect(signedIn).toContain('href="/admin"')
+    const plain = renderSearchPage({
+      query: null, facets: {}, results: [], total: 0, corpus: 0, facetValues: {},
+      viewer: { account: { login: 'someone', trustLevel: 'new' }, signInEnabled: true }
+    })
+    expect(plain).not.toContain('href="/admin"')
   })
 })

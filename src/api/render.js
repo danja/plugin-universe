@@ -336,7 +336,17 @@ export function renderBrowsePage ({
   })
 }
 
-export function renderPluginPage (doc, viewer = {}, contribution = null, measured = null, wiki = '') {
+/**
+ * One plugin, with the same two columns the search pages carry.
+ *
+ * The navigation is a sixth argument rather than a fifth positional one
+ * because five was already too many; it is the only thing here that is about
+ * the site rather than about the plugin.
+ */
+export function renderPluginPage (
+  doc, viewer = {}, contribution = null, measured = null, wiki = '',
+  { facetValues = {}, corpus = 0 } = {}
+) {
   const rows = [
     ['Vendor', doc.vendor],
     ['Formats', (doc.formats ?? []).join(', ')],
@@ -352,6 +362,8 @@ export function renderPluginPage (doc, viewer = {}, contribution = null, measure
   const path = doc.iri.replace(NAMESPACES.pu, '/')
 
   const body = templates.render('plugin', {
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {}),
     name: doc.name,
     vendor: templates.when(Boolean(doc.vendor), 'tagline', { text: doc.vendor }),
     figure: pluginFigure(doc),
@@ -367,7 +379,9 @@ export function renderPluginPage (doc, viewer = {}, contribution = null, measure
     jsonld: `${path}.jsonld`,
     jsonLd: JSON.stringify(pluginJsonLd(doc), null, 2)
   })
-  return layout(`${doc.name} — Plugin Universe`, body, { description: doc.description ?? '', ...viewer })
+  return layout(`${doc.name} — Plugin Universe`, body, {
+    description: doc.description ?? '', ...viewer, footer: false
+  })
 }
 
 /**
@@ -493,46 +507,75 @@ export function renderContributionsPage (rows, { viewer = {}, correctable = {}, 
   })
 }
 
-export function renderModerationPage (pending, {
-  csrfToken, message, viewer = {}, submissions = []
+/**
+ * The administration page: the moderation queue, and the buttons.
+ *
+ * One page rather than two because they are one job — somebody who has just
+ * accepted a submission is exactly the person who then wants to reindex, and
+ * making them navigate between the queue and a separate console would be an
+ * invented boundary.
+ */
+export function renderAdminPage (pending, {
+  csrfToken, message, viewer = {}, submissions = [], actions = {},
+  facetValues = {}, corpus = 0
 }) {
   const total = pending.length + submissions.length
-  const body = templates.render('moderation', {
-    heading: templates.render('page-heading', { title: 'Moderation queue' }),
+  const body = templates.render('admin', {
+    heading: templates.render('page-heading', { title: 'Administration' }),
+    login: viewer.account?.login ?? '',
     message: templates.when(Boolean(message), 'notice', { text: message }),
-    // Counted together, because a moderator opening this page wants to know
-    // how much there is to do, not how it is filed.
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {}),
+    actions: templates.each('admin-action', Object.entries(actions), ([name, action]) => ({
+      name,
+      label: action.label,
+      describes: action.describes,
+      csrf: csrfToken
+    })),
     count: total === 0
       ? 'Nothing'
       : [
           pending.length ? `${pending.length} correction${pending.length === 1 ? '' : 's'}` : null,
           submissions.length ? `${submissions.length} proposed plugin${submissions.length === 1 ? '' : 's'}` : null
         ].filter(Boolean).join(' and '),
-    submissions: templates.each('moderation-submission', submissions, item => ({
-      name: item.fields.name ?? '(unnamed)',
-      // A proposed plugin has no page to link to yet, so the summary has to
-      // carry enough for a decision without one.
-      summary: [item.fields.vendor, item.fields.format, item.fields.category, item.fields.description]
-        .filter(Boolean).join(' · ').slice(0, 200),
-      by: item.by.split('/').pop(),
-      homepage: item.fields.homepage ?? '',
-      submission: item.submission,
-      csrf: csrfToken
-    })),
-    items: pending.length
-      ? templates.each('moderation-item', pending, item => ({
-        field: item.predicate.replace(/^.*[#/]/, ''),
-        value: String(item.value).slice(0, 120),
-        href: item.subject.replace(NAMESPACES.pu, '/'),
-        slug: item.subject.split('/').pop(),
-        by: item.by.split('/').pop(),
-        rationale: templates.when(Boolean(item.rationale), 'quoted', { text: item.rationale }),
-        csrf: csrfToken,
-        correction: item.correction
-      }))
-      : templates.render('empty', { text: 'Nothing waiting.' })
+    items: moderationItems(pending, csrfToken),
+    submissions: submissionItems(submissions, csrfToken)
   })
-  return layout('Moderation — Plugin Universe', body, { description: 'Corrections awaiting review.', ...viewer })
+  return layout('Administration — Plugin Universe', body, {
+    description: 'Moderation queue and catalogue operations.',
+    ...viewer,
+    footer: false
+  })
+}
+
+/** Corrections, as review cards. */
+function moderationItems (pending, csrfToken) {
+  if (pending.length === 0) return templates.render('empty', { text: 'Nothing waiting.' })
+  return templates.each('moderation-item', pending, item => ({
+    field: item.predicate.replace(/^.*[#/]/, ''),
+    value: String(item.value).slice(0, 120),
+    href: item.subject.replace(NAMESPACES.pu, '/'),
+    slug: item.subject.split('/').pop(),
+    by: item.by.split('/').pop(),
+    rationale: templates.when(Boolean(item.rationale), 'quoted', { text: item.rationale }),
+    csrf: csrfToken,
+    correction: item.correction
+  }))
+}
+
+/** Proposed plugins, as review cards. */
+function submissionItems (submissions, csrfToken) {
+  return templates.each('moderation-submission', submissions, item => ({
+    name: item.fields.name ?? '(unnamed)',
+    // A proposed plugin has no page to link to yet, so the summary has to
+    // carry enough for a decision without one.
+    summary: [item.fields.vendor, [item.fields.format].flat().filter(Boolean).join(', '),
+      item.fields.category, item.fields.description].filter(Boolean).join(' · ').slice(0, 200),
+    by: item.by.split('/').pop(),
+    homepage: item.fields.homepage ?? '',
+    submission: item.submission,
+    csrf: csrfToken
+  }))
 }
 
 /**
@@ -667,8 +710,15 @@ function categoryLinks (label, slugs) {
  * something to show, and showing it is also how it gets checked — a definition
  * nobody reads is a definition nobody notices is wrong.
  */
-export function renderCategoryPage (slug, results, total, viewer = {}, concept = null) {
+export function renderCategoryPage (
+  slug, results, total, viewer = {}, concept = null,
+  { facetValues = {}, corpus = 0 } = {}
+) {
   const body = templates.render('category', {
+    // A category page is most often reached *from* this panel. Losing it on
+    // arrival would strand somebody one click into browsing.
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {}),
     heading: templates.render('page-heading', { title: concept?.prefLabel ?? slug }),
     definition: templates.when(Boolean(concept?.definition), 'description', { description: concept?.definition }),
     scopeNote: templates.when(Boolean(concept?.scopeNote), 'scope-note', { text: concept?.scopeNote }),
@@ -691,7 +741,8 @@ export function renderCategoryPage (slug, results, total, viewer = {}, concept =
 
   return layout(`${concept?.prefLabel ?? slug} — Plugin Universe`, body, {
     description: concept?.definition ?? `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
-    ...viewer
+    ...viewer,
+    footer: false
   })
 }
 

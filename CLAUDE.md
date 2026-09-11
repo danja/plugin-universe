@@ -150,9 +150,10 @@ ended the string and broke the build.
   directory refuses to start rather than 500ing on every page a person can see.
 - **A guard that scrapes markup must scrape `templates/` too.** `tests/api/linked-routes.test.js`
   kept reading `render.js` after the links moved and went blind rather than red.
-- **One template, rendered in one place per page.** The site links are the footer on most
-  pages and the left column on the three with columns; `layout()` takes `footer: false` so the
-  page gets one and not both. A second copy of a list that includes the contributor terms is a
+- **One template, rendered in one place per page.** The site links are the footer on a prose
+  page and the left column on every page with columns; `layout()` takes `footer: false` so the
+  page gets one and not both. Five templates now open with `<div class="columns">`; if a sixth
+  wants them, the wrapper should move into `layout()` rather than be copied again. A second copy of a list that includes the contributor terms is a
   second list to keep correct, and the cost of them disagreeing is a reader following the
   wrong one.
 

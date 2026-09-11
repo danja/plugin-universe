@@ -88,11 +88,9 @@ already.
 
 ## Contact
 
-- **Email:** danny.ayers@gmail.com
-- **GitHub:** [@danja](https://github.com/danja)
-- **Reddit:** u/danja
-- **Twitter/X:** [@danja](https://twitter.com/danja)
-- **Homepage:** [danny.ayers.name](https://danny.ayers.name)
+**danny.ayers@gmail.com**, and the other routes are on the
+[contact page](/about/contact).
 
-Email is the reliable one, and the right one for anything about data removal or
-crawler behaviour.
+Email is the right one for anything about data removal or crawler behaviour. A
+`robots.txt` rule will be honoured, but it will not say what went wrong —
+if the crawler has been a nuisance, that is worth a sentence.

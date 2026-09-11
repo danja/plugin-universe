@@ -68,6 +68,15 @@ export const PAGES = Object.freeze({
     title: 'Measurements',
     description: 'What the profiler measures, what each verdict means, and why a reading is about one binary on one machine.'
   },
+  '/about/contact': {
+    file: 'docs/contact.md',
+    // The one place the address lives. It was in three — the crawler page, the
+    // contributor terms and a pointer from /services — each with its own
+    // framing, which is three places to keep an address correct and three
+    // chances for one of them to go stale.
+    title: 'Contact',
+    description: 'How to reach the person behind Plugin Universe, and what to say.'
+  },
   '/about/crawler': {
     file: 'docs/crawler.md',
     title: 'About the crawler',

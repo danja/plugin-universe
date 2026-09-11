@@ -3,9 +3,10 @@ import { readFileSync } from 'fs'
 import { negotiate, prefersPage, FACET_NAMES, facetsFrom } from '../../src/api/server.js'
 import {
   renderLandingPage, renderSearchPage, renderBrowsePage, pager,
-  renderSubmitPage, renderModerationPage
+  renderSubmitPage, renderAdminPage
 } from '../../src/api/render.js'
 import { SUBMITTABLE, PLUGIN_FORMATS } from '../../src/contrib/Submissions.js'
+import { ACTIONS } from '../../src/api/AdminActions.js'
 
 /**
  * One URL per thing, each with its representations.
@@ -247,7 +248,7 @@ describe('the submit form', () => {
   })
 })
 
-describe('the moderation queue', () => {
+describe('the admin page', () => {
   const submission = {
     submission: 'http://x/correction/s1',
     plugin: 'http://purl.org/stuff/plugin-universe/plugin/moka-1234',
@@ -257,7 +258,7 @@ describe('the moderation queue', () => {
   }
 
   it('holds corrections and proposed plugins in one queue', () => {
-    const html = renderModerationPage([], { csrfToken: 'tok', submissions: [submission] })
+    const html = renderAdminPage([], { csrfToken: 'tok', submissions: [submission] })
     expect(html).toContain('New plugin: Moka')
     expect(html).toContain('1 proposed plugin')
   })
@@ -268,26 +269,61 @@ describe('the moderation queue', () => {
       predicate: 'http://www.w3.org/2000/01/rdf-schema#label', value: 'New name',
       by: 'http://x/person/a', at: '2026-09-11T11:00:00Z', rationale: null
     }
-    const html = renderModerationPage([correction], { csrfToken: 'tok', submissions: [submission] })
+    const html = renderAdminPage([correction], { csrfToken: 'tok', submissions: [submission] })
     expect(html).toContain('1 correction and 1 proposed plugin')
   })
 
   it('says so plainly when there is nothing to do', () => {
-    expect(renderModerationPage([], { csrfToken: 'tok', submissions: [] })).toContain('Nothing')
+    expect(renderAdminPage([], { csrfToken: 'tok', submissions: [] })).toContain('Nothing')
   })
 
   it('shows enough to decide on a plugin that has no page yet', () => {
     // There is nothing to click through to — it is not in the catalogue — so
     // the summary has to carry the decision.
-    const html = renderModerationPage([], { csrfToken: 'tok', submissions: [submission] })
+    const html = renderAdminPage([], { csrfToken: 'tok', submissions: [submission] })
     expect(html).toContain('danja')
     expect(html).toContain('VST3')
     expect(html).toContain('https://example.com/moka')
   })
 
   it('names which thing a decision is about, so one queue can hold two kinds', () => {
-    const html = renderModerationPage([], { csrfToken: 'tok', submissions: [submission] })
+    const html = renderAdminPage([], { csrfToken: 'tok', submissions: [submission] })
     expect(html).toContain('name="submission"')
     expect(html).toContain('value="http://x/correction/s1"')
+  })
+})
+
+describe('the admin actions', () => {
+  const page = renderAdminPage([], { csrfToken: 'tok', submissions: [], actions: ACTIONS })
+
+  it('offers each one as a button, with what it does beside it', () => {
+    for (const [name, action] of Object.entries(ACTIONS)) {
+      expect(page, `no button for ${name}`).toContain(`value="${name}"`)
+      expect(page, `no label for ${name}`).toContain(action.label)
+      expect(page, `no description for ${name}`).toContain(action.describes)
+    }
+  })
+
+  it('posts the action name as a key, never a command', () => {
+    // The value of the button is a key into a frozen table. There is no path
+    // from a request body to a shell, a filename or a graph name — which is
+    // the whole reason these run in-process rather than spawning bin/ scripts.
+    for (const name of Object.keys(ACTIONS)) {
+      expect(name).toMatch(/^[a-z]+$/)
+    }
+    expect(page).toContain('name="action"')
+  })
+
+  it('carries the CSRF token on every action form', () => {
+    const forms = page.match(/<form[^>]*class="admin-action"/g) ?? []
+    expect(forms).toHaveLength(Object.keys(ACTIONS).length)
+    expect((page.match(/name="csrf"/g) ?? []).length).toBeGreaterThanOrEqual(forms.length)
+  })
+
+  it('keeps the moderation queue on the same page', () => {
+    // One job, not two: somebody who has just accepted a submission is exactly
+    // the person who then wants to reindex.
+    expect(page).toContain('Moderation queue')
+    expect(page).toContain('Actions')
   })
 })

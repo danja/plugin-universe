@@ -8,13 +8,14 @@ import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
   renderLandingPage, renderSearchPage, renderBrowsePage,
-  renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage,
+  renderPluginPage, renderCategoryPage, renderDocPage, renderAdminPage,
   renderContributionsPage, renderVocabularies, renderSubmitPage
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
 import { send, sendText, redirect, needsSignIn, JSON_HEADERS, LICENCE, HTML } from './respond.js'
 import { readForm, BodyError } from './body.js'
+import { ACTIONS, runAction, AdminActionError } from './AdminActions.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 import { SUBMITTABLE, SubmissionError } from '../contrib/Submissions.js'
 import buildRegistry from './registry.js'
@@ -242,7 +243,8 @@ export function createServer ({
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
     const isCorrectionPost = request.method === 'POST' &&
       (/^\/plugin\/[^/]+\/(correct|wiki)$/.test(url.pathname) ||
-        url.pathname === '/moderation' || url.pathname === '/submit')
+        url.pathname === '/moderation' || url.pathname === '/admin' ||
+        url.pathname === '/submit')
     // MCP is JSON-RPC over POST. It writes no data — every tool answers a
     // question — but it is a POST, so the read-only guard has to know about it.
     const isMcp = url.pathname === MCP_PATH
@@ -483,7 +485,12 @@ export function createServer ({
           }), 'text/html; charset=utf-8')
         }
 
-        case '/moderation': {
+        case '/moderation':
+          // Moved. Every moderator's bookmark and the account bar's old link
+          // still work, and there is one page rather than two that drift.
+          return redirect(response, '/admin')
+
+        case '/admin': {
           if (!auth || !corrections) return send(response, 404, { error: 'Moderation is not enabled' })
           const moderator = viewer.account
           // Not 403 for a signed-out visitor: the existence of the queue is not
@@ -503,6 +510,33 @@ export function createServer ({
             if (!auth.session.verifyCsrf(form.get('csrf'), moderator.iri)) {
               return send(response, 403, { error: 'That page has expired. Reload and try again.' })
             }
+            // An action, or a review decision. Which one is decided by which
+            // field the form carried. The action's *name* is a key into a
+            // frozen table and never reaches a shell, a filename or a graph
+            // name — see src/api/AdminActions.js.
+            if (form.get('action')) {
+              try {
+                message = await runAction(form.get('action'), { client: search.client, config, search })
+              } catch (error) {
+                if (!(error instanceof AdminActionError)) {
+                  // An action that failed for a reason of its own is worth
+                  // showing rather than turning into a 500: the administrator
+                  // pressed the button and is owed the answer.
+                  logger.warn(`[admin] ${form.get('action')} failed: ${error.message}`)
+                }
+                message = `${form.get('action')} failed: ${error.message}`
+              }
+              return sendText(response, 200, renderAdminPage(await corrections.pending(), {
+                csrfToken: auth.session.csrfToken(moderator.iri),
+                message,
+                viewer,
+                submissions: submissions ? await submissions.pending() : [],
+                actions: ACTIONS,
+                facetValues: await search.facets(),
+                corpus: search.documents.size
+              }), HTML)
+            }
+
             const accept = form.get('decision') === 'accept'
             // One queue, two kinds of thing in it. Which one this decision is
             // about is decided by which field the form carried, not by a mode
@@ -533,11 +567,14 @@ export function createServer ({
             }
           }
 
-          return sendText(response, 200, renderModerationPage(await corrections.pending(), {
+          return sendText(response, 200, renderAdminPage(await corrections.pending(), {
             csrfToken: auth.session.csrfToken(moderator.iri),
             message,
             viewer,
-            submissions: submissions ? await submissions.pending() : []
+            submissions: submissions ? await submissions.pending() : [],
+            actions: ACTIONS,
+            facetValues: await search.facets(),
+            corpus: search.documents.size
           }), HTML)
         }
 
@@ -686,7 +723,8 @@ export function createServer ({
               })
             }
             return sendText(response, 200,
-              renderCategoryPage(slug, outcome.results, outcome.total, viewer, concept),
+              renderCategoryPage(slug, outcome.results, outcome.total, viewer, concept,
+                { facetValues: facets, corpus: search.documents.size }),
               'text/html; charset=utf-8')
           }
 
@@ -720,13 +758,16 @@ export function createServer ({
               return send(response, 403, { error: 'That form has expired. Reload the page and try again.' })
             }
 
+            // Read once, not per render: the helper below is called on both
+            // the success and the failure path.
+            const navigation = { facetValues: await search.facets(), corpus: search.documents.size }
             const render = extra => sendText(response, extra.status ?? 200,
               renderPluginPage(doc, viewer, {
                 account,
                 csrfToken: auth.session.csrfToken(account.iri),
                 correctable: CORRECTABLE,
                 ...extra
-              }, search.measured(pluginIri)), 'text/html; charset=utf-8')
+              }, search.measured(pluginIri), '', navigation), HTML)
 
             try {
               const result = await corrections.submit({
@@ -778,7 +819,8 @@ export function createServer ({
                   search.measured(iri),
                   wikiService
                     ? renderWikiBlock(await wikiService.current(iri), match[1])
-                    : ''), 'text/html; charset=utf-8')
+                    : '',
+                  { facetValues: await search.facets(), corpus: search.documents.size }), HTML)
             }
           }
           return send(response, 404, { error: 'No such endpoint', path })

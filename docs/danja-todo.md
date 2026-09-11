@@ -148,8 +148,10 @@ Nothing here needs server access. The profiler runs on this machine.
 * The public SPARQL endpoint, on a separate published dataset.
 * The MCP endpoint, and `/services` describing every way in.
 * Backups: nightly on the server, pulled here nightly, restore rehearsed.
-* **Three columns on a wide screen.** Site links left, results centre, formats
-  and the twelve largest categories right — each side column a fixed width in
+* **Three columns on a wide screen**, on every page that has content to
+  navigate away from — search, browse, plugin pages, category pages and the
+  submit form. Site links left, content centre, formats and the twelve largest
+  categories right — each side column a fixed width in
   rem, so widening the window widens the results and nothing else. Below 58rem
   it stacks: the browse panel behind a toggle at the top, the site links last
   where a footer belongs. No script; the toggle is a checkbox. Twelve of
