@@ -109,6 +109,7 @@ complained, and each was found in production or by accident:
 | Added a `volumes:` block to a compose service | the `volumes:` it already had, forty lines down | duplicate YAML key; the deploy failed before anything started |
 | Added a facet to the search | the copy of the facet list in `/plugins` | `?category=reverb` silently ignored on the browse list |
 | Added a block to `site.css` | its `a { color: … }` rule, one of five opt-ins | 17 of 35 front-page links in browser-default blue |
+| Added `sh:in` to `pu:licenceId` | the submission and correction forms, which wrote licences verbatim | the one path a person controls was the one that could still split a facet |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
@@ -117,7 +118,15 @@ The four that now have such a test have stopped recurring.
 
 Specifically, before finishing a change, check:
 
-- Does a SHACL shape enumerate what this code enumerates?
+- Does a SHACL shape enumerate what this code enumerates? And does **every**
+  path that writes that property go through the normalisation — a harvester, a
+  submission form and a correction form are three, and only the first went
+  through `toSpdx`.
+- **A `sh:severity` other than the default changes what callers do.**
+  `rdf-validate-shacl` reports `conforms: false` for a warning, against SHACL
+  §3.6; `ShapeValidator` corrects that, and `IngestPipeline` and `Submissions`
+  both refuse to write on `conforms`. Adding a warning-severity shape without
+  that correction would abort a harvest of 753 plugins over one odd string.
 - Does `.dockerignore` exclude a path the app now reads at runtime?
 - Is a new `tests/<dir>/` in `vitest.core.config.js`?
 - Does a published URL — user agent, docs link, IRI — resolve to a route?

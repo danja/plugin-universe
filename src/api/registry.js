@@ -1,4 +1,5 @@
 import { LICENCES } from '../store/GraphRegistry.js'
+import { NOASSERTION } from '../harvest/Licensing.js'
 
 /**
  * The catalogue as an Open Audio Stack registry.
@@ -23,9 +24,18 @@ import { LICENCES } from '../store/GraphRegistry.js'
  * Publishing in a second format is still publishing.
  */
 
-/** Their convention for licence identifiers is lowercase: `gpl-2.0`. */
+/**
+ * Their convention for licence identifiers is lowercase: `gpl-2.0`.
+ *
+ * `NOASSERTION` is omitted rather than passed through. It is SPDX's token for
+ * "there is a licence and we could not identify it", which is a true statement
+ * about our knowledge and a useless one in a package manifest — a consumer
+ * reading `license: noassertion` learns nothing it did not already get from the
+ * field being absent, and may well take it for a licence name.
+ */
 function licenceFor (spdx) {
-  return spdx ? String(spdx).toLowerCase() : undefined
+  if (!spdx || spdx === NOASSERTION) return undefined
+  return String(spdx).toLowerCase()
 }
 
 /**

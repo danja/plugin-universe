@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import fs from 'fs'
 import ShapeValidator, { parseTriples, summarise } from '../../src/store/ShapeValidator.js'
 import { LICENCES } from '../../src/store/GraphRegistry.js'
+import { LICENCE_IDS } from '../../src/harvest/Licensing.js'
 import { serialisePlugin } from '../../src/harvest/PluginSerialiser.js'
 import { normalisePlugin } from '../../src/harvest/Normaliser.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
@@ -159,5 +160,74 @@ describe('the validation shapes', () => {
     ])
     expect(report.conforms).toBe(false)
     expect(report.results.some(r => r.path === `${NAMESPACES.dcterms}license`)).toBe(true)
+  })
+})
+
+/**
+ * The licence enumeration, and what a warning is for.
+ *
+ * `sh:severity sh:Warning` was a declaration that did nothing until this shape
+ * used it: `rdf-validate-shacl` reports `conforms: false` for any result at
+ * all, and two callers refuse to write when that is false. A harvest of 753
+ * plugins aborting because one repository has an odd licence string is the
+ * opposite of what a warning means, so `ShapeValidator` recomputes `conforms`
+ * the way SHACL §3.6 defines it.
+ */
+describe('licence identifiers', () => {
+  let validator
+  beforeAll(async () => { validator = await ShapeValidator.load() })
+  const validate = async triples => validator.validate(await parseTriples(triples))
+
+  const withLicence = licence => validate([
+    `<${IRI}> <${rdf}type> <${trn}PluginProfile> .`,
+    `<${IRI}> <${rdfs}label> "Licensed" .`,
+    `<${IRI}> <${pu}licenceId> "${licence}" .`
+  ])
+
+  it('accepts every identifier the code can produce', async () => {
+    for (const licence of LICENCE_IDS) {
+      const report = await withLicence(licence)
+      expect(report.results, licence).toEqual([])
+    }
+  })
+
+  it('accepts the unversioned forms, which are not SPDX identifiers', async () => {
+    // A DOAP licence URL names the family and not the version. Recording that
+    // is the honest answer; recording GPL-3.0 would be a claim nobody made.
+    for (const licence of ['GPL', 'LGPL', 'AGPL']) {
+      expect((await withLicence(licence)).results, licence).toEqual([])
+    }
+  })
+
+  it('warns about a spelling it does not recognise', async () => {
+    const report = await withLicence('gpl3-ish')
+    expect(report.warnings).toHaveLength(1)
+    expect(report.warnings[0].value).toBe('gpl3-ish')
+    expect(report.warnings[0].message).toMatch(/Licensing\.js/)
+  })
+
+  it('does not let that warning stop a harvest', async () => {
+    // The two callers that write to the store refuse when conforms is false.
+    const report = await withLicence('gpl3-ish')
+    expect(report.conforms).toBe(true)
+    expect(report.violations).toEqual([])
+  })
+
+  it('still reports a warning in the summary of a conforming graph', async () => {
+    // 'conforms' would hide it, and a warning nobody sees is not a warning.
+    const report = await withLicence('gpl3-ish')
+    expect(summarise(report)).toContain('Warning')
+  })
+
+  it('separates a warning from a violation in one report', async () => {
+    const report = await validate([
+      `<${IRI}> <${rdf}type> <${trn}PluginProfile> .`,
+      `<${IRI}> <${rdfs}label> "Both" .`,
+      `<${IRI}> <${pu}licenceId> "gpl3-ish" .`,
+      `<${IRI}> <${trn}format> <${trn}VST4> .`
+    ])
+    expect(report.conforms).toBe(false)
+    expect(report.violations).toHaveLength(1)
+    expect(report.warnings).toHaveLength(1)
   })
 })

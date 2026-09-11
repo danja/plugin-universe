@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Twenty-nine entries is past the point where anyone reads them all, so what follows
+Thirty-nine entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -53,6 +53,60 @@ by reading rather than by running. Reuse is why this project exists at all, but
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-11 — `sh:Warning` did the opposite of what it says
+
+**What happened.** The licence enumeration was the first shape in this project
+to declare `sh:severity sh:Warning` — an unrecognised licence identifier is
+worth reporting, but it is not a defect in the graph and must not stop a
+harvest. The test showed it stopping one.
+
+**Root cause.** SHACL §3.6 defines `sh:conforms` as true *if and only if there
+are no results of severity `sh:Violation`*. `rdf-validate-shacl` sets it false
+for any result at all, warnings included. Two callers — `IngestPipeline` and
+`Submissions` — refuse to write when `conforms` is false. So one plugin with an
+odd licence string would have aborted a harvest of 753, and the declaration
+`sh:severity sh:Warning` would have meant "reject harder" rather than "note and
+continue".
+
+**Why it had not been seen.** Nothing had ever used a non-default severity. The
+mechanism was in the vocabulary, was believed to work, and had never once been
+exercised — a feature nobody had tried is indistinguishable from a feature that
+works until somebody tries it.
+
+**Prevention.** `ShapeValidator.validate()` now computes `conforms` itself, per
+the spec, and returns `violations` and `warnings` separately; `bin/validate.js`
+prints warnings without failing, and `AdminActions` counts only violations.
+`tests/rdf/shapes.test.js` asserts a warning leaves `conforms` true, that a
+violation and a warning in one report land in different buckets, and that
+`summarise()` still shows the warning — a warning nobody sees is not a warning.
+
+**The general shape of it.** A library that is *nearly* spec-compliant is worse
+than one that is not, because the divergence is where nobody is looking. Both
+places that read `conforms` read it as "may I write this", which is the spec's
+meaning and not the library's.
+
+---
+
+## 2026-09-11 — Two forms wrote licences straight into the catalogue
+
+**What happened.** Adding `sh:in` to `pu:licenceId` made the harvesters' output
+enumerable. It did nothing about the two places a *person* could type a licence:
+the submission form and the correction form. Both wrote the string verbatim.
+
+**Root cause.** The same pattern as every other entry under heading 1 — a new
+runtime dependency on a list, and a second place that had to agree with it and
+did not. `toSpdx` was called in exactly one place, `Normaliser.js:253`, and the
+contribution path does not go through the normaliser.
+
+**Prevention.** Both now call `toKnownSpdx`, which normalises *and* refuses what
+it does not recognise — the opposite of what a harvest does, deliberately: a
+harvest has nobody to ask and keeps the raw string, a form has somebody there
+who can fix it. `FIELD_KINDS` is exported from `Corrections.js` so the kinds are
+one list, and the test that caught the drift now reads that list rather than
+repeating it.
 
 ---
 

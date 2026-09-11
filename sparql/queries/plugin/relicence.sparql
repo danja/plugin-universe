@@ -1,0 +1,12 @@
+# Replace one plugin's normalised licence identifier, in its own graph.
+#
+# A DELETE of every pu:licenceId on the subject rather than of the known
+# value: a plugin that somehow has two is exactly the case worth collapsing,
+# and deleting by value would leave the other one behind.
+#
+# pu:licenceId is derived from dcterms:license, so rewriting it is a
+# recomputation and not a correction to what the source said — the stated
+# licence is untouched.
+DELETE { GRAPH ${graph} { ${plugin} pu:licenceId ?old } }
+INSERT { GRAPH ${graph} { ${plugin} pu:licenceId ${licenceId} } }
+WHERE  { GRAPH ${graph} { OPTIONAL { ${plugin} pu:licenceId ?old } } }

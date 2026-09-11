@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validate, valueTerm, CORRECTABLE, CorrectionError, STATUS } from '../../src/contrib/Corrections.js'
+import { validate, valueTerm, CORRECTABLE, FIELD_KINDS, CorrectionError, STATUS } from '../../src/contrib/Corrections.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 
@@ -131,7 +131,7 @@ describe('the correctable list itself', () => {
   it('gives every entry a label and a kind', () => {
     for (const [predicate, field] of Object.entries(CORRECTABLE)) {
       expect(field.label, predicate).toBeTruthy()
-      expect(['text', 'url', 'category', 'format'], predicate).toContain(field.kind)
+      expect(FIELD_KINDS, predicate).toContain(field.kind)
     }
   })
 })
@@ -139,5 +139,30 @@ describe('the correctable list itself', () => {
 describe('statuses', () => {
   it('are the three a review can produce', () => {
     expect(Object.values(STATUS).sort()).toEqual(['accepted', 'pending', 'rejected'])
+  })
+})
+
+/**
+ * A contributed licence goes through the harvesters' normalisation.
+ *
+ * The submission form and the correction form were the two places a person
+ * could type a licence directly into the catalogue, and both wrote it verbatim
+ * — which is how a facet gets a second entry for a licence it already has.
+ */
+describe('a corrected licence is normalised, not merely accepted', () => {
+  const LICENCE = `${pu}licenceId`
+
+  it('records the identifier for a spelling of it', () => {
+    expect(validate({ subject: PLUGIN, predicate: LICENCE, value: 'GPLv3' }).value).toBe('GPL-3.0')
+    expect(validate({ subject: PLUGIN, predicate: LICENCE, value: 'mit' }).value).toBe('MIT')
+  })
+
+  it('refuses one it does not recognise, and says what to type', () => {
+    expect(() => validate({ subject: PLUGIN, predicate: LICENCE, value: 'free for all' }))
+      .toThrow(/SPDX/)
+  })
+
+  it('keeps the unversioned form rather than choosing a version', () => {
+    expect(validate({ subject: PLUGIN, predicate: LICENCE, value: 'GNU GPL' }).value).toBe('GPL')
   })
 })

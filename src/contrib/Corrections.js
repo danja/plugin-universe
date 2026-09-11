@@ -5,6 +5,7 @@ import URIMinter from '../rdf/URIMinter.js'
 import { TRUST } from '../auth/Accounts.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 import ensureContributorGraphs from './ContributorGraphs.js'
+import { toKnownSpdx } from '../harvest/Licensing.js'
 
 /**
  * Corrections: a person proposing that one fact about one plugin is wrong.
@@ -40,6 +41,22 @@ export const STATUS = Object.freeze({
 })
 
 /**
+ * The kinds of value a contributed field can hold.
+ *
+ * One list, exported, because three places have to agree about it: the checks
+ * below, `SUBMITTABLE` in `Submissions.js`, and `render.js`, which picks the
+ * HTML input type. A kind added to a field and not to this list is a value
+ * that reaches the graph unchecked.
+ *
+ * - `text` — a string, length-limited and nothing more
+ * - `url` — http or https, parsed
+ * - `category` — a slug from the concept scheme
+ * - `format` — a plugin format name
+ * - `licence` — normalised through `toKnownSpdx`, and refused if unrecognised
+ */
+export const FIELD_KINDS = Object.freeze(['text', 'url', 'category', 'format', 'licence'])
+
+/**
  * What a correction may touch.
  *
  * Each entry says what kind of value is expected, so the check happens once
@@ -52,7 +69,9 @@ export const CORRECTABLE = Object.freeze({
   [`${NAMESPACES.foaf}homepage`]: { label: 'Homepage', kind: 'url' },
   [`${pu}category`]: { label: 'Category', kind: 'category' },
   [`${trn}format`]: { label: 'Format', kind: 'format' },
-  [`${pu}licenceId`]: { label: 'Licence', kind: 'text' }
+  // `licence`, not `text`: a correction goes through the same normalisation a
+  // harvest does, so correcting GPLv3 to "gpl3" cannot split the facet.
+  [`${pu}licenceId`]: { label: 'Licence', kind: 'licence' }
 })
 
 export class CorrectionError extends Error {
@@ -100,12 +119,23 @@ export function validate ({ subject, predicate, value, rationale }) {
     throw new CorrectionError('A format is a name like VST3, LV2 or CLAP.')
   }
 
+  // A licence is normalised as well as checked, so a correction cannot be the
+  // thing that puts a second spelling of GPL-3.0 into the catalogue.
+  let proposed = trimmed
+  if (field.kind === 'licence') {
+    proposed = toKnownSpdx(trimmed)
+    if (!proposed) {
+      throw new CorrectionError(
+        `"${trimmed}" is not a licence identifier the catalogue recognises. Use the SPDX form, such as GPL-3.0, MIT or Apache-2.0.`)
+    }
+  }
+
   const reason = String(rationale ?? '').trim()
   if (reason.length > CONTRIBUTION_CONFIG.maxRationaleLength) {
     throw new CorrectionError(`Please keep the reason under ${CONTRIBUTION_CONFIG.maxRationaleLength} characters.`)
   }
 
-  return { subject, predicate, value: trimmed, rationale: reason || null, kind: field.kind }
+  return { subject, predicate, value: proposed, rationale: reason || null, kind: field.kind }
 }
 
 /** The object term a corrected value becomes, by kind. */

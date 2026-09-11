@@ -101,13 +101,24 @@ catalogue now carry a reading.
   distinction into the terms review before building it, not after, and worth sending the same
   honest user agent so a sysadmin seeing it in their log can find out what it was.
 
-* **Licence identifiers are not normalised.** Asked of the live catalogue through MCP:
-  `GPL-3.0` 317, `GPLv3` 27, `http://usefulinc.com/doap/licenses/gpl` 59 — three spellings of
-  one licence, and `MIT` 201 against `https://spdx.org/licenses/MIT` 6. So the licence facet
-  offers the same licence several times, a filter on `GPL-3.0` misses 86 plugins, and two
-  harvests of one plugin can disagree about its terms. `src/harvest/Normaliser.js` is where
-  vocabulary defects are fixed and this one is not; the target is the SPDX identifier, and the
-  `sh:in` list in `vocabs/shapes.ttl` should then be able to enumerate what is allowed.
+* **Licence identifiers are normalised.** *Done 2026-09-11:* the catalogue held 23 spellings
+  of 19 licences — `GPL-3.0` 317 against `GPLv3` 27 and `GPL3` 1, `MIT` 201 against
+  `https://spdx.org/licenses/MIT` 6 — so the facet listed one licence several times and a
+  filter on `GPL-3.0` missed 86 plugins under it. `toSpdx()` now reads SPDX's own URLs by
+  capturing the identifier out of them, maps the DOAP vocabulary LV2 bundles use, and knows the
+  unambiguous spellings; `vocabs/shapes.ttl` enumerates the result in `sh:in` at
+  `sh:severity sh:Warning`, bound to the code's list by `tests/harvest/Licensing.test.js`.
+
+  Two things were decided rather than merely coded. **An unversioned licence stays
+  unversioned:** 59 plugins state `http://usefulinc.com/doap/licenses/gpl`, which names the
+  GNU GPL and not a version of it, and they normalise to `GPL` — a facet entry of its own,
+  because it is a different claim, and choosing a version for them would be an assertion about
+  somebody else's licensing that nobody made. **`other` becomes `NOASSERTION`,** SPDX's token
+  for a licence that exists and was not identified, which is what GitHub's API means by it.
+
+  The stored data is fixed by `bin/renormalise-licences.js`, which is a recomputation and not a
+  re-harvest: `dcterms:license` holds what each source said and never leaves the graph, so the
+  derived `pu:licenceId` is re-derived from it in place. On Danja's list.
 
 * **Uploads have no size story beyond the per-file cap.** 2 MB each, no per-account quota and
   no total. Content-addressing means duplicates cost nothing, but nothing stops one trusted

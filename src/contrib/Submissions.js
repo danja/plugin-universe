@@ -7,6 +7,7 @@ import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 import ensureContributorGraphs from './ContributorGraphs.js'
 import QueryService from '../store/QueryService.js'
 import { STATUS } from './Corrections.js'
+import { toKnownSpdx } from '../harvest/Licensing.js'
 
 /**
  * Submissions: a person proposing a plugin the catalogue does not have.
@@ -111,7 +112,10 @@ export const SUBMITTABLE = Object.freeze({
     help: 'One of the catalogue\'s categories, such as reverb or synth.'
   },
   licenceId: {
-    predicate: `${pu}licenceId`, label: 'Licence', kind: 'text', required: false,
+    // `licence`, not `text`: the value is normalised through the same function
+    // the harvesters use, so a submission cannot introduce a spelling the
+    // catalogue already has under another name.
+    predicate: `${pu}licenceId`, label: 'Licence', kind: 'licence', required: false,
     help: 'An SPDX identifier such as GPL-3.0 or MIT, if you know it.'
   }
 })
@@ -180,6 +184,19 @@ export function validate (fields = {}) {
     }
     if (spec.kind === 'format' && !/^[A-Za-z0-9]+$/.test(raw)) {
       throw new SubmissionError('A format is a name like VST3, LV2 or CLAP.')
+    }
+    if (spec.kind === 'licence') {
+      // Normalised, not merely checked: someone typing GPLv3 gets GPL-3.0
+      // recorded rather than a second name for a licence already in the
+      // catalogue. Unrecognised is refused here because there is a person to
+      // tell — a harvester, with nobody to ask, keeps the raw string instead.
+      const spdx = toKnownSpdx(raw)
+      if (!spdx) {
+        throw new SubmissionError(
+          `"${raw}" is not a licence identifier the catalogue recognises. Use the SPDX form, such as GPL-3.0, MIT or Apache-2.0, or leave it blank.`)
+      }
+      clean[key] = spdx
+      continue
     }
     clean[key] = raw
   }

@@ -5,6 +5,7 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // about HTML.
 import { linkable, pluginJsonLd } from './serialise.js'
 import templates, { escape } from './Templates.js'
+import { UNVERSIONED, NOASSERTION } from '../harvest/Licensing.js'
 
 /**
  * HTML and RDF rendering for the public pages.
@@ -73,6 +74,25 @@ function availabilityBadges (r) {
   }
   if (r.licenceId) badges.push(templates.render('plain-badge', { label: r.licenceId }))
   return badges.join('')
+}
+
+/**
+ * A licence identifier as a reader should see it.
+ *
+ * `GPL` sitting in a list beside `GPL-3.0` and `GPL-2.0` looks like a
+ * truncation. It is not: 59 plugins state the GNU GPL through a DOAP licence
+ * URL that names the family and no version, and the catalogue records that
+ * rather than picking one. The parenthesis is the only place a reader is told
+ * so, and it costs a facet nothing because the value is unchanged.
+ *
+ * `NOASSERTION` is SPDX's token for a licence that exists and was not
+ * identified, which is not a phrase anybody should have to look up.
+ */
+function licenceLabel (licenceId) {
+  if (!licenceId) return null
+  if (licenceId === NOASSERTION) return 'stated, but not identified'
+  if (UNVERSIONED.has(licenceId)) return `${licenceId} (version not stated)`
+  return licenceId
 }
 
 /**
@@ -373,7 +393,7 @@ export function renderPluginPage (
     ['Tags', (doc.tags ?? []).join(', ')],
     ['Price', PRICING_LABEL[doc.pricing]],
     ['Source', AVAILABILITY_LABEL[doc.sourceAvailability]],
-    ['Licence', doc.licenceId],
+    ['Licence', licenceLabel(doc.licenceId)],
     ['Parameters', (doc.parameters ?? []).length ? `${doc.parameters.length}: ${doc.parameters.slice(0, 12).join(', ')}${doc.parameters.length > 12 ? '\u2026' : ''}` : null],
     ['Caution', doc.cautions]
   ].filter(([, value]) => value)

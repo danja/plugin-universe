@@ -187,6 +187,26 @@ pu:PluginShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
         sh:minLength 1 ;
+        ## Generated from LICENCE_IDS in src/harvest/Licensing.js, which is
+        ## OPEN_SOURCE_LICENCES plus OTHER_LICENCES. tests/harvest/Licensing.test.js
+        ## binds the two; adding a licence there and not here produced 136
+        ## violations after one GitHub sweep. Regenerate rather than hand-edit.
+        ##
+        ## GPL, LGPL and AGPL without a version are here deliberately: a DOAP
+        ## licence URL states the family and not the version, and the catalogue
+        ## records what the source said rather than choosing a version for it.
+        ## A warning, not a violation — this list is a list of what we recognise,
+        ## and the world will keep producing licences it does not contain.
+        sh:in (
+          "0BSD" "AFL-3.0" "AGPL-3.0" "Apache-2.0" "Artistic-2.0"
+          "BSD-2-Clause" "BSD-3-Clause" "BSL-1.0" "CC0-1.0" "EPL-2.0"
+          "EUPL-1.2" "GPL-2.0" "GPL-3.0" "GPL-3.0-or-later" "ISC"
+          "LGPL-2.1" "LGPL-3.0" "MIT" "MPL-2.0" "Unlicense"
+          "Zlib" "GPL" "LGPL" "AGPL" "CC-BY-4.0"
+          "CC-BY-SA-4.0" "CC-BY-NC-SA-4.0" "CC-BY-ND-4.0" "Proprietary" "NOASSERTION"
+        ) ;
+        sh:severity sh:Warning ;
+        sh:message "Unrecognised licence identifier. Normalise it in toSpdx(), or add it to OPEN_SOURCE_LICENCES or OTHER_LICENCES in src/harvest/Licensing.js and regenerate the sh:in list here." ;
     ] .
 
 ## ── Parameters ──────────────────────────────────────────────────────────────

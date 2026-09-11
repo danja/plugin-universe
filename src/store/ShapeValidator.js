@@ -65,21 +65,32 @@ export class ShapeValidator {
 
   /**
    * @param {import('@rdfjs/types').DatasetCore} data
-   * @returns {Promise<{conforms: boolean, results: object[]}>} violations in a plain shape
+   * @returns {Promise<{conforms: boolean, results: object[], violations: object[], warnings: object[]}>}
    */
   async validate (data) {
     const report = await this.validator.validate(data)
-    return {
-      conforms: report.conforms,
-      results: report.results.map(result => ({
-        focusNode: result.focusNode?.value ?? null,
-        path: result.path?.value ?? null,
-        value: result.value?.value ?? null,
-        severity: result.severity?.value?.replace(/^.*#/, '') ?? 'Violation',
-        sourceShape: result.sourceShape?.value ?? null,
-        message: result.message.map(m => m.value).join(' ') || 'no message'
-      }))
-    }
+    const results = report.results.map(result => ({
+      focusNode: result.focusNode?.value ?? null,
+      path: result.path?.value ?? null,
+      value: result.value?.value ?? null,
+      severity: result.severity?.value?.replace(/^.*#/, '') ?? 'Violation',
+      sourceShape: result.sourceShape?.value ?? null,
+      message: result.message.map(m => m.value).join(' ') || 'no message'
+    }))
+
+    // `conforms` is recomputed rather than taken from the library.
+    //
+    // SHACL §3.6 defines it as true if and only if there are no results of
+    // severity sh:Violation; rdf-validate-shacl sets it false for any result at
+    // all, warnings included. Two callers refuse to write when it is false —
+    // `IngestPipeline` and `Submissions` — so with the library's reading, a
+    // single sh:Warning anywhere in a harvest would abort the whole harvest,
+    // and `sh:severity sh:Warning` would be a declaration that does the
+    // opposite of what it says. Nothing used a warning until the licence
+    // enumeration did, which is why this was not visible before.
+    const violations = results.filter(r => r.severity === 'Violation')
+    const warnings = results.filter(r => r.severity !== 'Violation')
+    return { conforms: violations.length === 0, results, violations, warnings }
   }
 
   /** Validate serialised triples before they are written. */
@@ -109,9 +120,15 @@ export class ShapeValidator {
   }
 }
 
-/** A short, readable summary of a report, grouped by message. */
+/**
+ * A short, readable summary of a report, grouped by message.
+ *
+ * Warnings are summarised alongside violations — a report that conforms but
+ * has something to say is not the same as one with nothing to say, and the
+ * severity is in each line.
+ */
 export function summarise (report, { limit = 10 } = {}) {
-  if (report.conforms) return 'conforms'
+  if (report.results.length === 0) return 'conforms'
   const byMessage = new Map()
   for (const result of report.results) {
     const key = `${result.severity}: ${result.message}`

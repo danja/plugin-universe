@@ -1,0 +1,19 @@
+# Every plugin's licence, as stated and as normalised.
+#
+# `dcterms:license` is what the source said; `pu:licenceId` is what
+# `toSpdx()` made of it at harvest time. Selecting both is what makes the
+# normalisation re-derivable in place: nothing has to be fetched again,
+# because the raw statement never left the graph.
+#
+# The graph comes back with each row so a rewrite stays inside the graph the
+# fact came from — a source's graph is a source's graph.
+SELECT ?graph ?plugin ?stated ?current
+WHERE {
+  GRAPH ?graph {
+    ?plugin a trn:PluginProfile .
+    OPTIONAL { ?plugin dcterms:license ?stated }
+    OPTIONAL { ?plugin pu:licenceId  ?current }
+    FILTER (BOUND(?stated) || BOUND(?current))
+  }
+}
+ORDER BY ?graph ?plugin

@@ -40,13 +40,21 @@ export const ACTIONS = Object.freeze({
 
       const failed = []
       let checked = 0
+      let warnings = 0
       for (const { graph } of graphs) {
         const report = await validator.validateGraph(client, graph)
         checked++
-        if (!report.conforms) failed.push({ graph, count: report.results.length, first: report.results[0]?.message })
+        warnings += report.warnings.length
+        // Counted from violations, not from every result: a warning says the
+        // graph has something worth looking at, not that it is wrong, and an
+        // admin page that cries failure over one is a page nobody reads.
+        if (!report.conforms) {
+          failed.push({ graph, count: report.violations.length, first: report.violations[0]?.message })
+        }
       }
-      if (failed.length === 0) return `All ${checked} graphs conform.`
-      return `${failed.length} of ${checked} graphs do not conform. ` +
+      const noted = warnings ? ` ${warnings} warning(s).` : ''
+      if (failed.length === 0) return `All ${checked} graphs conform.${noted}`
+      return `${failed.length} of ${checked} graphs do not conform.${noted} ` +
         failed.map(f => `${f.graph}: ${f.count} violation(s), first — ${f.first}`).join(' · ')
     }
   },

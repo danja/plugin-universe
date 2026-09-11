@@ -3,6 +3,7 @@ import URIMinter from '../../src/rdf/URIMinter.js'
 import { readFileSync } from 'fs'
 import { validate, valueTerm, SUBMITTABLE, PLUGIN_FORMATS, SubmissionError, Submissions } from '../../src/contrib/Submissions.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
+import { FIELD_KINDS } from '../../src/contrib/Corrections.js'
 
 /**
  * Proposing a plugin the catalogue does not have.
@@ -233,5 +234,25 @@ describe('formats', () => {
     const joined = submissions.triplesFor('http://x/p', clean, new Date()).join('\n')
     expect(joined).toContain(`<${NAMESPACES.trn}format> <${NAMESPACES.trn}VST3>`)
     expect(joined).toContain(`<${NAMESPACES.trn}format> <${NAMESPACES.trn}LV2>`)
+  })
+})
+
+describe('a submitted licence is normalised, not merely accepted', () => {
+  it('records the identifier for a spelling of it', () => {
+    expect(validate({ ...GOOD, licenceId: 'GPLv3' }).licenceId).toBe('GPL-3.0')
+  })
+
+  it('refuses one it does not recognise, and says what to type', () => {
+    expect(() => validate({ ...GOOD, licenceId: 'whatever you like' })).toThrow(/SPDX/)
+  })
+
+  it('still treats blank as "not stated", which is not an error', () => {
+    expect(validate({ ...GOOD, licenceId: '' }).licenceId).toBeUndefined()
+  })
+
+  it('draws every field kind from the one exported list', () => {
+    for (const [key, spec] of Object.entries(SUBMITTABLE)) {
+      expect(FIELD_KINDS, key).toContain(spec.kind)
+    }
   })
 })

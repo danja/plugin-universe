@@ -568,7 +568,12 @@ describe('the MCP face', () => {
     })).json()
     const payload = JSON.parse(body.result.content[0].text)
     expect(payload.results.length).toBeGreaterThan(0)
-    expect(payload.licence).toMatch(/CC0/)
+    // `catalogueLicence`, not `licence`. The latter is the *plugin's* licence
+    // and the two shared a name until one silently overwrote the other in
+    // get_plugin, returning every plugin as CC0 whatever it actually was.
+    expect(payload.catalogueLicence).toMatch(/CC0/)
+    expect(payload.licence, 'the catalogue notice is back in the plugin licence field')
+      .toBeUndefined()
   })
 
   it('refuses a GET with an explanation rather than an empty stream', async () => {

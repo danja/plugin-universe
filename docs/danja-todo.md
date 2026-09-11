@@ -32,6 +32,27 @@ asserted about the deployment came from that, not from looking.
   in `essential` and `full`, not in `measurements`. Nothing has been uploaded
   yet, so this is untested against real files.
 
+- [ ] **Normalise the stored licences.** One command on the server, and it
+  needs no network and no re-harvest:
+
+  ```sh
+  docker compose run --rm app node bin/renormalise-licences.js          # report
+  docker compose run --rm app node bin/renormalise-licences.js --apply  # write
+  docker compose restart app        # the facet counts are read at startup
+  ```
+
+  The catalogue holds **23 spellings of 19 licences**. GPL-3.0 appears three
+  ways (`GPL-3.0`, `GPLv3`, `GPL3`) and MIT three ways, so the licence facet
+  lists each separately and `?licence=GPL-3.0` misses 86 of the plugins that
+  are under it. 59 LV2 plugins carry `http://usefulinc.com/doap/licenses/gpl`,
+  which says GPL and does not say which version — those normalise to `GPL`,
+  deliberately, and stay a facet entry of their own rather than being assigned
+  a version nobody claimed.
+
+  It is safe to run twice, and the dry run shows every change grouped before
+  anything is written. `dcterms:license` — what each source actually said —
+  is not touched: only `pu:licenceId`, which is derived from it.
+
 ## 2. The announcement, when you are ready
 
 Worth drafting before posting anywhere, because the first thing people ask is
