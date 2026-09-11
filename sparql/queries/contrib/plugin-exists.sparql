@@ -1,0 +1,12 @@
+# Does the catalogue already hold this plugin, in any graph?
+#
+# Asked before a submission is written, because plugin IRIs are minted by hash
+# over the identifying tuple: two people proposing the same plugin mint the
+# same IRI, and writing the second would silently merge two records of one
+# thing. That is the failure IngestPipeline refuses for harvesters, and a
+# submission form would reintroduce it without this.
+SELECT ?g
+WHERE {
+  GRAPH ?g { ${plugin} ?p ?o }
+}
+LIMIT 1

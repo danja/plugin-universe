@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { negotiate, prefersPage, FACET_NAMES, facetsFrom } from '../../src/api/server.js'
-import { renderLandingPage, renderSearchPage, renderBrowsePage, pager } from '../../src/api/render.js'
+import {
+  renderLandingPage, renderSearchPage, renderBrowsePage, pager,
+  renderSubmitPage, renderModerationPage
+} from '../../src/api/render.js'
+import { SUBMITTABLE } from '../../src/contrib/Submissions.js'
 
 /**
  * One URL per thing, each with its representations.
@@ -135,5 +139,113 @@ describe('one search, one URL', () => {
   it('leaves an already-clean query string alone, so there is no second hop', () => {
     expect(tidy('q=reverb')).toBe('q=reverb')
     expect(tidy('q=reverb&format=VST3')).toBe('q=reverb&format=VST3')
+  })
+})
+
+/**
+ * Submitting a plugin, and reviewing what was submitted.
+ *
+ * The form is built from `SUBMITTABLE` rather than written out, so the inputs,
+ * the validator and the triples a submission becomes cannot drift apart. These
+ * assert that binding, and the two things about the page that are not about
+ * layout: that a refusal hands back what was typed, and that a duplicate is
+ * linked rather than only refused.
+ */
+describe('the submit form', () => {
+  const render = extra => renderSubmitPage(SUBMITTABLE, { csrfToken: 'tok', ...extra })
+
+  it('has an input for every submittable field, and no others', () => {
+    const html = render({})
+    for (const name of Object.keys(SUBMITTABLE)) {
+      expect(html, `no input for ${name}`).toContain(`name="${name}"`)
+    }
+    const inputs = [...html.matchAll(/<input[^>]*name="([a-zA-Z]+)"/g)].map(m => m[1])
+      .filter(name => name !== 'csrf')
+    expect(new Set(inputs)).toEqual(new Set(Object.keys(SUBMITTABLE)))
+  })
+
+  it('marks the required fields required, in the markup as well as the label', () => {
+    const html = render({})
+    for (const [name, spec] of Object.entries(SUBMITTABLE)) {
+      if (!spec.required) continue
+      const field = html.slice(html.indexOf(`name="${name}"`))
+      expect(field.slice(0, 80), `${name} is not marked required`).toContain('required')
+    }
+  })
+
+  it('shows the help text the error messages quote', () => {
+    // Same string in both places: the help beside the homepage field explains
+    // why it is required, and the error repeats it when it is missing.
+    expect(render({})).toContain(SUBMITTABLE.homepage.help)
+  })
+
+  it('hands back what was typed when it refuses', () => {
+    // A form that empties itself when it refuses is a form people fill in once.
+    const html = render({ error: 'Format is needed.', values: { name: 'Moka', vendor: 'danja' } })
+    expect(html).toContain('value="Moka"')
+    expect(html).toContain('value="danja"')
+    expect(html).toContain('Format is needed.')
+  })
+
+  it('links the plugin a duplicate turned out to be', () => {
+    const html = render({
+      error: 'The catalogue already has this plugin.',
+      submitted: { text: 'It is already in the catalogue:', href: '/plugin/moka-1234', linkText: 'see the entry' }
+    })
+    expect(html).toContain('href="/plugin/moka-1234"')
+  })
+
+  it('carries the CSRF token, because it is a POST that writes', () => {
+    expect(render({})).toContain('name="csrf"')
+    expect(render({})).toContain('value="tok"')
+  })
+
+  it('says where contributed facts go, on the page that collects them', () => {
+    expect(render({})).toContain('href="/terms"')
+  })
+})
+
+describe('the moderation queue', () => {
+  const submission = {
+    submission: 'http://x/correction/s1',
+    plugin: 'http://purl.org/stuff/plugin-universe/plugin/moka-1234',
+    by: 'http://x/person/danja',
+    at: '2026-09-11T12:00:00Z',
+    fields: { name: 'Moka', vendor: 'danja', format: 'VST3', homepage: 'https://example.com/moka' }
+  }
+
+  it('holds corrections and proposed plugins in one queue', () => {
+    const html = renderModerationPage([], { csrfToken: 'tok', submissions: [submission] })
+    expect(html).toContain('New plugin: Moka')
+    expect(html).toContain('1 proposed plugin')
+  })
+
+  it('counts both kinds together, because that is the size of the job', () => {
+    const correction = {
+      correction: 'http://x/c1', subject: 'http://purl.org/stuff/plugin-universe/plugin/x-1',
+      predicate: 'http://www.w3.org/2000/01/rdf-schema#label', value: 'New name',
+      by: 'http://x/person/a', at: '2026-09-11T11:00:00Z', rationale: null
+    }
+    const html = renderModerationPage([correction], { csrfToken: 'tok', submissions: [submission] })
+    expect(html).toContain('1 correction and 1 proposed plugin')
+  })
+
+  it('says so plainly when there is nothing to do', () => {
+    expect(renderModerationPage([], { csrfToken: 'tok', submissions: [] })).toContain('Nothing')
+  })
+
+  it('shows enough to decide on a plugin that has no page yet', () => {
+    // There is nothing to click through to — it is not in the catalogue — so
+    // the summary has to carry the decision.
+    const html = renderModerationPage([], { csrfToken: 'tok', submissions: [submission] })
+    expect(html).toContain('danja')
+    expect(html).toContain('VST3')
+    expect(html).toContain('https://example.com/moka')
+  })
+
+  it('names which thing a decision is about, so one queue can hold two kinds', () => {
+    const html = renderModerationPage([], { csrfToken: 'tok', submissions: [submission] })
+    expect(html).toContain('name="submission"')
+    expect(html).toContain('value="http://x/correction/s1"')
   })
 })

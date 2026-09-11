@@ -1,0 +1,12 @@
+# Submissions by one account since a moment, for the hourly rate limit.
+#
+# Counted from the store rather than kept in memory, so it survives a restart
+# and cannot be reset by making the app forget.
+SELECT ?submission
+WHERE {
+  GRAPH ${queueGraph} {
+    ?submission prov:wasAttributedTo ${account} ;
+                prov:generatedAtTime ?at .
+    FILTER(?at > ${since})
+  }
+}

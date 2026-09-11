@@ -73,6 +73,16 @@ catalogue now carry a reading.
 
 ## Phase 3b — the rest of the site
 
+* **Submitting a plugin.** *Done 2026-09-11:* `/submit` for signed-in accounts, built from
+  `SUBMITTABLE` so the form, the validator and the triples cannot drift; duplicate refusal
+  against both the catalogue and the queue; SHACL before writing; the same trust promotion
+  corrections use; and one moderation queue holding both kinds. Not yet decided: whether a
+  contributor may edit or withdraw a pending submission, and whether an accepted plugin should
+  be announced anywhere.
+* **`src/contrib/Corrections.js` inlines SPARQL in five places**, which CLAUDE.md forbids —
+  queries belong in `sparql/queries/<category>/<name>.sparql`. `Submissions.js` put its three
+  in `sparql/queries/contrib/` rather than add to the pile; the five should follow.
+
 * **"Most recently added" is alphabetical, and the label is false.** Checked
   2026-09-11: `byRecency` is correct and the ordering *is* applied — but all 752
   plugins on the deployment share one `dcterms:created`, `2026-09-10`, because

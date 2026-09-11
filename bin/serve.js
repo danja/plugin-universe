@@ -9,6 +9,8 @@ import { createServer } from '../src/api/server.js'
 import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
+import Submissions from '../src/contrib/Submissions.js'
+import ShapeValidator from '../src/store/ShapeValidator.js'
 import Wiki from '../src/wiki/Wiki.js'
 
 logger.setLevel('info')
@@ -47,6 +49,7 @@ const origin = process.env.SITE_ORIGIN || config.get('site.origin')
 const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
 let corrections = null
+let submissions = null
 let wiki = null
 if (auth) {
   // Registered at startup, not at first sign-in: a graph holding personal data
@@ -55,6 +58,11 @@ if (auth) {
   await accounts.ensureGraph()
   corrections = new Corrections(client)
   await corrections.ensureGraph()
+  // The same SHACL shapes a harvest is checked against. A plugin somebody
+  // typed is not a different kind of plugin, and the shapes are the only thing
+  // that knows a format IRI from a typo.
+  submissions = new Submissions(client, { validator: await ShapeValidator.load() })
+  await submissions.ensureGraph()
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
   wiki = new Wiki(client)
   console.log('Contributions enabled')
@@ -80,7 +88,7 @@ try {
 }
 
 const server = createServer({
-  search, config, projectRoot: Config.projectRoot, auth, corrections, wiki, publication, authProblem
+  search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, wiki, publication, authProblem
 })
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)

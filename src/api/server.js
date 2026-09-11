@@ -9,13 +9,14 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
   renderLandingPage, renderSearchPage, renderBrowsePage,
   renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage,
-  renderContributionsPage, renderVocabularies
+  renderContributionsPage, renderVocabularies, renderSubmitPage
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
 import { send, sendText, redirect, needsSignIn, JSON_HEADERS, LICENCE, HTML } from './respond.js'
 import { readForm, BodyError } from './body.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
+import { SUBMITTABLE, SubmissionError } from '../contrib/Submissions.js'
 import buildRegistry from './registry.js'
 import { handleMcp, MCP_PATH } from '../mcp/server.js'
 import wikiRoutes from '../wiki/routes.js'
@@ -182,6 +183,7 @@ export const STATIC_FILES = Object.freeze({
 
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
+  submissions = null,
   wiki: wikiService = null, publication: mcpPublication = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
@@ -239,7 +241,8 @@ export function createServer ({
     // and says so.
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
     const isCorrectionPost = request.method === 'POST' &&
-      (/^\/plugin\/[^/]+\/(correct|wiki)$/.test(url.pathname) || url.pathname === '/moderation')
+      (/^\/plugin\/[^/]+\/(correct|wiki)$/.test(url.pathname) ||
+        url.pathname === '/moderation' || url.pathname === '/submit')
     // MCP is JSON-RPC over POST. It writes no data — every tool answers a
     // question — but it is a POST, so the read-only guard has to know about it.
     const isMcp = url.pathname === MCP_PATH
@@ -500,18 +503,23 @@ export function createServer ({
             if (!auth.session.verifyCsrf(form.get('csrf'), moderator.iri)) {
               return send(response, 403, { error: 'That page has expired. Reload and try again.' })
             }
+            const accept = form.get('decision') === 'accept'
+            // One queue, two kinds of thing in it. Which one this decision is
+            // about is decided by which field the form carried, not by a mode
+            // the page has to remember.
             try {
-              const outcome = await corrections.review({
-                correctionIri: form.get('correction'),
-                moderator,
-                accept: form.get('decision') === 'accept',
-                accounts: auth.accounts
-              })
+              const outcome = form.get('submission')
+                ? await submissions.review({
+                  submissionIri: form.get('submission'), moderator, accept, accounts: auth.accounts
+                })
+                : await corrections.review({
+                  correctionIri: form.get('correction'), moderator, accept, accounts: auth.accounts
+                })
               message = outcome.status === 'accepted'
-                ? `Accepted.${outcome.promoted ? ` ${outcome.contributor} is now trusted — their corrections go live from here.` : ''}`
+                ? `Accepted.${outcome.promoted ? ` ${outcome.contributor} is now trusted — their contributions go live from here.` : ''}`
                 : 'Rejected. Nothing was written to a public graph.'
             } catch (error) {
-              if (!(error instanceof CorrectionError)) throw error
+              if (!(error instanceof CorrectionError) && !(error instanceof SubmissionError)) throw error
               message = error.message
             }
           }
@@ -519,8 +527,77 @@ export function createServer ({
           return sendText(response, 200, renderModerationPage(await corrections.pending(), {
             csrfToken: auth.session.csrfToken(moderator.iri),
             message,
-            viewer
-          }), 'text/html; charset=utf-8')
+            viewer,
+            submissions: submissions ? await submissions.pending() : []
+          }), HTML)
+        }
+
+        case '/submit': {
+          if (!submissions) return send(response, 404, { error: 'Submissions are not enabled on this instance' })
+          if (!viewer.account) {
+            return needsSignIn(request, response, {
+              returnTo: '/submit',
+              message: 'Sign in to submit a plugin'
+            })
+          }
+          const account = viewer.account
+          const render = extra => sendText(response, extra.status ?? 200,
+            renderSubmitPage(SUBMITTABLE, {
+              csrfToken: auth.session.csrfToken(account.iri),
+              viewer,
+              ...extra
+            }), HTML)
+
+          if (request.method !== 'POST') return render({})
+
+          let form
+          try {
+            form = await readForm(request)
+          } catch (error) {
+            return send(response, error.status ?? 400, { error: error.message })
+          }
+          if (!auth.session.verifyCsrf(form.get('csrf'), account.iri)) {
+            return send(response, 403, { error: 'That form has expired. Reload the page and try again.' })
+          }
+
+          // Whatever was typed, so an error hands the form back filled in
+          // rather than empty. A form that empties itself when it refuses is a
+          // form people fill in once.
+          const values = Object.fromEntries(
+            Object.keys(SUBMITTABLE).map(name => [name, form.get(name) ?? '']))
+
+          try {
+            const result = await submissions.submit({ account, fields: values })
+            return render({
+              submitted: result.status === 'accepted'
+                ? {
+                    text: 'Thank you — added to the catalogue and attributed to you.',
+                    href: result.plugin.replace(NAMESPACES.pu, '/'),
+                    linkText: 'See it'
+                  }
+                : {
+                    text: 'Thank you — queued for review. It joins the catalogue once a moderator accepts it.',
+                    href: '/contributions',
+                    linkText: 'Your contributions'
+                  }
+            })
+          } catch (error) {
+            if (!(error instanceof SubmissionError)) throw error
+            return render({
+              error: error.message,
+              // A duplicate is the one refusal worth linking: the person came
+              // to add a plugin and it is already here.
+              submitted: error.existing
+                ? {
+                    text: 'It is already in the catalogue:',
+                    href: error.existing.replace(NAMESPACES.pu, '/'),
+                    linkText: 'see the entry'
+                  }
+                : null,
+              values,
+              status: 400
+            })
+          }
         }
 
         case '/robots.txt': {

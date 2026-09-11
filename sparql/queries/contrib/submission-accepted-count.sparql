@@ -1,0 +1,11 @@
+# How many of one account's submissions have been accepted.
+#
+# Feeds the same trust promotion corrections use, so a contributor who submits
+# good plugins earns the same standing as one who corrects facts.
+SELECT ?submission
+WHERE {
+  GRAPH ${queueGraph} {
+    ?submission prov:wasAttributedTo ${account} ;
+                pu:submissionStatus ${status} .
+  }
+}

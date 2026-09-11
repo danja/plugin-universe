@@ -1,0 +1,14 @@
+# The pending submission proposing this plugin, if somebody got there first.
+#
+# Distinct from plugin-exists: a plugin can be proposed and not yet accepted,
+# in which case the catalogue does not hold it but a second proposal is still a
+# duplicate. Telling the two apart is what lets the message say "waiting to be
+# reviewed" rather than "already here".
+SELECT ?submission
+WHERE {
+  GRAPH ${queueGraph} {
+    ?submission pu:proposedPlugin ${plugin} ;
+                pu:submissionStatus ${status} .
+  }
+}
+LIMIT 1

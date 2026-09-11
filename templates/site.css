@@ -84,6 +84,17 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 /* The site links. One block, rendered by the footer on most pages and by the
    left column on the three that have columns — never both, so there is one
    list of links to keep correct and it is the one that includes the terms. */
+/* The submit form. Each field is a label wrapping its input and its help text,
+   so clicking the help focuses the field and a screen reader reads all three as
+   one thing. */
+.submit-form { margin:1.5rem 0; max-width:34rem; }
+.submit-form .field { display:block; margin:0 0 1.1rem; }
+.field-label { display:block; font-weight:600; font-size:.92rem; margin-bottom:.2rem; }
+.submit-form input { display:block; width:100%; padding:.5rem .6rem; font-size:1rem;
+                     border:1px solid var(--line); border-radius:6px;
+                     background:var(--bg); color:var(--fg); }
+.field-help { display:block; font-size:.85rem; color:var(--muted); margin-top:.25rem; }
+
 .site-links ul { list-style:none; margin:0 0 .6rem; padding:0; font-size:.92rem; }
 .site-links li { padding:.12rem 0; }
 .site-links .licence { margin:0; font-size:.85rem; color:var(--muted); }

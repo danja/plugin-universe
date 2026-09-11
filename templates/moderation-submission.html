@@ -1,0 +1,11 @@
+<div class="result">
+    <h2>New plugin: {{name}}</h2>
+    <p class="desc">{{summary}}</p>
+    <p class="tags">proposed by {{by}} &middot; <a href="{{homepage}}">{{homepage}}</a></p>
+    <form method="post" action="/moderation" class="correct">
+      <input type="hidden" name="csrf" value="{{csrf}}">
+      <input type="hidden" name="submission" value="{{submission}}">
+      <button type="submit" name="decision" value="accept">Accept</button>
+      <button type="submit" name="decision" value="reject" class="secondary">Reject</button>
+    </form>
+  </div>

@@ -1,0 +1,19 @@
+# Proposed plugins awaiting review, oldest first — a queue, not a list.
+#
+# The fields come back as rows rather than as one record per submission: a
+# submission has several proposed fields and SPARQL returns a row per field, so
+# the caller groups them. Reviewed whole, so every row of one submission shares
+# its fate.
+SELECT ?submission ?plugin ?predicate ?value ?by ?at
+WHERE {
+  GRAPH ${queueGraph} {
+    ?submission pu:submissionStatus ${status} ;
+                pu:proposedPlugin ?plugin ;
+                pu:proposedField ?field ;
+                prov:wasAttributedTo ?by ;
+                prov:generatedAtTime ?at .
+    ?field pu:fieldPredicate ?predicate ;
+           pu:fieldValue ?value .
+  }
+}
+ORDER BY ?at ?predicate

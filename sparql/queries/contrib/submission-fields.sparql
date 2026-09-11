@@ -1,0 +1,16 @@
+# Every proposed field of one submission, with who proposed it.
+#
+# Read at review time rather than trusted from the queue listing, and
+# re-validated after: the whitelist may have changed since it was proposed, and
+# accepting writes directly into a public graph.
+SELECT ?plugin ?predicate ?value ?by
+WHERE {
+  GRAPH ${queueGraph} {
+    ${submission} pu:submissionStatus ${status} ;
+                  pu:proposedPlugin ?plugin ;
+                  pu:proposedField ?field ;
+                  prov:wasAttributedTo ?by .
+    ?field pu:fieldPredicate ?predicate ;
+           pu:fieldValue ?value .
+  }
+}

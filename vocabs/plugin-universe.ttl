@@ -112,6 +112,25 @@ pu:correctionStatus a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:ra
 pu:reviewedBy a owl:ObjectProperty ; rdfs:domain pu:Correction .
 pu:reviewedAt a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:range xsd:dateTime .
 
+## A person proposing a plugin the catalogue does not have. Reviewed as one
+## thing rather than as a set of corrections: a plugin needs a name to exist at
+## all, so a half-accepted submission would be a record nothing could display.
+## The proposed fields are held on the submission until it is accepted; only
+## then are they minted into a plugin in the contributor's CC0 graph.
+
+pu:Submission a owl:Class ; rdfs:label "Submission" ;
+    rdfs:comment "A proposed plugin, from a person rather than a harvester. A proposal until reviewed, and its fields live here rather than in the catalogue until then." .
+pu:submissionStatus a owl:DatatypeProperty ; rdfs:domain pu:Submission ; rdfs:range xsd:string ;
+    rdfs:comment "pending, accepted or rejected — the same three a correction has, because the queue and the trust promotion are the same." .
+pu:proposedPlugin a owl:ObjectProperty ; rdfs:domain pu:Submission ;
+    rdfs:comment "The IRI the plugin will have if this is accepted. Minted at submission time from the identifying tuple, so that two people proposing the same plugin collide here rather than creating two records of one thing." .
+pu:proposedField a owl:ObjectProperty ; rdfs:domain pu:Submission ;
+    rdfs:comment "One proposed predicate and value, as a blank node. A submission is several of these and is accepted or rejected whole." .
+pu:fieldPredicate a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "The predicate this field proposes, as a string — it is a proposal about the graph, not yet a statement in it." .
+pu:fieldValue a owl:DatatypeProperty ;
+    rdfs:comment "The proposed value, as given. Turned into a term of the right kind at acceptance, by the same table that validated it." .
+
 ## ── Wiki prose ──────────────────────────────────────────────────────────────
 ## The CC BY-SA half of the catalogue. Facts are CC0 and live in a contributor's
 ## -facts graph; prose is share-alike and lives in their -prose graph, so the

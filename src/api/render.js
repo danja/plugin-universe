@@ -29,9 +29,9 @@ function accountBar (account, signInEnabled) {
   if (!account) return templates.render('account-signed-out', {})
   return templates.render('account-signed-in', {
     login: account.login,
-    // The moderation queue is linked here or it is not reachable at all. A
-    // route with no link is the same defect as a link with no route, and this
-    // project has already shipped one of those.
+    // The moderation queue and the submission form are linked here or they are
+    // not reachable at all. A route with no link is the same defect as a link
+    // with no route, and this project has already shipped one of those.
     moderation: templates.when(account.trustLevel === TRUST.MODERATOR, 'account-moderation', {})
   })
 }
@@ -390,6 +390,46 @@ export function renderPluginPage (doc, viewer = {}, contribution = null, measure
  * acknowledgement, no queue position, no way to know a moderator declined it.
  * That is the state the correction form shipped in.
  */
+/**
+ * The form for proposing a plugin the catalogue does not have.
+ *
+ * Built from `SUBMITTABLE` rather than written out, so the form, the validator
+ * and the triples it becomes cannot drift apart — the help text beside each
+ * input is the same string the error message quotes when the field is missing.
+ *
+ * Whatever was typed comes back on an error. A form that empties itself when it
+ * refuses is a form people fill in once.
+ */
+export function renderSubmitPage (submittable, {
+  csrfToken, error = null, submitted = null, values = {}, viewer = {}
+}) {
+  const body = templates.render('submit', {
+    heading: templates.render('page-heading', { title: 'Submit a plugin' }),
+    csrf: csrfToken ?? '',
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    done: templates.when(Boolean(submitted), 'submit-done', {
+      text: submitted?.text ?? '',
+      href: submitted?.href ?? '/',
+      linkText: submitted?.linkText ?? ''
+    }),
+    fields: templates.each('submit-field', Object.entries(submittable), ([name, spec]) => ({
+      name,
+      label: spec.label,
+      help: spec.help,
+      // A URL field gets the keyboard and the validation a browser already has.
+      type: spec.kind === 'url' ? 'url' : 'text',
+      value: values[name] ?? '',
+      maxLength: String(CONTRIBUTION_CONFIG.maxValueLength),
+      required: spec.required ? '' : ' (optional)',
+      requiredAttr: spec.required ? ' required' : ''
+    }))
+  })
+  return layout('Submit a plugin — Plugin Universe', body, {
+    description: 'Propose a plugin for the Plugin Universe catalogue.',
+    ...viewer
+  })
+}
+
 export function renderContributionsPage (rows, { viewer = {}, correctable = {}, trustLevel = null }) {
   const BADGE = { accepted: 'src', rejected: 'warn', pending: 'price' }
   const accepted = rows.filter(row => row.status === 'accepted').length
@@ -423,11 +463,32 @@ export function renderContributionsPage (rows, { viewer = {}, correctable = {}, 
   })
 }
 
-export function renderModerationPage (pending, { csrfToken, message, viewer = {} }) {
+export function renderModerationPage (pending, {
+  csrfToken, message, viewer = {}, submissions = []
+}) {
+  const total = pending.length + submissions.length
   const body = templates.render('moderation', {
     heading: templates.render('page-heading', { title: 'Moderation queue' }),
     message: templates.when(Boolean(message), 'notice', { text: message }),
-    count: `${pending.length} correction${pending.length === 1 ? '' : 's'}`,
+    // Counted together, because a moderator opening this page wants to know
+    // how much there is to do, not how it is filed.
+    count: total === 0
+      ? 'Nothing'
+      : [
+          pending.length ? `${pending.length} correction${pending.length === 1 ? '' : 's'}` : null,
+          submissions.length ? `${submissions.length} proposed plugin${submissions.length === 1 ? '' : 's'}` : null
+        ].filter(Boolean).join(' and '),
+    submissions: templates.each('moderation-submission', submissions, item => ({
+      name: item.fields.name ?? '(unnamed)',
+      // A proposed plugin has no page to link to yet, so the summary has to
+      // carry enough for a decision without one.
+      summary: [item.fields.vendor, item.fields.format, item.fields.category, item.fields.description]
+        .filter(Boolean).join(' · ').slice(0, 200),
+      by: item.by.split('/').pop(),
+      homepage: item.fields.homepage ?? '',
+      submission: item.submission,
+      csrf: csrfToken
+    })),
     items: pending.length
       ? templates.each('moderation-item', pending, item => ({
         field: item.predicate.replace(/^.*[#/]/, ''),

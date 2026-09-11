@@ -8,7 +8,23 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 public site, and `npm run test:live` does that from here. Anything below
 asserted about the deployment came from that, not from looking.
 
-## 1. Two findings from the first pluginval sweep
+## 1. Try submitting a plugin
+
+`/submit` is live for signed-in accounts, linked from the account bar. Worth
+walking through once as a real user, because I cannot: the sign-in is GitHub
+OAuth and I have no account.
+
+- [ ] submit something — one of your own that is not in the catalogue — and see
+  whether the form asks for the right things and refuses the right things
+- [ ] then review it in the moderation queue, which now holds proposed plugins
+  beside corrections
+
+Two things I decided and you may disagree with: the **homepage is required**,
+because it is what identifies a plugin when a person rather than a harvester is
+describing it, and a **format is required**, because without one the plugin is
+invisible to the facet most people filter by first.
+
+## 2. Two findings from the first pluginval sweep
 
 `pluginval` is built into the profiler image and has been run over all 51 built
 downspout VST3s. It found two things in **your** code, which is the catalogue
@@ -26,7 +42,7 @@ doing its job on the one repository you can act on:
 
 Nothing here needs server access. The profiler runs on this machine.
 
-## 2. Decisions that are yours
+## 3. Decisions that are yours
 
 * **How the dumps get served.** `bin/dump.js` writes them to `data/dumps` and
   nothing publishes them. nginx from disk is the obvious answer — the app has no
@@ -57,7 +73,7 @@ Nothing here needs server access. The profiler runs on this machine.
   loads, because an image in a wiki page is a URL every reader's browser fetches
   from a third party. A deliberate choice, not a missing feature.
 
-## 3. Worth doing when you have a moment
+## 4. Worth doing when you have a moment
 
 * **Tell the Open Audio Stack people the registry view exists.**
   `/registry/plugins/index.json` publishes the catalogue in their format, so
