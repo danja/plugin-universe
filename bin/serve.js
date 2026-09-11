@@ -10,6 +10,7 @@ import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
 import Submissions from '../src/contrib/Submissions.js'
+import ImageStore from '../src/api/ImageStore.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import Wiki from '../src/wiki/Wiki.js'
 
@@ -30,7 +31,17 @@ const index = await VectorIndex.open({
   model: config.get('embedding.model')
 })
 const embeddings = EmbeddingService.fromConfig(config)
-const search = new SearchService({ client, index, embeddings })
+// Declared before the search service, which uses it to tell a picture this site
+// hosts from one it merely links to.
+//
+// `||`, not `??`. docker-compose passes `${SITE_ORIGIN:-}`, which is an empty
+// string when the variable is unset — and `??` only falls back on null or
+// undefined, so an unset variable arrived as '' and defeated the default. This
+// took the site down with "needs the site origin". An empty environment
+// variable means unset everywhere in this project; Config.js already treats it
+// that way.
+const origin = process.env.SITE_ORIGIN || config.get('site.origin')
+const search = new SearchService({ client, index, embeddings, origin })
 const loaded = await search.loadDocuments()
 
 // Loaded once at start, not per request: the index is the hot path and it is
@@ -39,17 +50,11 @@ console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`
 
 // Sign-in, when the instance is configured for it. A read-only deployment is a
 // legitimate thing to run and does not need an OAuth App.
-// `||`, not `??`. docker-compose passes `${SITE_ORIGIN:-}`, which is an empty
-// string when the variable is unset — and `?? ` only falls back on null or
-// undefined, so an unset variable arrived as '' and defeated the default. This
-// took the site down with "needs the site origin". An empty environment
-// variable means unset everywhere in this project; Config.js already treats it
-// that way.
-const origin = process.env.SITE_ORIGIN || config.get('site.origin')
 const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
 let corrections = null
 let submissions = null
+let images = null
 let wiki = null
 if (auth) {
   // Registered at startup, not at first sign-in: a graph holding personal data
@@ -63,6 +68,8 @@ if (auth) {
   // that knows a format IRI from a typo.
   submissions = new Submissions(client, { validator: await ShapeValidator.load() })
   await submissions.ensureGraph()
+  images = new ImageStore({ origin })
+  console.log(`Image uploads enabled, ${(await images.list()).length} stored`)
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
   wiki = new Wiki(client)
   console.log('Contributions enabled')
@@ -88,7 +95,8 @@ try {
 }
 
 const server = createServer({
-  search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, wiki, publication, authProblem
+  search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images,
+  wiki, publication, authProblem
 })
 server.listen(port, () => {
   console.log(`Listening on http://localhost:${port}`)

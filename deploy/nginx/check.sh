@@ -122,6 +122,13 @@ for site in "$WORK/sites"/*.conf; do
         nginx:alpine nginx -t 2>&1); then
     warnings=$(echo "$output" | grep -c '\[warn\]' || true)
     echo "  ok    $name$([ "$warnings" -gt 0 ] && echo "   ($((warnings / 2)) warning(s))")"
+    # Shown, not just counted. A warning nobody can read is a warning nobody
+    # acts on, and the deprecation notices hide real ones — a duplicate
+    # directive or a conflicting server name is a warning, not an error.
+    if [ "$warnings" -gt 0 ]; then
+      echo "$output" | grep '\[warn\]' |
+        sed -e 's/^.*\[warn\] //' -e 's/^[0-9]*#[0-9]*: //' | sort -u | sed 's/^/          /'
+    fi
   else
     echo "  FAIL  $name"
     echo "$output" | grep '\[emerg\]' | sed 's/^/        /' | head -3

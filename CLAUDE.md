@@ -103,6 +103,8 @@ complained, and each was found in production or by accident:
 | Added the `/moderation` route | the account bar that should link to it | a queue reachable only by typing the URL |
 | Added terms to `vocabs/plugin-universe.ttl` | the store's own copy of it, reloaded only by a full harvest | three metrics on plugin pages as bare local names, no label or unit |
 | Saved a test fixture as `*.log` | `.gitignore`, which excludes `*.log` | a test that passes here and fails on a fresh clone |
+| Stored uploaded images under `data/` | a volume in `docker-compose.yml` | uploads written into the container, gone on the next rebuild |
+| Stored something irreplaceable that is not a triple | `BackupBuilder`, which reasons only about graphs | an "essential" backup that silently omits every picture |
 | Added a facet to the search | the copy of the facet list in `/plugins` | `?category=reverb` silently ignored on the browse list |
 | Added a block to `site.css` | its `a { color: … }` rule, one of five opt-ins | 17 of 35 front-page links in browser-default blue |
 
@@ -119,6 +121,8 @@ Specifically, before finishing a change, check:
 - Does a published URL — user agent, docs link, IRI — resolve to a route?
 - Does a new route have something linking to it?
 - Does `.gitignore` exclude a file a test reads? A fixture is source, not output.
+- Does anything new persist outside the triple store? Then `.dockerignore`, a compose
+  volume and `BackupBuilder` all have to know, and none of them will complain.
 - Did a new term in `vocabs/` reach the *store's* copy? `bin/ingest.js --vocabs-only`.
 
 **Where a list must exist, make it one list and export it.** `FACET_NAMES` in
@@ -190,7 +194,11 @@ change, and a long one rarely does.
 - **Never hand over an nginx configuration without running `./deploy/nginx/check.sh`.** It
   validates the real files in a throwaway container, with self-signed certificates generated at
   whatever paths they name. Six configurations have failed `nginx -t` on the server, every one
-  of them findable here in a second.
+  of them findable here in a second. It prints the warnings as well as counting them.
+  `nginx -t` does not catch everything: **`add_header` inside a `location` replaces the
+  server block's headers rather than adding to them**, so a static-file location must repeat
+  HSTS, nosniff and Referrer-Policy or it silently serves without them — valid configuration,
+  wrong behaviour. Likewise a `types` block replaces the mime map for that location.
 - Use the Read tool to read files, not `sed`/`cat`/`head`/`tail` via Bash. Bash tool calls require per-call user approval; Read does not.
 - Log mistakes in MISTAKES.md (what happened, root cause, prevention).
 - Periodically review TODO.md and revise as necessary, and `docs/danja-todo.md` with it: TODO.md

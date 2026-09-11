@@ -109,6 +109,19 @@ services:
     container_name: plugin-universe-app
     ports:
       - "127.0.0.1:${APP_PORT:-4100}:4100"
+    volumes:
+      # Uploaded pictures. `.dockerignore` excludes `data`, so without this
+      # mount they are written inside the container and vanish on the next
+      # `docker compose up -d --build app` — the upload succeeds, the page
+      # shows the picture, and it is gone after the next deploy. They are also
+      # the first thing this project stores that no harvester can rebuild, so
+      # losing them is not recoverable by re-running anything.
+      - ./data/images:/app/data/images
+      # The dumps, writable: bin/dump.js writes them and nginx serves the same
+      # directory read-only. Without this the /admin "Rebuild dumps" button
+      # writes inside the container, where nginx never looks — the dump would
+      # succeed, report a file count, and change nothing anybody can fetch.
+      - ./data/dumps:/app/data/dumps
     environment:
       # Service names, not localhost: inside the compose network these resolve
       # to the other containers. Set here rather than in .env because they are
@@ -179,6 +192,11 @@ services:
       - ./deploy/nginx/plugin-universe.conf:/etc/nginx/conf.d/default.conf:ro
       - ./deploy/nginx/certs:/etc/nginx/certs:ro
       - certbot-webroot:/var/www/certbot:ro
+      # Served straight off disk rather than through the app. Read-only: nginx
+      # hands these out and never writes them — the app owns the images
+      # directory and bin/dump.js owns the dumps.
+      - ./data/images:/srv/images:ro
+      - ./data/dumps:/srv/dumps:ro
     mem_limit: ${NGINX_MEM:-96m}
     depends_on:
       - app

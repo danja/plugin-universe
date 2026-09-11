@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import ImageStore from '../api/ImageStore.js'
 import GraphRegistry from './GraphRegistry.js'
 import { loadTurtleIntoGraph } from './TurtleLoader.js'
 import { iri } from './SPARQLHelper.js'
@@ -34,6 +35,13 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
  * One Turtle file per graph plus a manifest, as with the dump: Turtle carries no
  * graph name, so the manifest is what makes a restore able to put each file back
  * where it came from.
+ *
+ * **Not everything irreplaceable is a triple.** Uploaded pictures are files on
+ * disk, and `isIrreplaceable` — which reasons entirely about graph names —
+ * could not see them. An essential backup that took every account and every
+ * contribution and silently left out the images would have been exactly the
+ * kind of backup that is discovered to be incomplete at the worst moment. They
+ * are copied alongside the graphs, and the manifest counts them.
  */
 
 const pu = NAMESPACES.pu
@@ -107,6 +115,27 @@ export class BackupBuilder {
    * @param {string} options.outputDir
    * @param {'full'|'essential'} [options.scope]
    */
+  /**
+   * Copy the uploaded images into the backup.
+   *
+   * Content-addressed, so this is idempotent and a file already present is
+   * skipped rather than rewritten.
+   */
+  async #backupImages (outputDir) {
+    const store = new ImageStore()
+    const names = await store.list()
+    if (names.length === 0) return []
+    const directory = path.join(outputDir, 'images')
+    await fs.promises.mkdir(directory, { recursive: true })
+    const copied = []
+    for (const name of names) {
+      const target = path.join(directory, name)
+      await fs.promises.copyFile(store.fileFor(name), target)
+      copied.push({ name, bytes: (await fs.promises.stat(target)).size })
+    }
+    return copied
+  }
+
   async backup ({ outputDir, scope = 'full', now = new Date() }) {
     if (!outputDir) throw new BackupError('A backup needs somewhere to go')
     if (!SCOPES.includes(scope)) {
@@ -165,14 +194,20 @@ export class BackupBuilder {
       graphs.push(entry)
     }
 
+    // Images go with the scopes that claim to hold what cannot be rebuilt. A
+    // measurements delivery is a delivery of readings and carries none.
+    const files = scope === 'measurements' ? [] : await this.#backupImages(outputDir)
+
     const manifest = {
       generatedAt: now.toISOString(),
       scope,
+      files,
       // Recorded so a restore can refuse a backup written by a version whose
       // serialisation it does not understand, rather than half-loading it.
       format: 'turtle-per-graph/1',
       graphs,
       triples: graphs.reduce((total, graph) => total + graph.triples, 0),
+      fileBytes: files.reduce((total, file) => total + file.bytes, 0),
       // What was deliberately left out, so an essential backup cannot be
       // mistaken for a whole one at the moment somebody needs it to be.
       omitted: scope === 'full' ? [] : all.filter(graph => !wanted.includes(graph))
@@ -261,6 +296,25 @@ export class BackupBuilder {
       : manifest.graphs
     if (wanted.length === 0) throw new BackupError('Nothing in this backup matched the graphs requested.')
 
+    // Images first, and only when the whole backup is being restored: a
+    // single-graph restore is a repair of one graph and has no business
+    // writing files.
+    let files = 0
+    if (!only && manifest.files?.length) {
+      const store = new ImageStore()
+      await fs.promises.mkdir(store.directory, { recursive: true })
+      for (const file of manifest.files) {
+        const source = path.join(directory, 'images', file.name)
+        if (!fs.existsSync(source)) {
+          throw new BackupError(
+            `${file.name} is in the manifest and not in ${directory}/images. ` +
+            'Refusing a restore that would silently lose a picture.')
+        }
+        await fs.promises.copyFile(source, store.fileFor(file.name))
+        files++
+      }
+    }
+
     const restored = []
     for (const entry of wanted) {
       const turtle = await fs.promises.readFile(path.join(directory, entry.file), 'utf8')
@@ -295,7 +349,7 @@ export class BackupBuilder {
       }
       restored.push({ graph: entry.graph, triples: now, written })
     }
-    return { directory, scope: manifest.scope, generatedAt: manifest.generatedAt, restored }
+    return { directory, scope: manifest.scope, generatedAt: manifest.generatedAt, restored, files }
   }
 }
 

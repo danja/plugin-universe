@@ -362,3 +362,49 @@ describe('being pointed at something that is not a backup', () => {
       .rejects.toThrow(/does not exist/)
   })
 })
+
+/**
+ * Uploaded pictures, which are the first irreplaceable thing here that is not a
+ * triple.
+ *
+ * `isIrreplaceable` reasons entirely about graph names and could not see them.
+ * An essential backup that took every account and every contribution and
+ * silently left the images behind would be exactly the kind of backup that is
+ * discovered to be incomplete at the moment somebody needs it.
+ */
+describe('images in a backup', () => {
+  const PNG = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(64)])
+  let store
+  let stored
+  let out
+
+  beforeAll(async () => {
+    const { ImageStore } = await import('../../src/api/ImageStore.js')
+    store = new ImageStore()
+    stored = await store.store(PNG)
+    out = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pu-image-backup-'))
+  }, 60000)
+
+  afterAll(async () => {
+    await fs.promises.rm(store.fileFor(stored.name), { force: true })
+    if (out) await fs.promises.rm(out, { recursive: true, force: true })
+  })
+
+  it('carries them in an essential backup and counts them', async () => {
+    const manifest = await backups.backup({ outputDir: out, scope: 'essential' })
+    expect(manifest.files.map(file => file.name)).toContain(stored.name)
+    expect(manifest.fileBytes).toBeGreaterThan(0)
+    expect(fs.existsSync(path.join(out, 'images', stored.name))).toBe(true)
+  })
+
+  it('puts them back, and refuses if one named in the manifest is missing', async () => {
+    await fs.promises.rm(store.fileFor(stored.name), { force: true })
+    const report = await backups.restore({ directory: out, confirm: true })
+    expect(report.files).toBeGreaterThan(0)
+    expect(fs.existsSync(store.fileFor(stored.name))).toBe(true)
+
+    await fs.promises.rm(path.join(out, 'images', stored.name), { force: true })
+    await expect(backups.restore({ directory: out, confirm: true }))
+      .rejects.toThrow(/silently lose a picture/)
+  })
+})

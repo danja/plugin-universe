@@ -47,7 +47,10 @@ const outputDir = flag('out') ?? path.join('data/backups', `${stamp}-${scope}`)
 
 const manifest = await new BackupBuilder(client).backup({ outputDir, scope })
 
-console.log(`${manifest.scope} backup: ${manifest.graphs.length} graphs, ${manifest.triples} triples`)
+console.log(`${manifest.scope} backup: ${manifest.graphs.length} graphs, ${manifest.triples} triples` +
+  (manifest.files.length
+    ? `, ${manifest.files.length} image(s) (${Math.round(manifest.fileBytes / 1024)} kB)`
+    : ''))
 console.log(`  ${outputDir}`)
 
 if (manifest.scope === 'measurements') {

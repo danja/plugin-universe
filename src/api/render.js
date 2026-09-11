@@ -1,5 +1,5 @@
 import { TRUST } from '../auth/Accounts.js'
-import { CONTRIBUTION_CONFIG, RETRIEVAL_CONFIG } from '../../config/preferences.js'
+import { CONTRIBUTION_CONFIG, RETRIEVAL_CONFIG, IMAGE_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // One-way: the HTML pages embed the JSON-LD, the serialisations know nothing
 // about HTML.
@@ -343,6 +343,24 @@ export function renderBrowsePage ({
  * because five was already too many; it is the only thing here that is about
  * the site rather than about the plugin.
  */
+/**
+ * The upload form, for somebody allowed to use it.
+ *
+ * Only shown to a trusted contributor or a moderator. An uploaded picture is
+ * public the moment it is served and cannot be un-seen, so unlike a correction
+ * or a submission there is no useful "queued" state — the choice is to trust
+ * the uploader or not, and trust is something this site already measures.
+ */
+export function imageForm (slug, { csrfToken, error = null, done = null } = {}) {
+  return templates.render('image-form', {
+    slug,
+    csrf: csrfToken ?? '',
+    maxKb: String(Math.round(IMAGE_CONFIG.maxBytes / 1024)),
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    done: templates.when(Boolean(done), 'notice', { text: done })
+  })
+}
+
 export function renderPluginPage (
   doc, viewer = {}, contribution = null, measured = null, wiki = '',
   { facetValues = {}, corpus = 0 } = {}
@@ -375,6 +393,15 @@ export function renderPluginPage (
     measurements: renderMeasurements(measured),
     provenance: renderProvenance(doc),
     correctionForm: contribution ? renderCorrectionForm(doc, contribution) : '',
+    // Only for somebody who may actually use it. A form shown to a reader who
+    // will be refused is a promise the page cannot keep.
+    imageForm: contribution?.mayUploadImage
+      ? imageForm(path.replace('/plugin/', ''), {
+        csrfToken: contribution.csrfToken,
+        error: contribution.imageError,
+        done: contribution.imageDone
+      })
+      : '',
     ttl: `${path}.ttl`,
     jsonld: `${path}.jsonld`,
     jsonLd: JSON.stringify(pluginJsonLd(doc), null, 2)

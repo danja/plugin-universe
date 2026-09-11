@@ -68,6 +68,23 @@ export function byRecency (a, b) {
   return byName(a, b)
 }
 
+/**
+ * Which depiction to show, of however many a plugin has.
+ *
+ * A plugin can carry a harvested image and an uploaded one. The uploaded one
+ * wins: somebody went to the trouble because the harvested one was missing,
+ * wrong or gone, and it is served from this origin — so it cannot 404 on a
+ * third party's reorganisation, and a reader's browser fetches nothing from
+ * anywhere else to see it.
+ */
+export function pickImage (images, origin = '') {
+  if (!images) return null
+  const candidates = String(images).split(' ').filter(Boolean)
+  if (candidates.length === 0) return null
+  const local = origin && candidates.find(url => url.startsWith(`${origin}/image/`))
+  return local ?? candidates[0]
+}
+
 export class SearchService {
   /**
    * @param {object} deps
@@ -75,7 +92,13 @@ export class SearchService {
    * @param {VectorIndex} deps.index
    * @param {EmbeddingService} deps.embeddings
    */
-  constructor ({ client, index, embeddings, queries = new QueryService(), registry = null }) {
+  constructor ({
+    client, index, embeddings, queries = new QueryService(), registry = null,
+    // This site's own origin, so a depiction it hosts can be told from one it
+    // merely links to. Empty is honest — it means "nothing is local here",
+    // which is true of a test and of a process with no site configured.
+    origin = ''
+  }) {
     for (const [key, value] of Object.entries({ client, index, embeddings })) {
       if (!value) throw new SearchError(`SearchService needs ${key}`)
     }
@@ -84,6 +107,7 @@ export class SearchService {
     this.embeddings = embeddings
     this.queries = queries
     this.registry = registry ?? new GraphRegistry(client)
+    this.origin = String(origin).replace(/\/$/, '')
     /** @type {Map<string, object>} plugin IRI to its text view row */
     this.documents = new Map()
     /** @type {Map<string, object>} graph IRI to its provenance and licence */
@@ -180,7 +204,7 @@ export class SearchService {
       name: row.name,
       homepage: row.homepage ?? null,
       seeAlso: row.seeAlso ?? null,
-      image: row.image ?? null,
+      image: pickImage(row.images, this.origin),
       created: row.created ?? null,
       licenceId: row.licenceId ?? null,
       sourceAvailability: row.sourceAvailability ? row.sourceAvailability.replace(/^.*\//, '') : null,

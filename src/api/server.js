@@ -14,8 +14,10 @@ import {
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
 import { send, sendText, redirect, needsSignIn, JSON_HEADERS, LICENCE, HTML } from './respond.js'
-import { readForm, BodyError } from './body.js'
+import { readForm, readMultipart, BodyError } from './body.js'
 import { ACTIONS, runAction, AdminActionError } from './AdminActions.js'
+import ImageStore, { ImageError } from './ImageStore.js'
+import { IMAGE_CONFIG } from '../../config/preferences.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 import { SUBMITTABLE, SubmissionError } from '../contrib/Submissions.js'
 import buildRegistry from './registry.js'
@@ -184,7 +186,7 @@ export const STATIC_FILES = Object.freeze({
 
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
-  submissions = null,
+  submissions = null, images = null,
   wiki: wikiService = null, publication: mcpPublication = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
@@ -242,7 +244,7 @@ export function createServer ({
     // and says so.
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
     const isCorrectionPost = request.method === 'POST' &&
-      (/^\/plugin\/[^/]+\/(correct|wiki)$/.test(url.pathname) ||
+      (/^\/plugin\/[^/]+\/(correct|wiki|image)$/.test(url.pathname) ||
         url.pathname === '/moderation' || url.pathname === '/admin' ||
         url.pathname === '/submit')
     // MCP is JSON-RPC over POST. It writes no data — every tool answers a
@@ -736,6 +738,86 @@ export function createServer ({
             request, response, path, params, viewer, auth, wiki: wikiService, search
           })) return
 
+          // Uploading a picture of a plugin.
+          //
+          // Trusted contributors and moderators only, and deliberately without
+          // a queued state. A correction can wait in a queue because nobody
+          // sees it meanwhile; a picture is public the instant it is served and
+          // cannot be un-seen, so the useful question is whether this person is
+          // trusted — which this site already measures — rather than whether
+          // somebody will get round to looking.
+          const picturing = path.match(/^\/plugin\/([A-Za-z0-9-]+)\/image$/)
+          if (picturing && images && corrections) {
+            const pluginIri = `${NAMESPACES.pu}plugin/${picturing[1]}`
+            const doc = search.documents.get(pluginIri)
+            if (!doc) return send(response, 404, { error: 'No such plugin', iri: pluginIri })
+            if (request.method !== 'POST') return redirect(response, `/plugin/${picturing[1]}`)
+
+            const account = viewer.account
+            if (!account) {
+              return needsSignIn(request, response, {
+                returnTo: `/plugin/${picturing[1]}`,
+                message: 'Sign in to add a picture'
+              })
+            }
+            const mayUpload = account.trustLevel === TRUST.TRUSTED || account.trustLevel === TRUST.MODERATOR
+            if (!mayUpload) {
+              return send(response, 403, {
+                error: 'Pictures can be added by trusted contributors. Accepted corrections earn that.'
+              })
+            }
+
+            const navigation = { facetValues: await search.facets(), corpus: search.documents.size }
+            const render = extra => sendText(response, extra.status ?? 200,
+              renderPluginPage(doc, viewer, {
+                account,
+                csrfToken: auth.session.csrfToken(account.iri),
+                correctable: CORRECTABLE,
+                mayUploadImage: true,
+                ...extra
+              }, search.measured(pluginIri), '', navigation), HTML)
+
+            let form
+            try {
+              form = await readMultipart(request, { maxBytes: IMAGE_CONFIG.maxBytes })
+            } catch (error) {
+              if (!(error instanceof BodyError)) throw error
+              return render({ imageError: error.message, status: error.status ?? 400 })
+            }
+            if (!auth.session.verifyCsrf(form.get('csrf'), account.iri)) {
+              return send(response, 403, { error: 'That form has expired. Reload the page and try again.' })
+            }
+
+            const uploaded = form.files?.get('image')
+            try {
+              const stored = await images.store(uploaded?.buffer ?? Buffer.alloc(0))
+              await corrections.submit({
+                account,
+                subject: pluginIri,
+                predicate: `${NAMESPACES.foaf}depiction`,
+                value: stored.url,
+                rationale: `Uploaded ${stored.type}, ${stored.bytes} bytes.`
+              })
+              // The document in memory has to learn about it too, or the page
+              // this renders still shows the old picture — or none.
+              await search.takeUpNewPlugins()
+              const refreshed = search.documents.get(pluginIri) ?? doc
+              return sendText(response, 200,
+                renderPluginPage(refreshed, viewer, {
+                  account,
+                  csrfToken: auth.session.csrfToken(account.iri),
+                  correctable: CORRECTABLE,
+                  mayUploadImage: true,
+                  imageDone: 'Added, and attributed to you.'
+                }, search.measured(pluginIri), '', navigation), HTML)
+            } catch (error) {
+              if (error instanceof ImageError || error instanceof CorrectionError) {
+                return render({ imageError: error.message, status: 400 })
+              }
+              throw error
+            }
+          }
+
           const correcting = path.match(/^\/plugin\/([A-Za-z0-9-]+)\/correct$/)
           if (correcting) {
             if (!auth || !corrections) return send(response, 404, { error: 'Contributions are not enabled' })
@@ -790,6 +872,37 @@ export function createServer ({
           }
 
           // /plugin/<slug>-<hash> resolves the catalogue IRI it denotes.
+          // An uploaded image, served from this origin so that nobody's
+          // browser has to fetch a picture from a third party to read a plugin
+          // page.
+          //
+          // The type is sniffed from the bytes on every read rather than taken
+          // from the extension, and `nosniff` stops a browser second-guessing
+          // it — between them there is no way for a file on disk to be served
+          // as anything but what it actually is. Immutable, because the name
+          // is the hash of the content: a different picture is a different URL,
+          // so this can never be stale.
+          const picture = path.match(/^\/image\/([0-9a-f]{64}\.(?:png|jpg|gif|webp))$/)
+          if (picture) {
+            if (!images) return send(response, 404, { error: 'Images are not enabled on this instance' })
+            let held
+            try {
+              held = await images.read(picture[1])
+            } catch (error) {
+              if (error instanceof ImageError) return send(response, 404, { error: error.message })
+              if (error.code === 'ENOENT') return send(response, 404, { error: 'No such image' })
+              throw error
+            }
+            response.writeHead(200, {
+              'Content-Type': held.type,
+              'Content-Length': held.buffer.length,
+              'X-Content-Type-Options': 'nosniff',
+              'Cache-Control': 'public, max-age=31536000, immutable',
+              'Access-Control-Allow-Origin': '*'
+            })
+            return response.end(held.buffer)
+          }
+
           const match = path.match(/^\/plugin\/([A-Za-z0-9-]+?)(\.ttl|\.jsonld|\.json)?$/)
           if (match) {
             const iri = `${NAMESPACES.pu}plugin/${match[1]}`

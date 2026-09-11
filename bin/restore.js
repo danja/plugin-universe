@@ -69,6 +69,7 @@ if (into !== dataset) {
 const report = await new BackupBuilder(client).restore({ directory, confirm: true, only })
 console.log(`\nRestored ${report.restored.length} graph(s):`)
 for (const graph of report.restored) console.log(`  ${graph.graph.padEnd(44)} ${graph.triples} triples`)
+if (report.files) console.log(`  ${report.files} image(s) restored.`)
 console.log('\nEach graph was counted after loading and matched the backup.')
 console.log('The app loads its index at start — restart it if plugin data changed.')
 

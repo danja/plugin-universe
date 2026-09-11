@@ -152,10 +152,27 @@ are about the plugin and which are about our container.
 
 ## Bulk
 
-There is no published dump yet — the machinery exists and the decision about
-where to serve it from has not been made. Until then, the registry JSON above is
-the whole of the release data in one request, and SPARQL will answer most of the
-rest. If you want everything and neither suits, ask.
+**[`/dumps/`](/dumps/)** — the whole dataset as files, browsable. Served straight
+off disk rather than through the application, so taking it costs this server
+almost nothing.
+
+- `cc0/` — the factual catalogue, public domain
+- `notice/` — material from permissively-licensed sources, with their notices
+- `prose/` — contributor-written text, CC BY-SA, attribution required
+- `MANIFEST.json` names each file's graph, licence and source
+- `void.ttl` describes the dataset
+
+The three parts are separate directories because they are separate datasets
+under separate terms; which licence applies to a file is a property of where it
+sits rather than something you have to work out. Graphs whose licence does not
+permit redistribution are not in any of them — they were never written, rather
+than filtered on the way out.
+
+**If you want everything, take this rather than paginating SPARQL.** It is
+faster for you and cheaper for us, and it is the same data.
+
+Rebuilt nightly. `MANIFEST.json` carries the timestamp, so a consumer that only
+wants a changed dataset can check that rather than fetching the files.
 
 Please do not paginate the SPARQL endpoint to scrape the catalogue: it costs
 this server far more than it costs you, and there is a better answer available

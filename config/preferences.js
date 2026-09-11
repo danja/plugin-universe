@@ -148,6 +148,38 @@ export const PROFILER_CONFIG = {
 }
 
 /**
+ * Uploaded images.
+ *
+ * The first binary this project accepts from outside, and the first data it
+ * holds that is not a triple. Every limit here is a containment limit rather
+ * than a preference.
+ */
+export const IMAGE_CONFIG = {
+  // Bytes. Generous for a screenshot of a plugin's interface and far too small
+  // to be worth using as free file hosting. Enforced while reading, not after:
+  // a cap checked once the file is in memory is not a cap.
+  maxBytes: 2 * 1024 * 1024,
+
+  // What may be uploaded, by what the bytes actually are rather than by what
+  // the request claims. SVG is deliberately absent and must stay absent: it is
+  // a script container, and serving one from this origin would be a stored
+  // cross-site scripting hole rather than a picture.
+  accepted: Object.freeze({
+    png: { magic: '89504e470d0a1a0a', type: 'image/png' },
+    jpeg: { magic: 'ffd8ff', type: 'image/jpeg' },
+    gif: { magic: '474946383961', type: 'image/gif' },
+    gif87: { magic: '474946383761', type: 'image/gif' },
+    // RIFF....WEBP — the four bytes between are the length, so the check is in
+    // two parts and ImageStore does it rather than this table.
+    webp: { magic: '52494646', type: 'image/webp' }
+  }),
+
+  // Where the files live, relative to the project root. Outside the image, on
+  // a volume, or an upload does not survive a redeploy.
+  directory: 'data/images'
+}
+
+/**
  * Contributions and moderation.
  *
  * The trust threshold is what makes moderation bounded rather than unbounded:

@@ -77,6 +77,80 @@ class Form extends Map {
   }
 }
 
+/**
+ * A form post that carries a file.
+ *
+ * `multipart/form-data` is the only way a form without script can send bytes,
+ * and Node has no parser for it — which is why busboy is here rather than a
+ * hand-rolled one. This module already carries a note about why
+ * `URLSearchParams` does the urlencoded decoding: boundary handling and CRLF
+ * edge cases are the same kind of thing, on input an attacker controls.
+ *
+ * Two limits are enforced **while reading**, not after. A cap applied once the
+ * body is in memory is not a cap, and the shape of attack it exists to stop is
+ * a body that never ends.
+ *
+ * Returns the same `Form` the urlencoded path returns, plus `files`.
+ */
+export async function readMultipart (request, { maxBytes, maxFiles = 1, maxFields = 20 } = {}) {
+  const type = String(request.headers['content-type'] ?? '')
+  if (!type.startsWith('multipart/form-data')) {
+    throw new BodyError('Expected a file upload.', { status: 415 })
+  }
+  if (!maxBytes) throw new BodyError('readMultipart needs a size limit.', { status: 500 })
+
+  const { default: busboy } = await import('busboy')
+  return new Promise((resolve, reject) => {
+    const params = new URLSearchParams()
+    const files = new Map()
+    let settled = false
+
+    const fail = (message, status = 400) => {
+      if (settled) return
+      settled = true
+      request.unpipe?.(parser)
+      reject(new BodyError(message, { status }))
+    }
+
+    const parser = busboy({
+      headers: request.headers,
+      limits: { fileSize: maxBytes, files: maxFiles, fields: maxFields, fieldSize: 100000 }
+    })
+
+    parser.on('field', (name, value) => params.append(name, value))
+
+    parser.on('file', (name, stream, info) => {
+      const chunks = []
+      let bytes = 0
+      stream.on('data', chunk => {
+        bytes += chunk.length
+        chunks.push(chunk)
+      })
+      // busboy reports the limit rather than erroring, so the truncated file
+      // has to be rejected explicitly — otherwise a 3 MB upload arrives as a
+      // valid-looking 2 MB one and is stored as a corrupt image.
+      stream.on('limit', () => fail(`That file is larger than ${Math.round(maxBytes / 1024)} kB.`, 413))
+      stream.on('end', () => {
+        if (settled) return
+        files.set(name, { buffer: Buffer.concat(chunks), filename: info.filename, bytes })
+      })
+    })
+
+    parser.on('filesLimit', () => fail('One file at a time.'))
+    parser.on('fieldsLimit', () => fail('That form has too many fields.'))
+    parser.on('error', error => fail(`That upload could not be read: ${error.message}`))
+    parser.on('close', () => {
+      if (settled) return
+      settled = true
+      const form = new Form(params)
+      form.files = files
+      resolve(form)
+    })
+
+    request.pipe(parser)
+  })
+}
+
 export async function readForm (request, options = {}) {
   const type = String(request.headers['content-type'] ?? '')
   if (!type.startsWith('application/x-www-form-urlencoded')) {

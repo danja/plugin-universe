@@ -1,0 +1,16 @@
+<div class="prov">
+  <h3>Add a picture</h3>
+  {{{error}}}
+  {{{done}}}
+  <form method="post" action="/plugin/{{slug}}/image" enctype="multipart/form-data" class="image-form">
+    <input type="hidden" name="csrf" value="{{csrf}}">
+    <label class="field">
+      <span class="field-label">Screenshot</span>
+      <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp" required>
+      <span class="field-help">PNG, JPEG, GIF or WebP, up to {{maxKb}} kB. Not SVG.</span>
+    </label>
+    <button type="submit">Upload</button>
+  </form>
+  <p class="tags">It is served from this site, so nobody's browser fetches it from
+    anywhere else. Contributed facts are CC0 — see the <a href="/terms">contributor terms</a>.</p>
+</div>

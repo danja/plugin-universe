@@ -1,0 +1,8 @@
+# /etc/default/plugin-universe-dump
+#
+# Read by /etc/cron.daily/plugin-universe-dump. cron.daily runs with almost no
+# environment, so anything the job needs has to be stated here.
+
+# Where the repository is checked out. Every docker compose command in the job
+# runs from this directory.
+PU_REPO=/home/github/plugin-universe

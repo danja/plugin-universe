@@ -73,6 +73,16 @@ catalogue now carry a reading.
 
 ## Phase 3b — the rest of the site
 
+* **Image upload.** *Done 2026-09-11:* trusted contributors can add a picture to a plugin.
+  Sniffed by magic bytes rather than declared type or extension, SVG refused outright, stored
+  content-addressed under `data/images`, served same-origin with `nosniff` and an immutable
+  cache. Carried in the essential and full backups, and **served by nginx from disk** — the
+  app's `/image/` route stays as the fallback for a deployment with no proxy, and is what the
+  tests exercise.
+* **Uploads have no size story beyond the per-file cap.** 2 MB each, no per-account quota and
+  no total. Content-addressing means duplicates cost nothing, but nothing stops one trusted
+  account filling the disk. A quota wants adding before that matters.
+
 * **An accepted plugin becomes searchable without a restart.** *Done 2026-09-11:*
   `SearchService.takeUpNewPlugins()` reloads the documents, rebuilds the lexical index and
   embeds anything without a vector, called when a submission is accepted. It never throws —

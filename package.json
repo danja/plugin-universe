@@ -25,6 +25,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@rdfjs/namespace": "^2.0.0",
+    "busboy": "^1.6.0",
     "faiss-node": "^0.5.1",
     "loglevel": "^1.9.1",
     "marked": "^18.0.11",

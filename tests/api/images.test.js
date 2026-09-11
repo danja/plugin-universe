@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import { pluginImage, renderPluginPage, renderSearchPage } from '../../src/api/render.js'
+import { pickImage } from '../../src/search/SearchService.js'
 import { pluginJsonLd, pluginTurtle } from '../../src/api/serialise.js'
 
 /**
@@ -123,14 +124,50 @@ describe('the field survives the whole path', () => {
     // The other half of pattern 3: the renderer can only show what the query
     // asked for, and nothing else connects these two files.
     const query = fs.readFileSync('sparql/queries/plugin/text-view.sparql', 'utf8')
-    expect(query).toContain('foaf:depiction ?image')
-    expect(query).toMatch(/SELECT[^\n]*\?image/)
-    expect(query, 'an aggregated query must group by every non-aggregated variable')
-      .toMatch(/GROUP BY[^\n]*\?image/)
+    expect(query).toContain('foaf:depiction ?anyImage')
+    expect(query).toMatch(/GROUP_CONCAT\(DISTINCT \?anyImage[^)]*\) AS \?images/)
+  })
+
+  it('looks for a depiction in every graph, not only the plugin\'s own', () => {
+    // An image uploaded here lands in the contributor's graph. Scoped to the
+    // graph that declares the plugin — which is where every other OPTIONAL in
+    // this query lives — it was invisible: the picture would be in the
+    // catalogue and on no page.
+    const query = fs.readFileSync('sparql/queries/plugin/text-view.sparql', 'utf8')
+    const own = query.indexOf('?plugin a trn:PluginProfile')
+    const closesOwnGraph = query.indexOf('\n  }', own)
+    expect(query.indexOf('foaf:depiction ?anyImage')).toBeGreaterThan(closesOwnGraph)
   })
 
   it('is carried onto the document the renderer receives', () => {
     const service = fs.readFileSync('src/search/SearchService.js', 'utf8')
-    expect(service).toMatch(/image:\s*row\.image/)
+    expect(service).toMatch(/image:\s*pickImage\(row\.images/)
+  })
+})
+
+describe('choosing between two depictions', () => {
+  it('prefers the one this site hosts', () => {
+    // Somebody uploaded it because the harvested one was missing, wrong or
+    // gone — and a local image cannot 404 on a third party's reorganisation,
+    // nor make a reader's browser fetch from anywhere else.
+    const chosen = pickImage(
+      'https://elsewhere.invalid/a.png https://plugin-universe.com/image/abc.png',
+      'https://plugin-universe.com')
+    expect(chosen).toBe('https://plugin-universe.com/image/abc.png')
+  })
+
+  it('takes the harvested one when there is no local one', () => {
+    expect(pickImage('https://elsewhere.invalid/a.png', 'https://plugin-universe.com'))
+      .toBe('https://elsewhere.invalid/a.png')
+  })
+
+  it('is null for a plugin with no picture at all', () => {
+    expect(pickImage('', 'https://plugin-universe.com')).toBeNull()
+    expect(pickImage(undefined, 'https://plugin-universe.com')).toBeNull()
+  })
+
+  it('does not mistake another site\'s path for ours', () => {
+    expect(pickImage('https://evil.invalid/image/x.png', 'https://plugin-universe.com'))
+      .toBe('https://evil.invalid/image/x.png')
   })
 })

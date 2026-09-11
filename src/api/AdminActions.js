@@ -1,6 +1,7 @@
 import GraphRegistry from '../store/GraphRegistry.js'
 import ShapeValidator from '../store/ShapeValidator.js'
 import BackupBuilder from '../store/BackupBuilder.js'
+import DumpBuilder from '../store/DumpBuilder.js'
 
 /**
  * The operations an administrator can set off from a page.
@@ -62,6 +63,24 @@ export const ACTIONS = Object.freeze({
       const manifest = await new BackupBuilder(client).backup({ outputDir, scope: 'essential' })
       return `${manifest.graphs.length} graphs, ${manifest.triples} triples, into ${outputDir}. ` +
         'This is on the server\'s disk; the nightly job is what copies it off.'
+    }
+  },
+
+  dump: {
+    label: 'Rebuild dumps',
+    describes: 'Write the public dataset dumps that /dumps/ serves.',
+    async run ({ client }) {
+      // nginx serves data/dumps straight off disk, so this is what puts
+      // anything there. Without it /dumps/ is an advertised path with an empty
+      // directory behind it — the same defect as a contact page that 404s,
+      // which this project has already shipped once.
+      const report = await new DumpBuilder(client, { outputDir: 'data/dumps' }).build()
+      const parts = Object.entries(report.parts ?? {})
+        .map(([name, part]) => `${name} ${part.graphs.length} graph(s)`).join(', ')
+      const withheld = report.withheld?.length
+        ? ` ${report.withheld.length} graph(s) withheld as not redistributable.`
+        : ''
+      return `Dumps rebuilt into ${report.outputDir} — ${parts}.${withheld} Served at /dumps/.`
     }
   },
 
