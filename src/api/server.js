@@ -301,6 +301,15 @@ export function createServer ({
             status: 'ok',
             plugins: search.documents.size,
             index: search.index.size,
+            // How many plugins carry a profiler reading, and when the newest
+            // run was. Here because measurements are made on one machine and
+            // carried to another, and until this existed there was no way to
+            // ask the deployment whether a delivery had landed — the first one
+            // did not, and the symptom was an absent facet, which looks exactly
+            // like a feature nobody built.
+            measured: search.measurements.size,
+            measuredAt: [...search.measurements.values()]
+              .map(entry => entry.at).sort().pop() ?? null,
             embeddingModel: config?.get('embedding.model') ?? null,
             // Which code, not just which data. Null means the image was built
             // without a stamp, not that the build is old.

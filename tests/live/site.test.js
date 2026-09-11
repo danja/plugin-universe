@@ -237,6 +237,25 @@ describe('the deployed data is the current data', () => {
     expect(second, 'the pager still points at the old home').toContain('/plugins?from=')
   })
 
+  it('says whether the profiler readings actually arrived', async () => {
+    // Measurements are made on a workstation and carried to the server, and
+    // the first delivery silently did not land: the symptom was an absent
+    // `measured` facet, which is indistinguishable from a feature nobody
+    // built. /health now states the coverage, so "did the carry work" is one
+    // request rather than an inference.
+    expect(health.measured, 'the deployment holds no profiler measurements at all')
+      .toBeGreaterThan(0)
+    expect(new Date(health.measuredAt).getTime()).not.toBeNaN()
+
+    // And the facet that coverage implies. These two disagreeing would mean
+    // readings are in the store and not reaching anybody.
+    const facets = await (await get('/facets')).json()
+    expect(facets.facets.measured, 'measurements are loaded but the facet is missing')
+      .toBeTruthy()
+    const counted = facets.facets.measured.reduce((total, value) => total + value.count, 0)
+    expect(counted).toBe(health.measured)
+  })
+
   it('sends the URL shapes that moved to where they went', async () => {
     // `/?q=` and `/?from=` were the search and the browse list until each got
     // its own address. Every bookmark, shared link and crawler index still
