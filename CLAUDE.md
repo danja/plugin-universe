@@ -124,6 +124,12 @@ Specifically, before finishing a change, check:
 - Does `.gitignore` exclude a file a test reads? A fixture is source, not output.
 - Does anything new persist outside the triple store? Then `.dockerignore`, a compose
   volume and `BackupBuilder` all have to know, and none of them will complain.
+- **An install ends with a question asked of the consumer, not of the artefact.** `nginx -t`
+  passing and a reload succeeding say nothing about whether the file you edited is the file
+  being served — a config copied to `plugin-universe.com` beside the enabled
+  `plugin-universe.com.conf` cost three rounds of diagnosis. Finish with
+  `nginx -T | grep -c` for something the new config contains, or with a `curl` that would
+  only pass if it were live.
 - **A manual step that has failed twice is a script.** `deploy/prepare-data-dirs.sh` exists
   because "create the directory and check the app can write to it" was written in the
   runbook, read, and got wrong anyway. Where a failure has one cause, the error message

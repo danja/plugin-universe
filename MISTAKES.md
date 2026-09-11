@@ -56,6 +56,45 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-11 — The runbook named a file nginx does not read
+
+**What happened.** `/dumps/` and `/image/` returned 404 through two installs and
+two reloads. The location blocks were correct, `nginx -t` passed every time, and
+nothing in the output was wrong. `nginx -T` showed the blocks were simply not
+loaded.
+
+**Root cause.** `docs/deployment.md` said to copy the config to
+`/etc/nginx/sites-available/plugin-universe.com`. The symlink in
+`sites-enabled` on that server points at
+`/etc/nginx/sites-available/plugin-universe.com**.conf**`, which is also the
+convention every other site on the machine follows. So the copy landed beside
+the live file, enabled nothing, and looked exactly like a successful install:
+the reload succeeded and the site kept working, because the *old* config was
+still the one being served.
+
+**Why it took three rounds to find.** Each diagnostic step ruled out a whole
+class and left the next: the content type said the application answered rather
+than nginx, so the location was not matching; `nginx -T` said the block was not
+loaded at all, so it was not a conflicting `server_name`; and a `grep` of the
+three files involved — the repository on the server, `sites-available`, and
+whatever `sites-enabled` points at — put the break between the second and the
+third. The answer was visible in one `ls -l`.
+
+**Prevention.** The filename is corrected in `docs/deployment.md`, in both
+config headers and in `docs/dumps.md`, with a note saying why the suffix is not
+optional. The runbook now ends the install with
+`sudo nginx -T | grep -c 'location /dumps/'` rather than with the reload,
+because **a reload that succeeds is not evidence that the file you edited is the
+file being served.** `npm run test:live` also checks the dumps come back as
+`text/turtle`, which is the same question asked from outside.
+
+**The general shape.** Three of this session's failures were a correct artefact
+that never reached the place it was read: measurements in a store nobody
+restored into, a compose mount nothing created, and now a config file beside the
+one in use. In each case every local check passed. **Where an artefact is
+consumed somewhere I cannot see, the last step of the instructions has to be a
+question asked of the consumer, not of the artefact.**
+
 ## 2026-09-11 — A duplicate YAML key that stopped the deploy
 
 **What happened.** Adding bind mounts for the uploaded images, I wrote a

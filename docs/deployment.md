@@ -280,8 +280,8 @@ already serving the challenge path. Stage one breaks that circle:
 
 ```sh
 sudo cp deploy/nginx/plugin-universe.acme.conf \
-        /etc/nginx/sites-available/plugin-universe.com
-sudo ln -s /etc/nginx/sites-available/plugin-universe.com /etc/nginx/sites-enabled/
+        /etc/nginx/sites-available/plugin-universe.com.conf
+sudo ln -s /etc/nginx/sites-available/plugin-universe.com.conf /etc/nginx/sites-enabled/
 sudo mkdir -p /var/www/certbot
 sudo nginx -t && sudo systemctl reload nginx
 
@@ -290,8 +290,22 @@ sudo certbot certonly --webroot -w /var/www/certbot \
   -d api.plugin-universe.com -d sparql.plugin-universe.com
 
 sudo cp deploy/nginx/plugin-universe.host.conf \
-        /etc/nginx/sites-available/plugin-universe.com
+        /etc/nginx/sites-available/plugin-universe.com.conf
 sudo nginx -t && sudo systemctl reload nginx
+```
+
+**The `.conf` suffix is not optional**, and neither is checking that the file
+you edited is the file nginx loads. `sites-enabled` holds symlinks, and the one
+on this server is `plugin-universe.com.conf`; a copy to
+`plugin-universe.com` lands beside it, enables nothing, and looks exactly like a
+successful install — `nginx -t` passes, the reload succeeds, the site keeps
+working, and the change does nothing. That is how `/dumps/` stayed unserved
+through two reloads. Every other site on the machine uses the suffix too.
+
+After any change, confirm it is loaded rather than assuming:
+
+```sh
+sudo nginx -T | grep -c 'location /dumps/'    # 0 means nginx never read it
 ```
 
 The full config proxies to `127.0.0.1:4100` and `127.0.0.1:3030`, which is where

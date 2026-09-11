@@ -51,7 +51,21 @@ public the instant it is served and cannot be un-seen, so the useful question is
 whether this person is trusted rather than whether somebody will get round to
 looking. Say if you would rather it were a queue.
 
-## 2. Make yourself a moderator — the queue is invisible without it
+## 2. One plugin is in the catalogue and not in the index
+
+`/health` reports **753 plugins, 752 vectors**. The odd one out is the plugin you
+accepted from a submission: it is in the store, it has a page, and it has no
+embedding — so it turns up by name and is invisible to the semantic search this
+catalogue is built on.
+
+- [ ] press **Reindex** on `/admin`, then `npm run test:live`
+
+`takeUpNewPlugins()` runs on acceptance and deliberately never throws — a plugin
+in the catalogue but not yet indexed is a better outcome recorded than an
+acceptance reversed — so if Ollama was slow or down at that moment it logged a
+warning and carried on. The container log for the acceptance will say which.
+
+## 3. Make yourself a moderator — the queue is invisible without it
 
 `/moderation` exists and is linked from the account bar, but **only for an
 account whose trust level is `moderator`**, and there is deliberately no web
@@ -69,7 +83,7 @@ link appears on the next sign-in rather than the next page.
 
 - [ ] grant yourself moderator
 
-## 3. Try submitting a plugin
+## 4. Try submitting a plugin
 
 `/submit` is live for signed-in accounts, linked from the account bar. Worth
 walking through once as a real user, because I cannot: the sign-in is GitHub
@@ -87,7 +101,7 @@ plugin is invisible to the facet most people filter by first. Formats are
 checkboxes — a plugin is commonly built for several, and the catalogue has
 always modelled it that way.
 
-## 4. Two findings from the first pluginval sweep
+## 5. Two findings from the first pluginval sweep
 
 `pluginval` is built into the profiler image and has been run over all 51 built
 downspout VST3s. It found two things in **your** code, which is the catalogue
@@ -105,7 +119,7 @@ doing its job on the one repository you can act on:
 
 Nothing here needs server access. The profiler runs on this machine.
 
-## 5. Decisions that are yours
+## 6. Decisions that are yours
 
 
 * **Whether to publish a minimal attribution record.** CC BY-SA requires naming
@@ -132,7 +146,7 @@ Nothing here needs server access. The profiler runs on this machine.
   loads, because an image in a wiki page is a URL every reader's browser fetches
   from a third party. A deliberate choice, not a missing feature.
 
-## 6. Worth doing when you have a moment
+## 7. Worth doing when you have a moment
 
 * **Tell the Open Audio Stack people the registry view exists.**
   `/registry/plugins/index.json` publishes the catalogue in their format, so

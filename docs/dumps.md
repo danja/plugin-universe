@@ -42,6 +42,58 @@ Two things in the nginx location are load-bearing and neither is caught by
   block repeats HSTS, nosniff and Referrer-Policy, or the dumps are served
   without them.
 
+## When /dumps/ returns 404
+
+**First, find out who answered.** The content type says it:
+
+```sh
+curl -sI https://plugin-universe.com/dumps/void.ttl | grep -i content-type
+```
+
+- `text/turtle` — nginx is serving the file. Working.
+- `application/json` — **the application answered**, so nginx never matched the
+  location and proxied the request through. The config in the repository is not
+  the config nginx is running.
+- `text/html` — nginx answered and the file is genuinely missing. Rebuild the
+  dumps.
+
+**If the application answered, ask nginx what it is actually running.** `nginx -T`
+prints the whole effective configuration, every included file resolved — which
+is the only way to tell "I copied the file" from "the file I copied is the one
+in use":
+
+```sh
+sudo nginx -T | grep -c 'location /dumps/'        # 0 means it is not loaded
+sudo nginx -T | grep -n 'server_name plugin-universe.com'
+```
+
+**Then find out which copy is stale.** There are three files involved and the
+block has to be in all three: the one in the repository *on the server*, the one
+in `sites-available`, and whatever `sites-enabled` actually points at.
+
+```sh
+cd /home/github/plugin-universe
+git log --oneline -1                                              # pulled?
+grep -c 'location /dumps/' deploy/nginx/plugin-universe.host.conf  # in the repo?
+grep -c 'location /dumps/' /etc/nginx/sites-available/plugin-universe.com.conf
+ls -l /etc/nginx/sites-enabled/
+```
+
+The first zero going down that list is the step that did not happen.
+
+Three things produce a zero, in rough order of likelihood:
+
+1. **The copy did not happen, or went somewhere that is not enabled.**
+   `/etc/nginx/sites-available/` is not loaded; `/etc/nginx/sites-enabled/` is,
+   and usually by symlink. `ls -l /etc/nginx/sites-enabled/` shows where each
+   one points.
+2. **Another server block claims the same name and loads first.** nginx takes
+   the first match and only *warns* about the duplicate — `[warn] conflicting
+   server name` — so the site keeps working while the new config is ignored.
+   This project has hit that before. The second `grep` above lists every block
+   claiming the name; there should be one.
+3. **nginx was not reloaded.** `systemctl reload nginx` after `nginx -t`.
+
 ## Rebuilding
 
 On a schedule:

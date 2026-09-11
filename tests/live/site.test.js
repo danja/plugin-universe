@@ -237,6 +237,35 @@ describe('the deployed data is the current data', () => {
     expect(second, 'the pager still points at the old home').toContain('/plugins?from=')
   })
 
+  it('serves the dumps from disk, not through the application', async () => {
+    // Advertised on /services, so a 404 here is a promise the site does not
+    // keep. The tell for *who* answered is the content type: nginx serving a
+    // file gives text/turtle, while the app's 404 is JSON with Vary: Accept —
+    // which is what a config that was edited but never installed looks like.
+    const response = await get('/dumps/void.ttl')
+    expect(response.status, 'the dumps are not being served — is the nginx config installed?')
+      .toBe(200)
+    expect(response.headers.get('content-type'), 'served as the wrong type; the types block is missing')
+      .toMatch(/text\/turtle/)
+
+    const index = await get('/dumps/')
+    expect(index.status).toBe(200)
+    const listing = await index.text()
+    for (const part of ['cc0/', 'notice/', 'prose/', 'MANIFEST.json']) {
+      expect(listing, `the dump index does not list ${part}`).toContain(part)
+    }
+  })
+
+  it('keeps the security headers on the files nginx serves itself', async () => {
+    // `add_header` in a location replaces the server block's headers rather
+    // than adding to them, so a static location that forgets to repeat them
+    // serves without them. Valid configuration, wrong behaviour, and nothing
+    // in `nginx -t` says so.
+    const response = await get('/dumps/void.ttl')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('strict-transport-security')).toMatch(/max-age/)
+  })
+
   it('says whether the profiler readings actually arrived', async () => {
     // Measurements are made on a workstation and carried to the server, and
     // the first delivery silently did not land: the symptom was an absent

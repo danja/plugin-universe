@@ -79,6 +79,15 @@ catalogue now carry a reading.
   cache. Carried in the essential and full backups, and **served by nginx from disk** — the
   app's `/image/` route stays as the fallback for a deployment with no proxy, and is what the
   tests exercise.
+* **A plugin can reach the catalogue without reaching the index.** Live shows 753 documents
+  against 752 vectors: the plugin accepted from a submission is in the store and has no
+  embedding, so it is findable lexically and invisible to semantic search — which is the
+  retrieval this catalogue is built on. `takeUpNewPlugins()` is called on acceptance and
+  never throws, so a failure there is a warning in the log and a plugin that is quietly
+  half-present. **Reindex on `/admin`, or `bin/ingest.js --only-new`, fixes an instance.**
+  The gap is that nothing notices: `/health` reports both numbers and nothing compares them
+  except a live test nobody runs on a schedule. Worth making the acceptance path report an
+  embedding failure to the moderator who caused it, rather than only to the log.
 * **Uploads have no size story beyond the per-file cap.** 2 MB each, no per-account quota and
   no total. Content-addressing means duplicates cost nothing, but nothing stops one trusted
   account filling the disk. A quota wants adding before that matters.
