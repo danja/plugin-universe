@@ -198,11 +198,58 @@ describe('the browse panel', () => {
 
   it('shows the panel and hides the toggle on a wide screen', () => {
     const wide = CSS.slice(CSS.indexOf('@media (min-width: 58rem)'))
-    expect(wide).toMatch(/\.with-side \.side\s*\{[^}]*display:\s*block/)
+    expect(wide).toMatch(/\.columns \.side\s*\{[^}]*display:\s*block/)
     expect(wide).toMatch(/\.browse-button\s*\{\s*display:\s*none/)
+  })
+
+  it('puts each kind of thing in its own column on a wide screen', () => {
+    const wide = CSS.slice(CSS.indexOf('@media (min-width: 58rem)'))
+    expect(wide).toMatch(/\.columns\s*\{[^}]*grid-template-columns:\s*11rem minmax\(0, 1fr\) 14rem/)
+    // Where to go, what is here, what to browse.
+    expect(wide).toMatch(/\.columns \.site-links\s*\{[^}]*grid-column:\s*1/)
+    expect(wide).toMatch(/\.columns \.results[^{]*\{[^}]*grid-column:\s*2/)
+    expect(wide).toMatch(/\.columns \.side\s*\{[^}]*grid-column:\s*3/)
   })
 
   it('is labelled, because a list of links with no heading is a list of words', () => {
     expect(page).toContain('aria-label="Browse the catalogue"')
+  })
+})
+
+/**
+ * One list of site links, in one place per page.
+ *
+ * They are the footer on most pages and the left column on the three that have
+ * columns. Rendered from a single template either way: two copies of a list
+ * that includes the contributor terms is two lists to keep correct, and the
+ * cost of them disagreeing is a reader following the wrong one.
+ */
+describe('the site links', () => {
+  const shellPage = renderSearchPage({
+    query: 'x', facets: {}, results: [], total: 0, corpus: 10, facetValues: {}
+  })
+
+  it('are a column, not a footer, on a page that has columns', () => {
+    expect(shellPage).toContain('class="site-links"')
+    expect(shellPage).not.toContain('<footer>')
+  })
+
+  it('are a footer on a page that does not', () => {
+    const plugin = renderPluginPage(DOC)
+    expect(plugin).toContain('<footer>')
+    expect(plugin).toContain('class="site-links"')
+  })
+
+  it('appear once per page, never twice', () => {
+    expect(shellPage.match(/class="site-links"/g)).toHaveLength(1)
+    expect(renderPluginPage(DOC).match(/class="site-links"/g)).toHaveLength(1)
+  })
+
+  it('carry the terms wherever they are, since that is the one that matters', () => {
+    for (const page of [shellPage, renderPluginPage(DOC)]) {
+      expect(page).toContain('href="/terms"')
+      expect(page).toContain('href="/services"')
+      expect(page).toContain('CC0 1.0')
+    }
   })
 })

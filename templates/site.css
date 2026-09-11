@@ -68,6 +68,10 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .browse-toggle:checked ~ .browse-button::after { content:" ▴"; }
 .browse-toggle:focus-visible ~ .browse-button { outline:2px solid var(--accent); outline-offset:2px; }
 .side { display:none; margin:0 0 1.5rem; }
+/* Stacked on a narrow screen, the links come last — the same position the
+   footer occupies on every other page, so the page ends the way readers
+   expect even though the markup is a column. */
+.columns .site-links { margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--line); }
 .browse-toggle:checked ~ .side { display:block; }
 .side h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em;
            color:var(--muted); margin:0 0 .4rem; font-weight:600; }
@@ -77,28 +81,37 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .side-count { color:var(--muted); font-variant-numeric:tabular-nums; }
 .side-more { margin:.5rem 0 0; font-size:.92rem; }
 
-@media (min-width: 58rem) {
-  /* min() so the track can never be wider than its container. A bare
-     minmax(24rem, …) forces a 408px column, which overflows a phone and is one
-     of the ways a page ends up laid out wider than the screen. */
-  .results { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(24rem, 100%), 1fr));
-             column-gap:2.5rem; }
-  .results .result:first-child, .results .result:nth-child(2) { padding-top:0; }
+/* The site links. One block, rendered by the footer on most pages and by the
+   left column on the three that have columns — never both, so there is one
+   list of links to keep correct and it is the one that includes the terms. */
+.site-links ul { list-style:none; margin:0 0 .6rem; padding:0; font-size:.92rem; }
+.site-links li { padding:.12rem 0; }
+.site-links .licence { margin:0; font-size:.85rem; color:var(--muted); }
+footer .site-links ul { display:flex; flex-wrap:wrap; gap:.3rem 1rem; margin-bottom:.4rem; }
 
-  /* Two columns: results on the left, the nav on the right. The nav comes first
-     in the source and grid places it second, which is what we want in both
-     directions — on a phone the collapsed "Browse by category" button sits
-     above the results where a control belongs, and on a wide screen the panel
-     is beside them without the markup having to change. */
-  .wrap { max-width:76rem; }
-  .with-side { display:grid; grid-template-columns:minmax(0, 1fr) 14rem; column-gap:3rem;
-               align-items:start; }
-  .with-side .results, .with-side .pager, .with-side .browse-all { grid-column:1; }
-  .with-side .side { grid-column:2; grid-row:1 / span 4; display:block;
-                     position:sticky; top:1.5rem; }
-  /* The results keep their own auto-fill grid inside the left track. At this
-     width that is still two columns — the wrap grew from 62rem to 76rem to pay
-     for the nav rather than taking the room out of the plugins. */
+@media (min-width: 58rem) {
+  .results .result:first-child { padding-top:0; }
+
+  /* Three columns, because at this width the page already looked like three:
+     two tracks of results with the nav beside them. Making it explicit puts
+     each kind of thing in its own place — where to go on the left, what is
+     here in the middle, what to browse on the right — rather than leaving the
+     count of result tracks to whatever the viewport happens to allow.
+
+     Both side columns are declared in rem and the middle takes what is left,
+     so widening the window widens the results and nothing else. They are
+     sticky: the way out of a long list should not require scrolling back. */
+  .wrap { max-width:82rem; }
+  .columns { display:grid; grid-template-columns:11rem minmax(0, 1fr) 14rem;
+             column-gap:2.5rem; align-items:start; }
+  .columns .results, .columns .pager, .columns .browse-all { grid-column:2; }
+  .columns .side { grid-column:3; grid-row:1 / span 4; display:block;
+                   position:sticky; top:1.5rem; }
+  /* Source order puts the links last — after the results, where a footer
+     belongs when this stacks on a phone. Grid lifts them to the first column
+     without the markup having to care. */
+  .columns .site-links { grid-column:1; grid-row:1; position:sticky; top:1.5rem;
+                         margin-top:0; padding-top:0; border-top:0; }
   .browse-button { display:none; }
 }
 .result { padding:.9rem 0; border-bottom:1px solid var(--line); }

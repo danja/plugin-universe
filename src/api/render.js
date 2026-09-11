@@ -36,13 +36,21 @@ function accountBar (account, signInEnabled) {
   })
 }
 
-export function layout (title, body, { description = '', account = null, signInEnabled = false } = {}) {
+export function layout (title, body, {
+  description = '', account = null, signInEnabled = false,
+  // A page laid out in columns carries the site links in one of them, so it
+  // asks for the footer to be left off. One template renders them either way —
+  // two copies of a list of links is two lists to keep correct, and this one
+  // includes the terms.
+  footer = true
+} = {}) {
   return templates.render('layout', {
     title,
     description: templates.when(Boolean(description), 'meta-description', { description }),
     style: templates.asset('site.css'),
     account: accountBar(account, signInEnabled),
-    body
+    body,
+    footer: templates.when(footer, 'footer', { links: templates.render('site-links', {}) })
   })
 }
 
@@ -235,6 +243,9 @@ function searchShell ({
     summary: templates.render('meta-line', { text: summary }),
     services,
     side: sidebar(facetValues, total),
+    // The same list the footer renders on every other page. Here it is the
+    // left column instead, so the page has one and not both.
+    links: templates.render('site-links', {}),
     results: results.length
       ? results.map(resultItem).join('\n')
       : templates.when(Boolean(query), 'empty', { text: 'Nothing matched.' }),
@@ -270,7 +281,8 @@ export function renderLandingPage ({ corpus, results, facetValues, viewer = {} }
   })
   return layout('Plugin Universe', body, {
     description: 'An open, machine-readable database of DAW plugins with semantic search.',
-    ...viewer
+    ...viewer,
+    footer: false
   })
 }
 
@@ -291,7 +303,8 @@ export function renderSearchPage ({
   })
   return layout(query ? `${query} — Plugin Universe` : 'Search — Plugin Universe', body, {
     description: 'An open, machine-readable database of DAW plugins with semantic search.',
-    ...viewer
+    ...viewer,
+    footer: false
   })
 }
 
@@ -317,8 +330,9 @@ export function renderBrowsePage ({
     total: corpus
   })
   return layout('All plugins — Plugin Universe', body, {
-    description: 'Every plugin in the Plugin Universe catalogue, most recently added first.',
-    ...viewer
+    description: 'Every plugin in the Plugin Universe catalogue.',
+    ...viewer,
+    footer: false
   })
 }
 

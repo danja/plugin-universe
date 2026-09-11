@@ -108,11 +108,15 @@ Nothing here needs server access. The profiler runs on this machine.
 * The public SPARQL endpoint, on a separate published dataset.
 * The MCP endpoint, and `/services` describing every way in.
 * Backups: nightly on the server, pulled here nightly, restore rehearsed.
-* **Browsing by format and category.** Formats in full and the twelve largest
-  categories, with counts, beside the results on a wide screen and behind a
-  toggle on a narrow one. Twelve of twenty-eight was confirmed as the right
-  number; it is `sidebarCategories` in `config/preferences.js` if that ever
-  changes. One list of links, no script.
+* **Three columns on a wide screen.** Site links left, results centre, formats
+  and the twelve largest categories right — each side column a fixed width in
+  rem, so widening the window widens the results and nothing else. Below 58rem
+  it stacks: the browse panel behind a toggle at the top, the site links last
+  where a footer belongs. No script; the toggle is a checkbox. Twelve of
+  twenty-eight categories is settled — `sidebarCategories` in
+  `config/preferences.js` if it ever changes.
+* **The footer is gone from the three column pages** and is still the footer
+  everywhere else, rendered from one template either way.
 * **The front page shows plugins with a picture**, and the ordering claim it
   could not support is gone — every plugin shares one `dcterms:created`, so
   "most recently added" was alphabetical wearing a label. Recency becomes a real
