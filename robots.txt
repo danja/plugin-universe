@@ -18,9 +18,10 @@ Allow: /
 Disallow: /search
 Disallow: /*?q=
 
-# Faceted browsing is combinatorial for the same reason — seven facets against
-# seventy-odd pages. Plain paging of the front listing is allowed, and between
-# that and the category pages every plugin in the catalogue is reachable.
+# Faceted browsing is combinatorial for the same reason — eight facets against
+# seventy-odd pages. Plain paging of the browse list at /plugins is allowed, and
+# between that and the category pages every plugin in the catalogue is
+# reachable.
 Disallow: /*?
 Allow: /*?from=
 

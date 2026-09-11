@@ -67,6 +67,14 @@ catalogue now carry a reading.
 
 ## Phase 3b — the rest of the site
 
+* **`order: 'recent'` may not be doing anything.** The landing page asks
+  `search.browse({ order: 'recent' })` and says "Most recently added:", but the
+  local store returns them alphabetically — which is what `byName` would give.
+  Either most plugins share a `dcterms:created` date from a bulk harvest and the
+  sort is stable, or the ordering is not being applied. Worth a look before the
+  front-page decision is made, because that decision assumes "recent" means
+  something.
+
 Built on the accounts and moderation machinery Phase 3 finished, so none of this needs new
 foundations.
 

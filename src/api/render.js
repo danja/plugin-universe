@@ -153,7 +153,7 @@ function resultItem (r) {
  * page two of the catalogue is a place, it should be linkable and it should
  * work with the back button.
  */
-export function pager ({ total, offset, limit, params = {} }) {
+export function pager ({ total, offset, limit, params = {}, base = '/' }) {
   if (total <= limit) return ''
   const at = position => {
     const query = new URLSearchParams(
@@ -162,7 +162,7 @@ export function pager ({ total, offset, limit, params = {} }) {
     if (position > 0) query.set('from', String(position))
     else query.delete('from')
     const string = query.toString()
-    return `/${string ? `?${string}` : ''}`
+    return `${base}${string ? `?${string}` : ''}`
   }
   const step = (condition, position, rel, label) => condition
     ? templates.render('pager-link', { href: at(position), rel, label })
@@ -176,10 +176,21 @@ export function pager ({ total, offset, limit, params = {} }) {
   })
 }
 
-export function renderSearchPage ({
-  query, facets, results, total, corpus, elapsedMs, facetValues, viewer = {},
-  browsing = null
-}) {
+/**
+ * Three pages, one template, because they are three things.
+ *
+ * `/` was doing all of this at once — landing page, search results and the
+ * paged browse list — told apart by a `searched` boolean and a `browsing`
+ * object. Meanwhile /search and /plugins were the JSON representations of the
+ * second and third. One thing had two URLs and two URLs had one thing.
+ *
+ * Now each has its own address and its own representations, which is the model
+ * the rest of the site already uses for a plugin IRI. The template lays out;
+ * these three decide what goes in it.
+ */
+
+/** The facet dropdowns, with the current selection marked. */
+function facetControls (facetValues, facets) {
   const facetSelect = name => templates.render('search-facet', {
     name,
     options: templates.each('search-facet-option', facetValues?.[name] ?? [], value => ({
@@ -188,30 +199,90 @@ export function renderSearchPage ({
       selected: value.value === facets[name] ? ' selected' : ''
     }))
   })
+  return ['format', 'category', 'pricing', 'source'].map(facetSelect).join('\n  ')
+}
 
-  const searched = Boolean(query) || Object.values(facets).some(Boolean)
-  const body = templates.render('search', {
+/** The shared shell: the form, a summary line, results, and two optional slots. */
+function searchShell ({ query, facets, facetValues, summary, results, services, more, pager: pagerHtml }) {
+  return templates.render('search', {
     query: query ?? '',
-    facets: ['format', 'category', 'pricing', 'source'].map(facetSelect).join('\n  '),
-    summary: templates.render('meta-line', {
-      text: searched
-        ? `${total} of ${corpus} plugins${elapsedMs !== undefined ? `, ${elapsedMs} ms` : ''}`
-        : `${corpus} plugins indexed. Search by what a plugin does, not just its name.` +
-          `${browsing ? ' Most recently added first:' : ''}`
-    }),
-    // Shown only on the unsearched front page: somebody who has typed a query
-    // is looking for a plugin, not for an endpoint.
-    services: templates.when(!searched, 'services-note', {}),
+    facets: facetControls(facetValues, facets),
+    summary: templates.render('meta-line', { text: summary }),
+    services,
     results: results.length
       ? results.map(resultItem).join('\n')
       : templates.when(Boolean(query), 'empty', { text: 'Nothing matched.' }),
-    pager: browsing
-      ? pager({ total, offset: browsing.offset, limit: browsing.limit, params: { q: query, ...facets } })
-      : ''
+    more,
+    pager: pagerHtml
   })
+}
 
-  return layout(query ? `${query} — Plugin Universe` : 'Plugin Universe', body, {
+/**
+ * The landing page: what this is, how to search it, and a glimpse of what is in
+ * it — with the complete list one click away rather than paged from here.
+ *
+ * What the glimpse should be is still an open question; that it is a glimpse
+ * rather than page one of seventy-six is what this page needed in order for the
+ * question to be answerable at all.
+ */
+export function renderLandingPage ({ corpus, results, facetValues, viewer = {} }) {
+  const body = searchShell({
+    query: null,
+    facets: {},
+    facetValues,
+    summary: `${corpus} plugins indexed. Search by what a plugin does, not just its name.` +
+      `${results.length ? ' Most recently added:' : ''}`,
+    results,
+    // Only here: somebody who has typed a query is looking for a plugin, not
+    // for an endpoint.
+    services: templates.render('services-note', {}),
+    more: templates.when(results.length > 0, 'browse-all', {}),
+    pager: ''
+  })
+  return layout('Plugin Universe', body, {
     description: 'An open, machine-readable database of DAW plugins with semantic search.',
+    ...viewer
+  })
+}
+
+/** Search results. Ranked and capped: relevance past the first screen is noise. */
+export function renderSearchPage ({
+  query, facets, results, total, corpus, elapsedMs, facetValues, viewer = {}
+}) {
+  const body = searchShell({
+    query,
+    facets,
+    facetValues,
+    summary: `${total} of ${corpus} plugins${elapsedMs !== undefined ? `, ${elapsedMs} ms` : ''}`,
+    results,
+    services: '',
+    more: '',
+    pager: ''
+  })
+  return layout(query ? `${query} — Plugin Universe` : 'Search — Plugin Universe', body, {
+    description: 'An open, machine-readable database of DAW plugins with semantic search.',
+    ...viewer
+  })
+}
+
+/** The whole catalogue, a page at a time. */
+export function renderBrowsePage ({
+  results, total, offset, limit, facets, facetValues, corpus, viewer = {}
+}) {
+  const body = searchShell({
+    query: null,
+    facets,
+    facetValues,
+    summary: Object.values(facets).some(Boolean)
+      ? `${total} of ${corpus} plugins, most recently added first:`
+      : `All ${total} plugins, most recently added first:`,
+    results,
+    services: '',
+    more: '',
+    pager: pager({ total, offset, limit, params: facets, base: '/plugins' })
+  })
+  return layout('All plugins — Plugin Universe', body, {
+    description: 'Every plugin in the Plugin Universe catalogue, most recently added first.',
     ...viewer
   })
 }

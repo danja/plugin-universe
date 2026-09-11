@@ -103,6 +103,8 @@ complained, and each was found in production or by accident:
 | Added the `/moderation` route | the account bar that should link to it | a queue reachable only by typing the URL |
 | Added terms to `vocabs/plugin-universe.ttl` | the store's own copy of it, reloaded only by a full harvest | three metrics on plugin pages as bare local names, no label or unit |
 | Saved a test fixture as `*.log` | `.gitignore`, which excludes `*.log` | a test that passes here and fails on a fresh clone |
+| Added a facet to the search | the copy of the facet list in `/plugins` | `?category=reverb` silently ignored on the browse list |
+| Added a block to `site.css` | its `a { color: … }` rule, one of five opt-ins | 17 of 35 front-page links in browser-default blue |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
@@ -118,6 +120,11 @@ Specifically, before finishing a change, check:
 - Does a new route have something linking to it?
 - Does `.gitignore` exclude a file a test reads? A fixture is source, not output.
 - Did a new term in `vocabs/` reach the *store's* copy? `bin/ingest.js --vocabs-only`.
+
+**Where a list must exist, make it one list and export it.** `FACET_NAMES` in
+`src/api/server.js` and the base `a` rule in `templates/site.css` are both
+this — a default that cannot be forgotten, rather than a list that must be
+remembered. Prefer that shape to a checklist entry whenever it is available.
 
 ## HTML lives in files, not in code
 

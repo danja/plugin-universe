@@ -41,12 +41,16 @@ Nothing here needs server access. The profiler runs on this machine.
 * **What the front page should show.** Most-recently-added means a run of
   image-less LV2 utilities after the sweep: accurate, and a poor first
   impression. Recent-but-only-with-a-picture, a curated handful, or
-  random-but-good.
+  random-but-good. **Easier to answer now:** `/` no longer has to be the
+  exhaustive browse list — that is `/plugins` — so whatever `/` shows is a
+  glimpse of ten, and nothing is lost by curating it.
 * **What goes beside the results on a wide screen.** Facets, categories,
   recently added, or a hamburger. A taste question.
 * **A sitemap.** `robots.txt` has no `Sitemap:` line because there is no
   sitemap, and pointing at a 404 is the same defect as advertising a contact
-  page that does not exist. Worth having for 750-odd plugin pages.
+  page that does not exist. Worth having for 750-odd plugin pages. **Easier to
+  answer now:** the list is `/`, `/plugins` and its pages, the category pages
+  and the plugin pages. `/search` stays out, and `robots.txt` already says so.
 * **When to get the contributor terms properly reviewed.** A second opinion
   judged them adequate and contributions are open on that basis. The trigger for
   a real review is **promotion** — advertising, or taking money for placement —

@@ -9,11 +9,28 @@
  * call from a browser is not much of an open dataset.
  */
 
+/**
+ * `Vary: Accept` on everything, not on the routes that happen to negotiate.
+ *
+ * This site chooses a representation from the Accept header on plugin IRIs,
+ * category pages, /search and /plugins. Without Vary, any shared cache is
+ * entitled to hand the Turtle it stored for a crawler to the next person who
+ * opens the same URL in a browser. Nothing was setting it anywhere.
+ *
+ * It is unconditional for the same reason the stylesheet now sets a default
+ * link colour: a rule that has to be remembered per route is a rule that will
+ * be missed by the next route. The cost on a response that does not negotiate
+ * is a little less cache sharing; the cost of omitting it where one does is
+ * serving the wrong document.
+ */
+export const VARY = 'Accept'
+
 export const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Cache-Control': 'public, max-age=60'
+  'Cache-Control': 'public, max-age=60',
+  Vary: VARY
 }
 
 /**
@@ -33,9 +50,24 @@ export function sendText (response, status, body, contentType) {
   response.writeHead(status, {
     'Content-Type': contentType,
     'Access-Control-Allow-Origin': '*',
-    'Content-Length': Buffer.byteLength(body)
+    'Content-Length': Buffer.byteLength(body),
+    Vary: VARY
   })
   response.end(body)
+}
+
+/**
+ * Send somebody to the URL that now holds what they asked for.
+ *
+ * 302 rather than 301, deliberately. These redirects carry the old shapes —
+ * `/?q=…` and `/?from=…` — to `/search` and `/plugins`, and a 301 is cached by
+ * browsers indefinitely and effectively cannot be withdrawn. Nothing here needs
+ * the ranking value of a permanent redirect: these are parameter URLs that no
+ * sitemap will list. Promote them once the shape has settled.
+ */
+export function redirect (response, location, status = 302) {
+  response.writeHead(status, { Location: location, Vary: VARY, 'Content-Length': 0 })
+  response.end()
 }
 
 export function send (response, status, body) {

@@ -76,6 +76,7 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .pager .page { color:var(--muted); }
 .scope { font-style:italic; }
 .services { color:var(--muted); font-size:.92rem; margin:-.6rem 0 1.2rem; }
+.browse-all { color:var(--muted); font-size:.92rem; margin:1.2rem 0 0; }
 .measured table { margin:.4rem 0 .6rem; }
 .badge-warn { background:#7a3b12; color:#ffd9b3; }
 .muted { color:var(--muted); }

@@ -7,12 +7,13 @@ import logger from 'loglevel'
 import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
-  renderSearchPage, renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage,
+  renderLandingPage, renderSearchPage, renderBrowsePage,
+  renderPluginPage, renderCategoryPage, renderDocPage, renderModerationPage,
   renderContributionsPage, renderVocabularies
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
-import { send, sendText, needsSignIn, JSON_HEADERS, LICENCE } from './respond.js'
+import { send, sendText, redirect, needsSignIn, JSON_HEADERS, LICENCE, HTML } from './respond.js'
 import { readForm, BodyError } from './body.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 import buildRegistry from './registry.js'
@@ -75,6 +76,25 @@ export const VOCABULARIES = Object.freeze({
  * An explicit .ttl or .jsonld suffix wins; otherwise the Accept header decides,
  * defaulting to HTML because the common case is a person following a link.
  */
+/**
+ * The facets a caller may filter by, in one place.
+ *
+ * This list was written out three times — in `/`, in `/search` and in
+ * `/plugins` — and `/plugins` had silently fallen behind: it accepted none of
+ * them, so `?category=reverb` on the browse list was ignored rather than
+ * refused. It is also the list `/services` documents and the one the search
+ * form's dropdowns are built from, so it is exactly the shape of thing this
+ * project keeps getting wrong by copying.
+ */
+export const FACET_NAMES = Object.freeze([
+  'format', 'category', 'role', 'vendor', 'source', 'pricing', 'licence', 'measured'
+])
+
+/** The facet filter a request is asking for; null for each one it is not. */
+export function facetsFrom (params) {
+  return Object.fromEntries(FACET_NAMES.map(name => [name, params.get(name) || null]))
+}
+
 export function negotiate (suffix, acceptHeader = '') {
   if (suffix === '.ttl') return 'turtle'
   if (suffix === '.jsonld') return 'jsonld'
@@ -85,6 +105,22 @@ export function negotiate (suffix, acceptHeader = '') {
   if (accept.includes('application/json')) return 'json'
   if (accept.includes('text/html')) return 'html'
   return 'html'
+}
+
+/**
+ * Whether this caller asked for a page, on a route whose default is JSON.
+ *
+ * The inverse default from negotiate(), and deliberately a separate function
+ * rather than a flag on it. `/plugin/<slug>` is a page that gained machine
+ * representations, so no Accept header at all means HTML — somebody pasted an
+ * IRI into a browser. `/search` and `/plugins` are the opposite: documented
+ * JSON endpoints that have gained a page. curl sends a wildcard Accept and
+ * `fetch()` with no headers sends none at all; both have been receiving JSON
+ * since the API was written down in docs/services.md, and both must keep
+ * receiving it. Only an explicit text/html changes the answer.
+ */
+export function prefersPage (acceptHeader = '') {
+  return String(acceptHeader).toLowerCase().includes('text/html')
 }
 
 /**
@@ -170,9 +206,10 @@ export function createServer ({
   // one page at startup proves the directory arrived and that its placeholders
   // and this code still agree.
   try {
-    renderSearchPage({
-      query: null, facets: {}, results: [], total: 0, corpus: 0, facetValues: {}
-    })
+    const empty = { facets: {}, results: [], total: 0, corpus: 0, facetValues: {} }
+    renderLandingPage(empty)
+    renderSearchPage({ ...empty, query: 'smoke' })
+    renderBrowsePage({ ...empty, offset: 0, limit: 10 })
   } catch (error) {
     throw new Error(
       `The page templates are unusable: ${error.message}\n` +
@@ -236,44 +273,27 @@ export function createServer ({
 
       switch (path) {
         case '/': {
-          // The search page. Same service, same signals as the JSON endpoint.
-          const q = params.get('q')
-          const facets = {
-            format: params.get('format') || null,
-            category: params.get('category') || null,
-            role: params.get('role') || null,
-            vendor: params.get('vendor') || null,
-            source: params.get('source') || null,
-            pricing: params.get('pricing') || null,
-            licence: params.get('licence') || null,
-            measured: params.get('measured') || null
+          // `/` used to be the landing page, the search results and the paged
+          // browse list at once, told apart by which parameters arrived. Each
+          // now has its own address, so the old shapes are sent to their new
+          // homes rather than answered here — otherwise every bookmark, every
+          // shared link and every crawler's index breaks on deploy.
+          if (params.get('q') || FACET_NAMES.some(name => params.get(name))) {
+            return redirect(response, `/search?${params.toString()}`)
           }
-          // One rule: a query is ranked and capped, because relevance past the
-          // first screen is noise; anything else is a browse — most recently
-          // added first, a page at a time, facets or no facets. An unsearched
-          // front page that lists nothing tells a first-time visitor nothing
-          // about what is in here, and a facet chosen from the dropdown is a
-          // browse whether or not it is also a filter.
-          const browsing = q
-            ? null
-            : { limit: RETRIEVAL_CONFIG.browsePageSize, offset: pageOffset(params) }
-          const outcome = q
-            ? await search.search(q, { facets, limit: 25 })
-            : await search.browse({ ...browsing, facets, order: 'recent' })
-          const html = renderSearchPage({
-            query: q,
-            facets,
-            results: outcome.results,
-            total: outcome.total,
-            corpus: search.documents.size,
-            elapsedMs: (q || Object.values(facets).some(Boolean)) ? Date.now() - started : undefined,
-            facetValues: await search.facets(),
-            // The offset the service actually used, which is not necessarily
-            // the one that was asked for.
-            browsing: browsing ? { ...browsing, offset: outcome.offset } : null,
-            viewer
+          if (params.get('from')) {
+            return redirect(response, `/plugins?${params.toString()}`)
+          }
+
+          const outcome = await search.browse({
+            limit: RETRIEVAL_CONFIG.browsePageSize, offset: 0, order: 'recent'
           })
-          return sendText(response, 200, html, 'text/html; charset=utf-8')
+          return sendText(response, 200, renderLandingPage({
+            corpus: search.documents.size,
+            results: outcome.results,
+            facetValues: await search.facets(),
+            viewer
+          }), HTML)
         }
 
         case '/health': {
@@ -295,28 +315,57 @@ export function createServer ({
 
         case '/search': {
           const q = params.get('q')
-          const facets = {
-            format: params.get('format'),
-            role: params.get('role'),
-            category: params.get('category'),
-            vendor: params.get('vendor'),
-            source: params.get('source'),
-            pricing: params.get('pricing'),
-            licence: params.get('licence'),
-            measured: params.get('measured')
-          }
-          const limit = Math.min(
-            Number(params.get('limit')) || RETRIEVAL_CONFIG.defaultPageSize,
-            RETRIEVAL_CONFIG.maxPageSize
+          const facets = facetsFrom(params)
+          const asked = Boolean(q) || Object.values(facets).some(Boolean)
+          const wantsHtml = prefersPage(request.headers.accept)
+
+          // A browser submits every <select> in the form, including the ones
+          // left on "any", so the search box produces
+          // `?q=reverb&format=&category=&pricing=&source=`. That is the URL a
+          // person copies and shares, and four empty parameters make it a
+          // different string from the same search reached any other way —
+          // which is the duplication this whole split exists to remove. Strip
+          // them once and settle on the short form. No loop: nothing empty
+          // survives the cleaning.
+          const tidy = new URLSearchParams(
+            [...params.entries()].filter(([, value]) => value !== '')
           )
-          if (!q && !Object.values(facets).some(Boolean)) {
+          if (wantsHtml && tidy.toString() !== params.toString()) {
+            return redirect(response, tidy.toString() ? `/search?${tidy}` : '/')
+          }
+
+          if (!asked) {
+            // Nothing to search for. A person gets the page with the search box
+            // on it; a program gets told what it left out.
+            if (wantsHtml) return redirect(response, '/')
             return send(response, 400, {
               error: 'Provide q, or at least one of format, role, category, vendor, source, pricing, licence, measured'
             })
           }
+
+          const limit = wantsHtml
+            ? RETRIEVAL_CONFIG.htmlPageSize
+            : Math.min(
+              Number(params.get('limit')) || RETRIEVAL_CONFIG.defaultPageSize,
+              RETRIEVAL_CONFIG.maxPageSize
+            )
           const outcome = q
             ? await search.search(q, { facets, limit })
-            : await search.browse({ facets, limit })
+            : await search.browse({ facets, limit, order: 'recent' })
+
+          if (wantsHtml) {
+            return sendText(response, 200, renderSearchPage({
+              query: q,
+              facets,
+              results: outcome.results,
+              total: outcome.total,
+              corpus: search.documents.size,
+              elapsedMs: Date.now() - started,
+              facetValues: await search.facets(),
+              viewer
+            }), HTML)
+          }
+
           return send(response, 200, {
             query: q ?? null,
             facets: Object.fromEntries(Object.entries(facets).filter(([, v]) => v)),
@@ -334,11 +383,36 @@ export function createServer ({
         }
 
         case '/plugins': {
+          const wantsHtml = prefersPage(request.headers.accept)
+          const facets = facetsFrom(params)
+          // The page a person reads is a fixed size; the JSON is the caller's
+          // to choose, up to the cap. Ordering differs for the same reason the
+          // two exist: a person browsing wants what is new, a program paging
+          // through the whole catalogue wants a stable order.
           const outcome = await search.browse({
-            limit: Math.min(Number(params.get('limit')) || 50, RETRIEVAL_CONFIG.maxPageSize),
+            limit: wantsHtml
+              ? RETRIEVAL_CONFIG.browsePageSize
+              : Math.min(Number(params.get('limit')) || 50, RETRIEVAL_CONFIG.maxPageSize),
             offset: pageOffset(params),
-            order: params.get('order') === 'recent' ? 'recent' : 'name'
+            facets,
+            order: wantsHtml
+              ? (params.get('order') === 'name' ? 'name' : 'recent')
+              : (params.get('order') === 'recent' ? 'recent' : 'name')
           })
+
+          if (wantsHtml) {
+            return sendText(response, 200, renderBrowsePage({
+              results: outcome.results,
+              total: outcome.total,
+              offset: outcome.offset,
+              limit: RETRIEVAL_CONFIG.browsePageSize,
+              facets,
+              facetValues: await search.facets(),
+              corpus: search.documents.size,
+              viewer
+            }), HTML)
+          }
+
           return send(response, 200, {
             total: outcome.total,
             offset: outcome.offset,

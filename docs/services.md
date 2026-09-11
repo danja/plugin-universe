@@ -16,6 +16,10 @@ matter from the catalogue's.
 Retrieval is semantic, so "warm analogue bus compressor" works better than a
 product name.
 
+A search has an address: `/search?q=warm+analogue+bus+compressor` is the page
+you are looking at, so it can be linked and shared. [`/plugins`](/plugins) is
+the whole catalogue, most recently added first, a page at a time.
+
 ## For a program: the JSON API
 
 No key, no account, CORS open.
@@ -31,7 +35,16 @@ GET /health
 ```
 
 Facets are `format`, `category`, `role`, `vendor`, `source`, `pricing`,
-`licence` and `measured`. They filter and never re-rank.
+`licence` and `measured`. They filter and never re-rank. They work on
+`/plugins` as well as `/search`.
+
+**`/search` and `/plugins` answer in two languages.** JSON is the default —
+that is what these paths have always been, and a caller sending no `Accept`
+header or a wildcard one still gets exactly what it got before. Ask for
+`text/html` and you get the page instead, which is what makes one of these URLs
+something you can paste to a colleague. `/facets` is JSON only: the facet
+values *are* the dropdowns on the search form, so there is no separate page to
+send anyone to.
 
 ## For a database: content negotiation
 

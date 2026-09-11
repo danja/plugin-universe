@@ -40,10 +40,16 @@ export const RETRIEVAL_CONFIG = {
   defaultPageSize: 20,
   maxPageSize: 100,
 
-  // The front-page listing, shown when nobody has searched for anything yet.
+  // A page of the browse list at /plugins, and the glimpse on the landing page.
   // Ten because it is a sample meant to show what the catalogue holds and to
-  // be scanned in one screen, not a way to read 645 plugins ten at a time.
-  browsePageSize: 10
+  // be scanned in one screen.
+  browsePageSize: 10,
+
+  // Results on an HTML search page. Fixed rather than caller-chosen, because
+  // nobody reading a page asked for a page size, and relevance past the first
+  // screen or two is noise. The JSON caller still chooses its own, up to
+  // maxPageSize — it may well be paging the whole catalogue.
+  htmlPageSize: 25
 }
 
 /**
