@@ -109,19 +109,6 @@ services:
     container_name: plugin-universe-app
     ports:
       - "127.0.0.1:${APP_PORT:-4100}:4100"
-    volumes:
-      # Uploaded pictures. `.dockerignore` excludes `data`, so without this
-      # mount they are written inside the container and vanish on the next
-      # `docker compose up -d --build app` — the upload succeeds, the page
-      # shows the picture, and it is gone after the next deploy. They are also
-      # the first thing this project stores that no harvester can rebuild, so
-      # losing them is not recoverable by re-running anything.
-      - ./data/images:/app/data/images
-      # The dumps, writable: bin/dump.js writes them and nginx serves the same
-      # directory read-only. Without this the /admin "Rebuild dumps" button
-      # writes inside the container, where nginx never looks — the dump would
-      # succeed, report a file count, and change nothing anybody can fetch.
-      - ./data/dumps:/app/data/dumps
     environment:
       # Service names, not localhost: inside the compose network these resolve
       # to the other containers. Set here rather than in .env because they are
@@ -174,6 +161,17 @@ services:
       # volume with the index and the caches. A bind mount nested inside
       # /app/data wins over the volume for this path.
       - ./data/curation:/app/data/curation
+      # Uploaded pictures and the published dumps, for the same reason and by
+      # the same mechanism: nginx serves both off the host, so they cannot live
+      # inside the app-data volume where only this container can see them.
+      #
+      # The pictures are the first thing here that no harvester can rebuild —
+      # sealed in the volume they would survive a rebuild but be invisible to
+      # nginx and to the backup, which reads the host path. The dumps are
+      # written by bin/dump.js and by the /admin button; without this mount
+      # both report a file count and change nothing anybody can fetch.
+      - ./data/images:/app/data/images
+      - ./data/dumps:/app/data/dumps
     depends_on:
       fuseki:
         condition: service_healthy
