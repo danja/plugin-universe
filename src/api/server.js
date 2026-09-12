@@ -1168,6 +1168,19 @@ export function createServer ({
             const doc = search.documents.get(iri)
             if (!doc) return send(response, 404, { error: 'No such plugin', iri })
 
+            // What, if anything, this reader may be offered for this plugin.
+            // Read once per page. Stripe unreachable withholds the offer rather
+            // than rendering a button with no amount on it.
+            let promoteOffer = { price: null, proLabel: null }
+            if (billing && viewer.account && !doc.promoted) {
+              try {
+                const prices = await billingPrices(billing)
+                promoteOffer = { price: prices.single?.text ?? null, proLabel: prices.pro?.label ?? null }
+              } catch (error) {
+                logger.warn(`[billing] no price for the plugin page: ${error.message}`)
+              }
+            }
+
             switch (negotiate(match[2], request.headers.accept)) {
               case 'turtle':
                 return sendText(response, 200, pluginTurtle(doc), 'text/turtle; charset=utf-8')
@@ -1193,7 +1206,19 @@ export function createServer ({
                         // shipped as.
                         mayUploadImage: Boolean(images) && (
                           viewer.account?.trustLevel === TRUST.TRUSTED ||
-                          viewer.account?.trustLevel === TRUST.MODERATOR)
+                          viewer.account?.trustLevel === TRUST.MODERATOR),
+                        // Likewise the only place /plugin/<slug>/promote is
+                        // reachable from. It shipped without one.
+                        billing: Boolean(billing),
+                        promotePrice: promoteOffer.price,
+                        proLabel: promoteOffer.proLabel,
+                        // The same three conditions the route enforces. This
+                        // decides what a page *offers*; the route decides what
+                        // it grants, and both check independently.
+                        promoteIncluded: Boolean(
+                          viewer.account?.tier === TIER.PRO &&
+                          viewer.account?.claimsVendor &&
+                          doc.vendor && vendorKey(doc.vendor) === viewer.account.claimsVendor)
                       }
                     : null,
                   search.measured(iri),

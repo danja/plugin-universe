@@ -1,0 +1,10 @@
+<div class="prov">
+  <h3>Promote this plugin</h3>
+  <p>Included in your <strong>{{proLabel}}</strong> subscription — no further charge.
+    <a href="/about/promotion">What promotion changes, and what it does not</a>.</p>
+  <form method="post" action="/plugin/{{slug}}/promote">
+    <input type="hidden" name="csrf" value="{{csrf}}">
+    <button type="submit">Promote this plugin</button>
+  </form>
+  <p class="tags">It runs until your subscription does, and stops when that stops.</p>
+</div>

@@ -135,8 +135,28 @@ function substituteDollar (template) {
 }
 
 /** The paths the renderer links to, as far as they are statically decidable. */
+/**
+ * The prose pages, which are served markup and were not being read.
+ *
+ * `/about`, `/services`, `/terms` and the rest are `docs/*.md` rendered into the
+ * site's chrome — their links are links on the site, and the guard was blind to
+ * every one of them. That made `/about/sparql` and `/about/mcp` look orphaned
+ * when `/services` links to both, which is the same way this test once went
+ * blind rather than red by reading `render.js` after the links had moved.
+ *
+ * Only the files actually in PAGES: a document in `docs/` that nothing serves
+ * is not part of the site and its links are not site links.
+ */
+const PROSE = Object.values(PAGES)
+  .map(page => fs.readFileSync(page.file, 'utf8'))
+  .join('\n')
+
 function linkedPaths () {
-  const links = [...RENDER.matchAll(/(?:href|action)="([^"]*)"/g)].map(match => match[1])
+  const links = [
+    ...[...RENDER.matchAll(/(?:href|action)="([^"]*)"/g)].map(match => match[1]),
+    // Markdown, in the prose pages: [text](/path)
+    ...[...PROSE.matchAll(/\]\((\/[^)\s]*)\)/g)].map(match => match[1])
+  ]
   return [...new Set(
     links
       .map(substitute)
@@ -145,7 +165,24 @@ function linkedPaths () {
   )]
 }
 
-const served = path => STATIC_ROUTES.has(path) || DYNAMIC_ROUTES.some(route => route.test(path))
+/**
+ * Paths nginx serves from disk, which the application has no route for.
+ *
+ * Surfaced the moment this guard started reading the prose pages: `/services`
+ * links to `/dumps/`, and nothing in `src/` answers it — nginx does, from
+ * `data/dumps`. That is the intended arrangement and not a defect, **but it
+ * means a deployment without the proxy in front 404s on a link the site
+ * shows.** `/image/` is the counter-example and the better pattern: nginx
+ * serves it and the app keeps a route as the fallback.
+ */
+const SERVED_BY_NGINX = Object.freeze({
+  '/dumps/': 'nginx serves it from data/dumps; the app has no fallback route, so a proxy-less instance 404s'
+})
+
+const served = path =>
+  STATIC_ROUTES.has(path) ||
+  Boolean(SERVED_BY_NGINX[path]) ||
+  DYNAMIC_ROUTES.some(route => route.test(path))
 
 describe('the routes the site links to', () => {
   it('reads the dispatcher rather than a second copy of it', () => {
@@ -176,6 +213,60 @@ describe('the routes the site links to', () => {
   it('reads the templates, which is where the markup now lives', () => {
     expect(RENDER).toContain('Plugin Universe')
     expect(RENDER.length).toBeGreaterThan(5000)
+  })
+
+  /**
+   * The other direction, which this guard could not see.
+   *
+   * It has always checked that a link points at a route. It has never checked
+   * that a route has a link — and *that* is the failure in CLAUDE.md's table,
+   * five times over: `/moderation`, `/plugin/<slug>/image`, and most recently
+   * `/plugin/<slug>/promote`, which shipped with a working Stripe checkout
+   * behind it and nothing on the site able to reach it.
+   *
+   * Not every route wants a link: a webhook is called by Stripe, `/health` by a
+   * monitor, a `.ttl` by a machine. So this is a named list of what is reached
+   * some other way, and anything else must be reachable by clicking.
+   */
+  const REACHED_WITHOUT_A_LINK = Object.freeze({
+    '/facets': 'JSON only, for an API consumer; /services documents it in a code block',
+    '/billing/webhook': 'Stripe POSTs to it; no page links to a webhook',
+    '/health': 'a monitor polls it',
+    '/robots.txt': 'crawlers fetch it by convention',
+    '/auth/callback': 'GitHub redirects to it',
+    '/auth/login': 'reached from the sign-in link, which is built in the account bar',
+    '/registry/plugins/index.json': 'a package manager reads it',
+    '/ns': 'linked as Vocabularies, and negotiated to JSON for machines'
+  })
+
+  it('gives every fixed route something that links to it', () => {
+    const linked = new Set(linkedPaths())
+    const orphans = [...STATIC_ROUTES]
+      .filter(route => !linked.has(route))
+      .filter(route => !REACHED_WITHOUT_A_LINK[route])
+      .filter(route => !route.endsWith('.ttl') && !route.endsWith('.jsonld'))
+    expect(
+      orphans,
+      `These routes exist and nothing on the site links to them: ${orphans.join(', ')}. ` +
+      'Either link them, or add them to REACHED_WITHOUT_A_LINK with the reason.'
+    ).toEqual([])
+  })
+
+  it('says which paths depend on the proxy rather than the app', () => {
+    // Not a defect, but not free either: each of these 404s on an instance
+    // running without nginx in front. /image/ is the pattern that avoids it —
+    // nginx serves it and the app keeps a fallback route.
+    for (const [path, why] of Object.entries(SERVED_BY_NGINX)) {
+      expect(why.length, path).toBeGreaterThan(20)
+      expect(STATIC_ROUTES.has(path), `${path} is served by the app after all`).toBe(false)
+    }
+  })
+
+  it('requires a reason for every route exempted from that', () => {
+    // An exemption without one is how a list of three becomes a list of twenty.
+    for (const [route, why] of Object.entries(REACHED_WITHOUT_A_LINK)) {
+      expect(why.length, route).toBeGreaterThan(15)
+    }
   })
 
   it('serves every one of them', () => {

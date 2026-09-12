@@ -1,0 +1,12 @@
+<div class="prov">
+  <h3>Promote this plugin</h3>
+  <p>{{price}} for a year. It appears above other results for searches it genuinely
+    matches, carrying a <strong>Promoted</strong> label.
+    <a href="/about/promotion">What that changes, and what it does not</a>.</p>
+  <form method="post" action="/plugin/{{slug}}/promote">
+    <input type="hidden" name="csrf" value="{{csrf}}">
+    <button type="submit">Promote for a year — {{price}}</button>
+  </form>
+  <p class="tags">Paid once, not a subscription. It ends after a year rather than
+    renewing, and you will be told before it does.</p>
+</div>

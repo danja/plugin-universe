@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-seven entries is past the point where anyone reads them all, so what follows
+Forty-eight entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index. Entries are consolidated when several
 turn out to be one lesson, and promoted into [CLAUDE.md](CLAUDE.md) when a
@@ -81,6 +81,47 @@ moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — Built a checkout nothing on the site could reach
+
+**What happened.** `/plugin/<slug>/promote` shipped with a working Stripe
+checkout, a webhook, idempotent fulfilment and a Pro entitlement behind it —
+and no button anywhere. The account page said "the button is on the plugin's
+own page", which was false when it was written.
+
+**Root cause.** The sixth instance of the entry that already leads CLAUDE.md's
+table, committed while writing about that table. The guard that exists for it,
+`tests/api/linked-routes.test.js`, could not catch it: it checks that every
+**link points at a route**, and never that a **route has a link**. Those are
+different assertions and only the first was being made.
+
+**Prevention.** The guard now makes both. Anything in `STATIC_ROUTES` with
+nothing linking to it fails, unless it is in `REACHED_WITHOUT_A_LINK` with a
+written reason — a webhook Stripe POSTs to, a `/health` a monitor polls, an
+OAuth callback GitHub redirects to.
+
+**Two further defects the new check surfaced immediately**, neither of them
+mine:
+
+- **The guard was blind to the prose pages.** `/about/sparql` and `/about/mcp`
+  looked orphaned; `/services` links to both. It scraped `render.js` and
+  `templates/` and never `docs/*.md`, which are served markup — the same way it
+  once went blind by reading `render.js` after the links had moved. It now reads
+  the files named in `PAGES`, and only those: a document in `docs/` that nothing
+  serves is not part of the site.
+- **`/dumps/` is linked from the site and the application cannot serve it.**
+  nginx serves it from disk, which is intended — but it means an instance
+  running without the proxy 404s on a link it displays. `/image/` is the better
+  pattern: nginx serves it *and* the app keeps a fallback route. Recorded in
+  `SERVED_BY_NGINX` with that reasoning rather than silently exempted.
+
+**The shape worth keeping.** A guard against a class of failure can be checking
+one direction of a two-way relationship and look complete. "Every link resolves"
+and "everything reachable is linked" sound like one property and are two, and
+this project has now shipped the second failure six times while the test for the
+first passed.
 
 ---
 

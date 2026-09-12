@@ -139,7 +139,11 @@ Specifically, before finishing a change, check:
 - Does `.dockerignore` exclude a path the app now reads at runtime?
 - Is a new `tests/<dir>/` in `vitest.core.config.js`?
 - Does a published URL — user agent, docs link, IRI — resolve to a route?
-- Does a new route have something linking to it?
+- Does a new route have something linking to it? **`tests/api/linked-routes.test.js` now checks
+  both directions** — a link with no route *and* a route with no link. It was only ever checking
+  the first, which is why `/plugin/<slug>/promote` shipped with a Stripe checkout behind it and
+  no button anywhere. "Every link resolves" and "everything is reachable" sound like one
+  property and are two.
 - Does `.gitignore` exclude a file a test reads? A fixture is source, not output.
 - Does anything new persist outside the triple store? Then `.dockerignore`, a compose
   volume and `BackupBuilder` all have to know, and none of them will complain.

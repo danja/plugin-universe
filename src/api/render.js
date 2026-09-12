@@ -88,6 +88,36 @@ function availabilityBadges (r) {
 }
 
 /**
+ * Whether this reader can promote this plugin, and on what terms.
+ *
+ * Four outcomes, and the first two are the ones that keep the page honest: a
+ * placement that is already running says so rather than offering to sell a
+ * second, and a reader who cannot buy is shown nothing rather than a button
+ * that will refuse them.
+ */
+function promoteBlock (doc, contribution, slug) {
+  if (!contribution?.billing) return ''
+  if (doc.promoted) {
+    return templates.render('promote-live', { until: String(doc.promotedUntil ?? '').slice(0, 10) })
+  }
+  if (!contribution.account) return ''
+  if (contribution.promoteIncluded) {
+    return templates.render('promote-included', {
+      slug,
+      csrf: contribution.csrfToken,
+      proLabel: contribution.proLabel ?? 'Pro'
+    })
+  }
+  // Without a price there is nothing honest to put on the button, so the offer
+  // is withheld rather than made vaguely. Stripe being unreachable should not
+  // produce a "buy" with no amount on it.
+  if (!contribution.promotePrice) return ''
+  return templates.render('promote-buy', {
+    slug, csrf: contribution.csrfToken, price: contribution.promotePrice
+  })
+}
+
+/**
  * A licence identifier as a reader should see it.
  *
  * `GPL` sitting in a list beside `GPL-3.0` and `GPL-2.0` looks like a
@@ -511,6 +541,12 @@ export function renderPluginPage (
     measurements: renderMeasurements(measured),
     provenance: renderProvenance(doc),
     correctionForm: contribution ? renderCorrectionForm(doc, contribution) : '',
+    // Buying or claiming a placement. The route existed before this did, which
+    // made it unreachable from the site — the failure CLAUDE.md lists more
+    // often than any other, and one the linked-routes guard cannot catch,
+    // because it looks for links pointing at missing routes and not for routes
+    // nothing points at.
+    promoteForm: promoteBlock(doc, contribution, path.replace('/plugin/', '')),
     // Only for somebody who may actually use it. A form shown to a reader who
     // will be refused is a promise the page cannot keep.
     imageForm: contribution?.mayUploadImage
