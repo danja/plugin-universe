@@ -1,0 +1,13 @@
+  <h3>Promoted listings</h3>
+  <p class="meta">{{summary}} <a href="/about/promotion">What a placement does to ranking</a>
+    — that page states the numbers publicly, so changing them changes a published commitment.</p>
+  <form method="post" action="/admin" class="promote-form">
+    <input type="hidden" name="csrf" value="{{csrf}}">
+    <label for="promote-slug">Plugin</label>
+    <span class="field-help">The address of its page, or just the slug from the end of it.</span>
+    <input type="text" id="promote-slug" name="slug" placeholder="dragonfly-hall-reverb-1a2b3c4d" required>
+    <button type="submit" name="promote" value="1">Promote for a year</button>
+    <button type="submit" name="unpromote" value="1" class="secondary">End placement</button>
+  </form>
+  {{{expiring}}}
+  {{{live}}}

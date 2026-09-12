@@ -23,7 +23,8 @@ const TYPE_PATHS = Object.freeze({
   measurement: 'measurement',
   package: 'package',
   correction: 'correction',
-  revision: 'revision'
+  revision: 'revision',
+  promotion: 'promotion'
 })
 
 /**

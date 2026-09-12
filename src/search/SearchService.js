@@ -1,4 +1,4 @@
-import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
+import { RETRIEVAL_CONFIG, PROMOTION_CONFIG } from '../../config/preferences.js'
 import { iri, literal } from '../store/SPARQLHelper.js'
 import QueryService from '../store/QueryService.js'
 import GraphRegistry from '../store/GraphRegistry.js'
@@ -44,6 +44,91 @@ export class SearchError extends Error {
  */
 export function fuse (lexical, vector) {
   return lexical * RETRIEVAL_CONFIG.lexicalWeight + vector * RETRIEVAL_CONFIG.vectorWeight
+}
+
+/**
+ * Paid placement, applied to an already-ranked list.
+ *
+ * A re-rank after retrieval, never a filter and never an insertion —
+ * `docs/architecture.md` §7: *a promoted result may be boosted but never
+ * inserted where it does not match the query*. Everything here exists to keep
+ * that sentence true, and each guard is separately load-bearing:
+ *
+ *  1. **It only boosts what retrieval already returned.** The list in is the
+ *     list out, reordered. Nothing is added, so nothing can appear in a search
+ *     it did not match.
+ *  2. **A multiplier, not an addition.** Anything times 1.25 is still nothing,
+ *     so the boost cannot manufacture relevance out of a zero score.
+ *  3. **A floor.** Scoring above zero is a low bar — one weak token in a
+ *     description clears it. `floor` is the "moderate match" bar the boost
+ *     needs to be worth applying at all, and below it a promoted plugin ranks
+ *     exactly as it would unpromoted.
+ *  4. **A rank cap**, `maxPromotedRank`, which is currently 1 — a placement may
+ *     reach first place. It is the weakest of the four and always was: what
+ *     keeps a search trustworthy is that a paid result cannot appear where it
+ *     does not belong, not which position it takes among results that do.
+ *  5. **A count cap.** At most `maxPromotedPerPage` placements in one page.
+ *
+ * Reaching first place is *permitted*, not bought outright: the boost is a
+ * multiplier, so a substantially better match still wins. A placement scoring
+ * 0.6 against a 1.4 match goes to 0.75 and stays second.
+ *
+ * Every result the boost touched is flagged `promoted`, which is what the label
+ * on the page and the field in the JSON are rendered from. A boost that were
+ * ever applied without that flag would be an undisclosed ad.
+ *
+ * @param {object[]} ranked - results sorted best-first, each with `score`
+ * @param {Map<string, object>} promoted - live placements by plugin IRI
+ * @returns {object[]} the same results, reordered, some flagged
+ */
+export function applyPromotion (ranked, promoted, config = PROMOTION_CONFIG) {
+  if (!promoted || promoted.size === 0) return ranked
+
+  let placed = 0
+  const boosted = ranked.map((result, earnedRank) => {
+    const placement = promoted.get(result.iri)
+    // `earnedRank` is where retrieval put it, before any money. Kept on every
+    // result because guard 4 needs to tell a place that was bought from a place
+    // that was won.
+    if (!placement) return { ...result, earnedRank }
+    // Guard 3: below the floor a placement buys nothing at all.
+    if (result.score < config.floor) return { ...result, earnedRank }
+    // Guard 5.
+    if (placed >= config.maxPromotedPerPage) return { ...result, earnedRank }
+    placed += 1
+    return {
+      ...result,
+      earnedRank,
+      score: result.score * config.boostFactor,
+      promoted: true,
+      promotedUntil: placement.endsAt ?? null,
+      signals: { ...result.signals, unpromotedScore: result.score }
+    }
+  })
+
+  boosted.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+
+  // Guard 4, applied last because it is about position rather than score.
+  //
+  // At the current setting of 1 this loop does not run: no position is reserved
+  // and a placement may reach first. The code stays because the cap is a
+  // published number that may be raised, and because the rule it encodes is the
+  // subtle one — the reserved places are protected from being *bought*, not
+  // barred to promoted plugins. A plugin that was already the best answer keeps
+  // first place whatever the cap: demoting it for having paid would make
+  // promotion harmful to the thing being promoted, which is a strange thing to
+  // have sold. So a result is moved down only out of a place better than the
+  // one it earned, and whoever earned it comes up.
+  const cap = Math.max(1, config.maxPromotedRank)
+  for (let i = 0; i < Math.min(cap - 1, boosted.length); i++) {
+    const here = boosted[i]
+    if (!here.promoted || here.earnedRank <= i) continue
+    const swapWith = boosted.findIndex((result, j) => j > i && !result.promoted)
+    if (swapWith === -1) break
+    const [displaced] = boosted.splice(swapWith, 1)
+    boosted.splice(i, 0, displaced)
+  }
+  return boosted
 }
 
 /** Alphabetical, the default order for a browse. */
@@ -109,7 +194,11 @@ export class SearchService {
     // This site's own origin, so a depiction it hosts can be told from one it
     // merely links to. Empty is honest — it means "nothing is local here",
     // which is true of a test and of a process with no site configured.
-    origin = ''
+    origin = '',
+    // Where live placements come from. Null means none — an instance with no
+    // promotions configured ranks exactly as it did before this existed, which
+    // is what every test and every unsold search relies on.
+    promotions = null
   }) {
     for (const [key, value] of Object.entries({ client, index, embeddings })) {
       if (!value) throw new SearchError(`SearchService needs ${key}`)
@@ -120,6 +209,11 @@ export class SearchService {
     this.queries = queries
     this.registry = registry ?? new GraphRegistry(client)
     this.origin = String(origin).replace(/\/$/, '')
+    this.promotions = promotions
+    // Live placements, kept in memory: the ranking path asks "is this promoted"
+    // once per candidate, which must not be a query. Refreshed with the
+    // documents, and by the admin page the moment a moderator changes one.
+    this.promoted = new Map()
     /** @type {Map<string, object>} plugin IRI to its text view row */
     this.documents = new Map()
     /** @type {Map<string, object>} graph IRI to its provenance and licence */
@@ -238,6 +332,8 @@ export class SearchService {
     // Document frequencies are corpus-wide, so they are computed once here
     // rather than per query.
     this.lexical.build(this.documents.values())
+    // After the documents exist, because it stamps them.
+    await this.loadPromotions()
     return this.documents.size
   }
 
@@ -296,6 +392,42 @@ export class SearchService {
    * @param {number} [options.limit]
    * @returns {Promise<{results: object[], total: number, signals: object}>}
    */
+  /**
+   * Re-read which plugins are currently promoted.
+   *
+   * Called with the documents, and again the moment a moderator promotes or
+   * unpromotes — a placement that needs a restart to take effect is one the
+   * moderator will believe is running when it is not.
+   *
+   * Never throws. A store that cannot answer this should degrade to a site with
+   * no paid placement, not to a site with no search.
+   */
+  async loadPromotions (now = new Date()) {
+    if (!this.promotions) return 0
+    try {
+      this.promoted = await this.promotions.active(now)
+    } catch (error) {
+      logger.warn(`[search] could not load promotions, ranking without them: ${error.message}`)
+      this.promoted = new Map()
+    }
+    // Stamped onto the documents as well as kept as a map, so that a plugin
+    // page — which reads a document and never sees a ranking — can disclose
+    // the placement too. One pass over the corpus, and it clears the flag from
+    // anything no longer promoted: a stale "Ad" label is a worse defect than a
+    // missing one, because it is a claim about money that is not true.
+    for (const doc of this.documents.values()) {
+      const placement = this.promoted.get(doc.iri)
+      if (placement) {
+        doc.promoted = true
+        doc.promotedUntil = placement.endsAt ?? null
+      } else if (doc.promoted) {
+        delete doc.promoted
+        delete doc.promotedUntil
+      }
+    }
+    return this.promoted.size
+  }
+
   async search (queryText, { facets = {}, limit = RETRIEVAL_CONFIG.defaultPageSize } = {}) {
     if (typeof queryText !== 'string') {
       throw new SearchError('Search needs query text; use facets alone via browse()')
@@ -329,13 +461,21 @@ export class SearchService {
     }
 
     fused.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+
+    // Paid placement, after retrieval and after ranking — so it can reorder
+    // what the query found and can never add to it. Applied to the page rather
+    // than the whole list: the caps are per page, and a placement that ranked
+    // 400th was never going to be seen anyway.
+    const page = applyPromotion(fused.slice(0, pageSize), this.promoted)
+
     return {
-      results: fused.slice(0, pageSize),
+      results: page,
       total: fused.length,
       signals: {
         vectorCandidates: vectorScores.size,
         filtered: allowed ? allowed.size : null,
-        corpus: this.documents.size
+        corpus: this.documents.size,
+        promoted: page.filter(result => result.promoted).length
       }
     }
   }

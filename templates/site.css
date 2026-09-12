@@ -197,6 +197,11 @@ footer .site-links ul { display:flex; flex-wrap:wrap; gap:.3rem 1rem; margin-bot
          border:1px solid var(--accent); color:var(--accent); }
 .badge-price { background:var(--accent); color:var(--bg); border-color:transparent; }
 .badge-src { border-style:dashed; }
+/* Paid placement. High contrast and first in the row, because the ASA asks for
+   disclosure that is immediate and prominent — a label a reader has to look for
+   is not one. It must not be styled to recede. */
+.badge-ad { background:#8a6d00; color:#fff8e1; border-color:transparent; }
+.promoted-note { font-size:.92rem; color:var(--muted); margin:.6rem 0; }
 .score { float:right; font-variant-numeric:tabular-nums; font-size:.9rem; color:var(--muted); }
 table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }
 th, td { text-align:left; padding:.35rem .6rem .35rem 0; border-bottom:1px solid var(--line); }

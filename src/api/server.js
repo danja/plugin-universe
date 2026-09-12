@@ -19,8 +19,28 @@ import { ACTIONS, runAction, AdminActionError } from './AdminActions.js'
 import ImageStore, { ImageError } from './ImageStore.js'
 import { IMAGE_CONFIG } from '../../config/preferences.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
+import { PROMOTION_CONFIG } from '../../config/preferences.js'
 import { SUBMITTABLE, SubmissionError } from '../contrib/Submissions.js'
 import PageReader, { PageReadError } from '../contrib/PageReader.js'
+import { PromotionError, daysRemaining } from '../catalogue/Promotions.js'
+
+/**
+ * What a `promoted` result is, said in the response rather than only on a page.
+ *
+ * The DSA asks that the main parameters used to rank an advertisement be
+ * disclosed. For a JSON consumer that means here: a link is the disclosure, and
+ * the numbers behind it are on the page it points at.
+ */
+const PROMOTION_DISCLOSURE = Object.freeze({
+  note: 'Results marked "promoted" are paid placements, boosted in ranking and labelled as such.',
+  // The bound that is actually load-bearing, and the one that will not change:
+  // a placement may reach first place, but only among results the query already
+  // returned. Deliberately says nothing about position — that is a published
+  // number which may be tuned, and a sentence here repeating it is a second
+  // copy to keep true. It was wrong within an hour of being written.
+  bounded: 'A placement is applied after retrieval and only to a result that already matched: it re-ranks, and never adds a plugin to a search it does not match.',
+  url: 'https://plugin-universe.com/about/promotion'
+})
 import buildRegistry from './registry.js'
 import { handleMcp, MCP_PATH } from '../mcp/server.js'
 import wikiRoutes from '../wiki/routes.js'
@@ -187,7 +207,7 @@ export const STATIC_FILES = Object.freeze({
 
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
-  submissions = null, images = null, pageReader = new PageReader(),
+  submissions = null, images = null, pageReader = new PageReader(), promotions = null,
   wiki: wikiService = null, publication: mcpPublication = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
@@ -395,6 +415,11 @@ export function createServer ({
             elapsedMs: Date.now() - started,
             results: outcome.results,
             signals: outcome.signals ?? null,
+            // Only when there is one to disclose, and then in the envelope as
+            // well as on the result. A consumer that re-publishes these results
+            // needs to know a placement was paid for without having to know
+            // that `promoted` is a field it should have looked for.
+            ...(outcome.results.some(result => result.promoted) ? { promotion: PROMOTION_DISCLOSURE } : {}),
             licence: LICENCE
           })
         }
@@ -502,6 +527,20 @@ export function createServer ({
             return send(response, 404, { error: 'No such endpoint', path })
           }
 
+          // Read fresh on every render, including after a POST: a moderator who
+          // has just promoted something must see it in the list, or they will
+          // press the button again.
+          const promotionState = async () => {
+            if (!promotions) return null
+            const live = [...(await promotions.active()).values()]
+              .map(row => ({
+                ...row,
+                name: search.documents.get(row.plugin)?.name ?? null,
+                daysRemaining: daysRemaining(row)
+              }))
+            return { live, expiring: live.filter(row => row.daysRemaining <= PROMOTION_CONFIG.expiringWithinDays) }
+          }
+
           let message = null
           if (request.method === 'POST') {
             let form
@@ -512,6 +551,50 @@ export function createServer ({
             }
             if (!auth.session.verifyCsrf(form.get('csrf'), moderator.iri)) {
               return send(response, 403, { error: 'That page has expired. Reload and try again.' })
+            }
+
+            // Promote or end a placement. Separate from the action table
+            // because both take a subject, and the action table is deliberately
+            // a list of verbs that take none.
+            if (form.get('promote') || form.get('unpromote')) {
+              if (!promotions) return send(response, 404, { error: 'Promotion is not enabled' })
+              const slug = String(form.get('slug') ?? '').trim().replace(/^.*\/plugin\//, '')
+              const pluginIri = `${NAMESPACES.pu}plugin/${slug}`
+              const doc = search.documents.get(pluginIri)
+              if (!doc) {
+                message = `No plugin with the slug "${slug}". It is the last part of the plugin page's address.`
+              } else {
+                try {
+                  if (form.get('promote')) {
+                    const result = await promotions.promote({ moderator, pluginIri })
+                    message = result.created
+                      ? `${doc.name} is promoted until ${String(result.endsAt).slice(0, 10)}. Its results now carry an Ad label.`
+                      : `${doc.name} was already promoted, until ${String(result.endsAt).slice(0, 10)}. Nothing changed — pressing the button twice does not extend a placement.`
+                  } else {
+                    const result = await promotions.unpromote({ moderator, pluginIri })
+                    message = result.ended
+                      ? `${doc.name} is no longer promoted. The record is kept, ended as of now.`
+                      : `${doc.name} was not promoted. Nothing to end.`
+                  }
+                  // The ranking reads a map held in memory, so a placement that
+                  // needed a restart to take effect would be one the moderator
+                  // believes is running when it is not.
+                  await search.loadPromotions()
+                } catch (error) {
+                  if (!(error instanceof PromotionError)) throw error
+                  message = error.message
+                }
+              }
+              return sendText(response, 200, renderAdminPage(await corrections.pending(), {
+                csrfToken: auth.session.csrfToken(moderator.iri),
+                message,
+                viewer,
+                submissions: submissions ? await submissions.pending() : [],
+                actions: ACTIONS,
+                facetValues: await search.facets(),
+                corpus: search.documents.size,
+                promotions: await promotionState()
+              }), HTML)
             }
             // An action, or a review decision. Which one is decided by which
             // field the form carried. The action's *name* is a key into a
@@ -534,7 +617,8 @@ export function createServer ({
                 submissions: submissions ? await submissions.pending() : [],
                 actions: ACTIONS,
                 facetValues: await search.facets(),
-                corpus: search.documents.size
+                corpus: search.documents.size,
+                promotions: await promotionState()
               }), HTML)
             }
 
@@ -575,7 +659,8 @@ export function createServer ({
             submissions: submissions ? await submissions.pending() : [],
             actions: ACTIONS,
             facetValues: await search.facets(),
-            corpus: search.documents.size
+            corpus: search.documents.size,
+            promotions: await promotionState()
           }), HTML)
         }
 

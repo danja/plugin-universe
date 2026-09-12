@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-four entries is past the point where anyone reads them all, so what follows
+Forty-six entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -53,6 +53,48 @@ by reading rather than by running. Reuse is why this project exists at all, but
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — A rank cap that punished the thing it was capping
+
+**What happened.** The first cut of `applyPromotion` enforced "a placement may
+not occupy the first two positions" by swapping any promoted result out of
+them. A plugin that was already the best answer to a query — top of the list on
+its own merits — was pushed down to third *because* it was promoted.
+
+**Root cause.** The cap was written as a rule about promoted results rather
+than about the ranking effect. "Money cannot buy the top two places" and "a
+promoted plugin may not be in the top two" sound alike and are different
+sentences; only the first is what anybody wants, and the second makes paying
+actively harmful to the thing paid for.
+
+**Prevention.** Every result carries `earnedRank`, where retrieval put it
+before any boost, and the cap only moves a promoted result out of a place
+*better than the one it had earned*. `tests/search/promotion.test.js` asserts
+both halves: money cannot buy first place, and a genuine best match keeps it.
+
+**How it was found.** By printing four ranked lists and reading them, before
+any of it was wired to a page. The unit test I would have written first would
+have asserted the behaviour I had just implemented.
+
+---
+
+## 2026-09-12 — `sh:sparql` takes down the whole validator
+
+**What happened.** A SHACL SPARQL constraint on the promotion shape — "ends
+before it starts" — made `ShapeValidator` throw *Cannot find validator for
+constraint component sh:SPARQLConstraintComponent*, for every graph.
+
+**Root cause.** `rdf-validate-shacl` does not implement SPARQL-based
+constraints, and meets one by throwing rather than by skipping it. So one
+unsupported constraint anywhere in `vocabs/shapes.ttl` takes out validation of
+everything, not just the shape it belongs to.
+
+**Prevention.** `sh:lessThan` — a core constraint component — expresses the
+same thing and is supported. The comment beside it says why it is not
+`sh:sparql`, because the next person wanting a cross-property check will reach
+for SPARQL first, as I did.
 
 ---
 

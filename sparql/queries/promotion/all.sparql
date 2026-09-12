@@ -1,0 +1,19 @@
+# Every placement ever made, newest first — the ad repository.
+#
+# Expired and revoked ones included, deliberately. A record of what was promoted
+# and when is the whole point of keeping them; a repository that lists only
+# what is currently running answers none of the questions asked of one.
+SELECT ?promotion ?plugin ?startedAt ?endsAt ?by ?paidBy ?revokedBy
+WHERE {
+  GRAPH ${graph} {
+    ?promotion a pu:Promotion ;
+               pu:promotes ?plugin ;
+               pu:startedAt ?startedAt ;
+               pu:endsAt ?endsAt ;
+               prov:wasAttributedTo ?by .
+    OPTIONAL { ?promotion pu:paidBy ?paidBy }
+    OPTIONAL { ?promotion pu:revokedBy ?revokedBy }
+  }
+}
+ORDER BY DESC(?startedAt)
+LIMIT ${limit}

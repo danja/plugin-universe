@@ -77,6 +77,15 @@ export const PAGES = Object.freeze({
     title: 'Contact',
     description: 'How to reach the person behind Plugin Universe, and what to say.'
   },
+  '/about/promotion': {
+    file: 'docs/promotion.md',
+    // Linked from every Ad label and every promoted plugin's page, so it is
+    // what somebody clicks the moment they notice a result was paid for. The
+    // DSA asks for the main ranking parameters to be disclosed; this is where
+    // they are, with the numbers rather than a description of them.
+    title: 'Promoted listings',
+    description: 'What a paid placement in Plugin Universe buys, exactly how much it changes ranking, and what it cannot do.'
+  },
   '/about/crawler': {
     file: 'docs/crawler.md',
     title: 'About the crawler',

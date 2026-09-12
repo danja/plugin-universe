@@ -59,6 +59,7 @@ export const RETRIEVAL_CONFIG = {
   htmlPageSize: 25
 }
 
+
 /**
  * How much a promoted listing may be boosted, and the guarantees around it.
  * These numbers are published (docs/architecture.md §7) — changing them is a
@@ -66,18 +67,74 @@ export const RETRIEVAL_CONFIG = {
  */
 export const PROMOTION_CONFIG = {
   // Multiplier applied to a promoted result's fused score.
+  //
+  // A multiplier rather than an addition, and that is the load-bearing choice:
+  // anything times 1.25 is still nothing, so the boost cannot by construction
+  // put a plugin into a result set it had no business being in. An additive
+  // bonus would lift every promoted plugin towards the top of every search,
+  // including the ones it does not match.
   boostFactor: 1.25,
 
-  // A promoted result is never inserted above this rank, and never inserted at
-  // all if it did not already match the query.
-  maxPromotedRank: 3,
+  // How well a plugin must already match before money moves it at all.
+  //
+  // The multiplier alone only guarantees a promoted plugin matched *somehow* —
+  // one weak token in a description is enough to score above zero. This is the
+  // "moderate match" bar: below it the boost is not applied, so a promoted
+  // reverb stays out of a search for "granular synthesiser" rather than
+  // creeping up it. A fused score (lexical + 0.7 × vector), on the same scale
+  // as the numbers `signals` reports.
+  //
+  // Measured against the 645-plugin catalogue on 2026-09-12, by the same method
+  // as minSimilarity above. For "warm analogue bus compressor" the fused scores
+  // run: 0.73, 0.72, 0.71 (three compressors), 0.58-0.55 (four more), then
+  // **0.43 for "ZL Warm"** — which is a warmth plugin and not a compressor, and
+  // matched the single word "warm" — then 0.28 and below for noise
+  // ("War Tuba", "Contrast"). The gap between 0.55 and 0.43 is the gap between
+  // "answered the query" and "shares a word with it", and 0.45 sits in it.
+  //
+  // For comparison, a query the catalogue answers well has no such gap: every
+  // result for "plate reverb" scores 0.78 or better, and all of them are
+  // reverbs. The floor only bites where the tail is weak, which is exactly
+  // where a paid placement riding an incidental word would be noticed.
+  floor: 0.45,
+
+  // The best position a placement may be lifted into. 1 is first place.
+  //
+  // Set to 1 deliberately: a vendor paying for placement expects to be seen
+  // first, and a product that quietly caps them at third is selling something
+  // other than what the buyer thinks. Honest about what is sold beats a bound
+  // that reads well and disappoints.
+  //
+  // **This is the least of the four guards, and it was always the least.** The
+  // ones that matter are `floor` and the fact that promotion runs after
+  // retrieval over the results it already found: together they mean a placement
+  // cannot appear in a search it does not match, which is the failure that
+  // makes people stop trusting a search. Being first among things that *do*
+  // match, clearly labelled, is advertising working as advertising.
+  //
+  // Raising it to 2 or 3 reserves that many positions for unpaid results. It is
+  // one number — but /about/promotion states it, so changing it changes a
+  // public commitment and the page has to change with it.
+  maxPromotedRank: 1,
 
   // Promoted results shown on one page of results, at most.
   maxPromotedPerPage: 2,
 
   // The label shown on a promoted result. Not "Sponsored": the ASA advises
   // against it as ambiguous.
-  label: 'Ad'
+  label: 'Ad',
+
+  // How long a placement runs before it lapses.
+  //
+  // Expiry is read from the record at query time rather than applied by a
+  // sweep, so a lapsed placement stops being boosted whether or not anything
+  // ran. A sweep that fails quietly would be a paid placement running on for
+  // free, indefinitely, which is the failure mode worth designing out.
+  termDays: 365,
+
+  // When a moderator starts being warned that a placement is running out, so
+  // the conversation about renewing happens before it lapses rather than after.
+  expiringWithinDays: 30
 }
 
 /**

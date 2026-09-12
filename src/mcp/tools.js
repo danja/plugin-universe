@@ -57,9 +57,24 @@ function summarise (result) {
     price: result.pricing ?? null,
     source: result.sourceAvailability ?? null,
     homepage: result.homepage ?? null,
+    // Disclosed to an agent as plainly as to a reader. An agent summarising
+    // these results for somebody is the case where an unlabelled paid
+    // placement does the most damage, because the label cannot be noticed
+    // later — it has to be in the data or it is gone.
+    ...(result.promoted ? { promoted: true, promotedNote: PROMOTION_NOTE } : {}),
     ...(result.score === undefined ? {} : { score: Number(result.score.toFixed(3)) })
   }
 }
+
+/**
+ * What `promoted: true` means, in the payload rather than in documentation.
+ *
+ * An agent that has to fetch a page to learn what a field means will not fetch
+ * it, and will pass the result on as though it were ranked on merit alone.
+ */
+const PROMOTION_NOTE =
+  'Paid placement. This result is boosted in ranking because it is paid for. ' +
+  'The ranking effect is bounded and published at https://plugin-universe.com/about/promotion'
 
 export function registerTools (server, { search, publication = null }) {
   server.registerTool('search_plugins', {

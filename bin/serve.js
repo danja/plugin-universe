@@ -9,6 +9,7 @@ import { createServer } from '../src/api/server.js'
 import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
+import Promotions from '../src/catalogue/Promotions.js'
 import Submissions from '../src/contrib/Submissions.js'
 import ImageStore from '../src/api/ImageStore.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
@@ -53,6 +54,7 @@ console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`
 const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
 let corrections = null
+let promotions = null
 let submissions = null
 let images = null
 let wiki = null
@@ -67,6 +69,10 @@ if (auth) {
   images = new ImageStore({ origin })
   corrections = new Corrections(client, { images })
   await corrections.ensureGraph()
+  promotions = new Promotions(client)
+  await promotions.ensureGraph()
+  search.promotions = promotions
+  console.log(`Promotion enabled, ${await search.loadPromotions()} live placement(s)`)
   // The same SHACL shapes a harvest is checked against. A plugin somebody
   // typed is not a different kind of plugin, and the shapes are the only thing
   // that knows a format IRI from a typo.
@@ -98,7 +104,7 @@ try {
 }
 
 const server = createServer({
-  search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images,
+  search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images, promotions,
   wiki, publication, authProblem
 })
 server.listen(port, () => {

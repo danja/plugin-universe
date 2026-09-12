@@ -1,0 +1,22 @@
+# Placements live at a given moment.
+#
+# The moment is passed in rather than read from the store's clock, so a caller
+# asking "what was promoted last Tuesday" gets an answer and the ranking path
+# gets a value it can hold steady across one search.
+#
+# Expiry is this comparison and nothing else. There is no swept flag to fall out
+# of step, so a placement whose term ran out stops being live whether or not any
+# job ran — which is the right failure direction for something that is paid for.
+SELECT ?promotion ?plugin ?startedAt ?endsAt ?by ?paidBy
+WHERE {
+  GRAPH ${graph} {
+    ?promotion a pu:Promotion ;
+               pu:promotes ?plugin ;
+               pu:startedAt ?startedAt ;
+               pu:endsAt ?endsAt ;
+               prov:wasAttributedTo ?by .
+    OPTIONAL { ?promotion pu:paidBy ?paidBy }
+    FILTER(?startedAt <= ${at} && ?endsAt > ${at})
+  }
+}
+ORDER BY ?endsAt

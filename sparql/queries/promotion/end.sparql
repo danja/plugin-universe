@@ -1,0 +1,14 @@
+# End a placement now, and record who ended it.
+#
+# pu:endsAt is replaced rather than a status being set: expiry and revocation
+# are the same fact — the placement stops at this moment — and one predicate
+# cannot disagree with itself. pu:revokedBy is what distinguishes a decision
+# from a term running out.
+DELETE { GRAPH ${graph} { ${promotion} pu:endsAt ?old } }
+INSERT {
+  GRAPH ${graph} {
+    ${promotion} pu:endsAt ${at} ;
+                 pu:revokedBy ${moderator} .
+  }
+}
+WHERE { GRAPH ${graph} { ${promotion} pu:endsAt ?old } }

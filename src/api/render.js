@@ -1,5 +1,5 @@
 import { TRUST } from '../auth/Accounts.js'
-import { CONTRIBUTION_CONFIG, RETRIEVAL_CONFIG, IMAGE_CONFIG } from '../../config/preferences.js'
+import { CONTRIBUTION_CONFIG, RETRIEVAL_CONFIG, IMAGE_CONFIG, PROMOTION_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // One-way: the HTML pages embed the JSON-LD, the serialisations know nothing
 // about HTML.
@@ -66,6 +66,16 @@ const PRICING_LABEL = { Free: 'free', Donationware: 'donationware', Freemium: 'f
  */
 function availabilityBadges (r) {
   const badges = []
+  // First in the row, always. The ASA asks for disclosure that is immediate and
+  // prominent, and a label that follows a licence and two format tags is
+  // neither. `title` carries the fuller statement for anyone who hovers; the
+  // page itself carries it under the plugin.
+  if (r.promoted) {
+    badges.push(templates.render('ad-label', {
+      label: PROMOTION_CONFIG.label,
+      explanation: 'Paid placement. This result is boosted in ranking because it is paid for.'
+    }))
+  }
   if (PRICING_LABEL[r.pricing]) {
     badges.push(templates.render('badge', { kind: 'price', label: PRICING_LABEL[r.pricing] }))
   }
@@ -417,6 +427,12 @@ export function renderPluginPage (
     links: templates.render('site-links', {}),
     name: doc.name,
     vendor: templates.when(Boolean(doc.vendor), 'tagline', { text: doc.vendor }),
+    // Disclosed on the plugin's own page, not only in a result row. Somebody
+    // arriving from a link has seen no label at all, and "this placement is
+    // paid for" is a fact about the listing wherever it is read.
+    promoted: templates.when(Boolean(doc.promoted), 'promoted-note', {
+      label: PROMOTION_CONFIG.label
+    }),
     figure: pluginFigure(doc),
     description: templates.when(Boolean(doc.description), 'description', { description: doc.description }),
     homepage: templates.when(Boolean(doc.homepage), 'plugin-homepage', { href: doc.homepage }),
@@ -601,7 +617,7 @@ export function renderContributionsPage (rows, { viewer = {}, correctable = {}, 
  */
 export function renderAdminPage (pending, {
   csrfToken, message, viewer = {}, submissions = [], actions = {},
-  facetValues = {}, corpus = 0
+  facetValues = {}, corpus = 0, promotions = null
 }) {
   const total = pending.length + submissions.length
   const body = templates.render('admin', {
@@ -623,12 +639,58 @@ export function renderAdminPage (pending, {
           submissions.length ? `${submissions.length} proposed plugin${submissions.length === 1 ? '' : 's'}` : null
         ].filter(Boolean).join(' and '),
     items: moderationItems(pending, csrfToken),
-    submissions: submissionItems(submissions, csrfToken)
+    submissions: submissionItems(submissions, csrfToken),
+    // Absent entirely when promotions are not configured, rather than an empty
+    // panel: a control for something the instance cannot do is a puzzle.
+    promotions: promotions ? promotionPanel(promotions, csrfToken) : ''
   })
   return layout('Administration — Plugin Universe', body, {
     description: 'Moderation queue and catalogue operations.',
     ...viewer,
     footer: false
+  })
+}
+
+/**
+ * What a moderator needs to run paid placements.
+ *
+ * Three things, and the second is the one that is easy not to think of:
+ *
+ *  - promote and end, by slug
+ *  - **what is about to lapse**, so the conversation about renewing happens
+ *    before the placement stops rather than after somebody notices it has
+ *  - what is running now, with how long each has left
+ *
+ * The list of live placements is the ad repository in its working form; the
+ * public account of it is /about/promotion.
+ */
+function promotionPanel ({ live = [], expiring = [] }, csrfToken) {
+  const row = entry => ({
+    href: String(entry.plugin).replace(NAMESPACES.pu, '/'),
+    name: entry.name ?? String(entry.plugin).split('/').pop(),
+    until: String(entry.endsAt).slice(0, 10),
+    by: String(entry.by ?? '').split('/').pop(),
+    remaining: entry.daysRemaining <= 0
+      ? 'lapsed'
+      : `${entry.daysRemaining} day${entry.daysRemaining === 1 ? '' : 's'} left`,
+    // The soon-to-lapse ones are marked, because a list where every row looks
+    // the same is a list nobody scans.
+    warnClass: entry.daysRemaining <= PROMOTION_CONFIG.expiringWithinDays ? ' promotion-warn' : ''
+  })
+
+  return templates.render('promotion-panel', {
+    csrf: csrfToken,
+    summary: live.length === 0
+      ? 'Nothing is promoted.'
+      : `${live.length} live placement${live.length === 1 ? '' : 's'}.`,
+    expiring: templates.when(expiring.length > 0, 'promotion-list', {
+      title: `Lapsing within ${PROMOTION_CONFIG.expiringWithinDays} days`,
+      rows: templates.each('promotion-row', expiring, row)
+    }),
+    live: templates.when(live.length > 0, 'promotion-list', {
+      title: 'Running now',
+      rows: templates.each('promotion-row', live, row)
+    })
   })
 }
 

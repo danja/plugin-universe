@@ -21,33 +21,23 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   terms should say what the upload form means before there are many pictures, and that is a
   legal call rather than a coding one. It pairs with the review trigger in §4 below.
 
+- [ ] **Try promoting a plugin**, and tell me if the ranking feels wrong. Sign in as a
+  moderator, open `/admin`, and the promotion panel is below the moderation queue — paste a
+  plugin slug and press *Promote for a year*. Search for something that plugin genuinely
+  matches and it should come first with an **Ad** label; search for something it does not
+  match and it should not appear at all.
+
+  A placement can take first place, per your call — `maxPromotedRank: 1`. It is *permitted*
+  first place rather than given it: the boost is a 1.25× multiplier, so a much better match
+  still wins. If a vendor ever complains that they paid and are second, that is why, and
+  `boostFactor` is the number that would change.
+
 ## 2. The announcement, when you are ready
 
 Worth drafting before posting anywhere, because the first thing people ask is
 "where did you get my data" and the answer is better given than extracted.
 
-- [ ] decide what an announcement post says and where it goes
 
-Things that belong in it, from the inbox and from what has been built since:
-
-* **What it is** — an open, machine-readable catalogue with semantic search, a
-  public SPARQL endpoint, dumps, an Open Audio Stack registry view and an MCP
-  face. `/services` already says this well; the post can be shorter than it.
-* **Where the data comes from, and where it does not.** Every source's terms are
-  reviewed before harvesting and recorded in `docs/resources.md` §4. KVR is
-  excluded and it is worth saying why unprompted. The crawler identifies itself
-  and has a contact address.
-* **How to get your plugin in, without being crawled.** Send the URL and
-  permission — that is the offer, and it is a better first impression than
-  "we found you". **The moderator URL form is built**, so answering one of these
-  is now a paste and a check rather than seven fields typed by hand: open
-  `/submit` signed in as a moderator and the box is above the form. It reads one
-  page, once, and drafts the fields for you to correct — nothing is saved until
-  you press Submit.
-* **How to get it out.** Erasure is a DROP of a graph, and contributions are
-  stored per person so that is one command. Say so — it costs nothing and it
-  answers the objection before it is made.
-* **That the facts are CC0** and the plugin's own licence is a separate matter.
 
 ## 3. Two findings from the first pluginval sweep
 

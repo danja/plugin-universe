@@ -209,6 +209,65 @@ pu:PluginShape a sh:NodeShape ;
         sh:message "Unrecognised licence identifier. Normalise it in toSpdx(), or add it to OPEN_SOURCE_LICENCES or OTHER_LICENCES in src/harvest/Licensing.js and regenerate the sh:in list here." ;
     ] .
 
+## ── Promotion ───────────────────────────────────────────────────────────────
+## A paid placement, and the record that makes an ad repository a query.
+##
+## The constraints here are the compliance ones. A promotion that cannot say
+## what it promotes, or when it ends, is one that cannot be disclosed and
+## cannot be expired — and an unexpirable paid placement is the failure that
+## costs a great deal to retrofit.
+
+pu:PromotionShape a sh:NodeShape ;
+    sh:targetClass pu:Promotion ;
+    rdfs:label "Promotion" ;
+
+    sh:property [
+        sh:path pu:promotes ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "A promotion promotes exactly one plugin. Two would make the ranking effect impossible to disclose per result." ;
+    ] ;
+    sh:property [
+        sh:path pu:startedAt ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "A placement records when it began." ;
+    ] ;
+    sh:property [
+        sh:path pu:endsAt ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "A placement records when it stops. Without an end it never expires, which is the one thing a paid placement must not be." ;
+    ] ;
+    sh:property [
+        sh:path prov:wasAttributedTo ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "Somebody placed it. An unattributable paid placement has no audit trail." ;
+    ] ;
+    sh:property [
+        sh:path pu:paidBy ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path pu:revokedBy ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    # A placement that ends before it starts reads as permanently inactive
+    # rather than as broken, so nothing would ever report it.
+    #
+    # sh:lessThan, not sh:sparql: rdf-validate-shacl has no SPARQL constraint
+    # validator and *throws* when it meets one, which would take down
+    # `npm run validate` for every graph rather than skipping the constraint.
+    # tests/rdf/shapes.test.js keeps one out of this file.
+    sh:property [
+        sh:path pu:startedAt ;
+        sh:lessThan pu:endsAt ;
+        sh:message "A promotion ends before it starts." ;
+    ] .
+
 ## ── Parameters ──────────────────────────────────────────────────────────────
 ## Ports are blank nodes: a parameter has no identity outside its plugin.
 

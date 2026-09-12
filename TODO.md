@@ -224,6 +224,23 @@ foundations.
   already minted, so identity exists; claiming and the labelling rules do not.
 * Promoted placement must be labelled to meet DSA Art. 26/39 and ASA guidance — and the ASA
   advises against "sponsored" as the word.
+* **Promoted listings, without the payments.** *Done 2026-09-12:* a moderator can promote and
+  un-promote a plugin from `/admin`, placements run a year and lapse on their own, and the
+  ranking effect is live, bounded and labelled. What is missing is only the money — when Stripe
+  arrives, `pu:paidBy` is already in the vocabulary and `Promotions.promote()` already takes it.
+
+  The bound is the part worth keeping: promotion multiplies a fused score by 1.25 **only above a
+  relevance floor**, and applies after retrieval so it can never add a result to a search. A
+  placement may reach first place — `maxPromotedRank: 1`, a deliberate call on the grounds that
+  a vendor paying for placement expects to be seen and a quiet cap at third sells something
+  other than what was bought. It is permitted first place rather than given it: the multiplier
+  means a substantially better match still wins.
+
+  `floor` was measured against the 645-plugin catalogue rather than chosen. The numbers live in
+  `config/preferences.js` and are republished at `/about/promotion`, which
+  `tests/search/promotion.test.js` checks still match the code — a published commitment that
+  silently drifts is worse than none.
+
 * **Payments: Stripe.** Nothing here handles money yet, and taking it changes what the site is
   for legal purposes — the terms review in `docs/resources.md` §4 has promotion as its trigger
   for a real legal reading, and this is that trigger. Card details never touch this server;

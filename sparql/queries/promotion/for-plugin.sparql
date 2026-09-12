@@ -1,0 +1,15 @@
+# The live placement on one plugin, if it has one.
+#
+# Asked before promoting, so that promoting something twice extends nothing and
+# creates nothing — it reports what is already running instead.
+SELECT ?promotion ?startedAt ?endsAt
+WHERE {
+  GRAPH ${graph} {
+    ?promotion a pu:Promotion ;
+               pu:promotes ${plugin} ;
+               pu:startedAt ?startedAt ;
+               pu:endsAt ?endsAt .
+    FILTER(?startedAt <= ${at} && ?endsAt > ${at})
+  }
+}
+LIMIT 1
