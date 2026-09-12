@@ -4,24 +4,6 @@ Things only you can do: server access, credentials, legal, and the decisions
 that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 *you* need to do.
 
-**What I cannot see.** I have no access to the server. What I can check is the
-public site, and `npm run test:live` does that from here. Anything below
-asserted about the deployment came from that, not from looking.
-
-## 1. Two jobs still to install on the server
-
-- [ ] **The nightly dump.** `/services` tells people the dumps are rebuilt
-  nightly; nothing does it yet, so they are as old as the last time you pressed
-  the button.
-
-  ```sh
-  sudo install -m 755 deploy/dump/plugin-universe-dump.sh \
-    /etc/cron.daily/plugin-universe-dump
-  sudo install -m 644 deploy/dump/plugin-universe-dump.default \
-    /etc/default/plugin-universe-dump
-  sudo /etc/cron.daily/plugin-universe-dump      # once, to check
-  ```
-
 - [ ] **Add a picture to a plugin.** Open any plugin page while signed in as a
   moderator — the form is under the measurements, above "Suggest a correction".
   It appears only for a trusted contributor or a moderator, and it did not
@@ -31,27 +13,6 @@ asserted about the deployment came from that, not from looking.
   `node bin/backup.js --scope essential` should report "N image(s)". They ride
   in `essential` and `full`, not in `measurements`. Nothing has been uploaded
   yet, so this is untested against real files.
-
-- [ ] **Normalise the stored licences.** One command on the server, and it
-  needs no network and no re-harvest:
-
-  ```sh
-  docker compose run --rm app node bin/renormalise-licences.js          # report
-  docker compose run --rm app node bin/renormalise-licences.js --apply  # write
-  docker compose restart app        # the facet counts are read at startup
-  ```
-
-  The catalogue holds **23 spellings of 19 licences**. GPL-3.0 appears three
-  ways (`GPL-3.0`, `GPLv3`, `GPL3`) and MIT three ways, so the licence facet
-  lists each separately and `?licence=GPL-3.0` misses 86 of the plugins that
-  are under it. 59 LV2 plugins carry `http://usefulinc.com/doap/licenses/gpl`,
-  which says GPL and does not say which version — those normalise to `GPL`,
-  deliberately, and stay a facet entry of their own rather than being assigned
-  a version nobody claimed.
-
-  It is safe to run twice, and the dry run shows every change grouped before
-  anything is written. `dcterms:license` — what each source actually said —
-  is not touched: only `pu:licenceId`, which is derived from it.
 
 ## 2. The announcement, when you are ready
 

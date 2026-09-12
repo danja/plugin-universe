@@ -34,6 +34,7 @@ const rdf = NAMESPACES.rdf
 const rdfs = NAMESPACES.rdfs
 const trn = NAMESPACES.trn
 const prov = NAMESPACES.prov
+const foaf = NAMESPACES.foaf
 
 export const STATUS = Object.freeze({
   PENDING: 'pending',
@@ -54,8 +55,9 @@ export const STATUS = Object.freeze({
  * - `category` — a slug from the concept scheme
  * - `format` — a plugin format name
  * - `licence` — normalised through `toKnownSpdx`, and refused if unrecognised
+ * - `image` — a URL of an image this site stores, and nothing else
  */
-export const FIELD_KINDS = Object.freeze(['text', 'url', 'category', 'format', 'licence'])
+export const FIELD_KINDS = Object.freeze(['text', 'url', 'category', 'format', 'licence', 'image'])
 
 /**
  * What a correction may touch.
@@ -67,12 +69,24 @@ export const CORRECTABLE = Object.freeze({
   [`${rdfs}label`]: { label: 'Name', kind: 'text' },
   [`${rdfs}comment`]: { label: 'Description', kind: 'text' },
   [`${trn}vendor`]: { label: 'Vendor', kind: 'text' },
-  [`${NAMESPACES.foaf}homepage`]: { label: 'Homepage', kind: 'url' },
+  [`${foaf}homepage`]: { label: 'Homepage', kind: 'url' },
   [`${pu}category`]: { label: 'Category', kind: 'category' },
   [`${trn}format`]: { label: 'Format', kind: 'format' },
   // `licence`, not `text`: a correction goes through the same normalisation a
   // harvest does, so correcting GPLv3 to "gpl3" cannot split the facet.
-  [`${pu}licenceId`]: { label: 'Licence', kind: 'licence' }
+  [`${pu}licenceId`]: { label: 'Licence', kind: 'licence' },
+  // A picture, which arrives by upload rather than by being typed.
+  //
+  // It is here because the upload route contributes it exactly as a correction
+  // is contributed — attributed to the uploader, in their own CC0 graph — and
+  // it was *not* here for as long as that route existed, so every upload was
+  // refused with "cannot be corrected" naming the six fields that were.
+  //
+  // `viaForm: false` keeps it out of the correction form's menu. That is not
+  // the control: `kind: 'image'` is. A value must be a URL of an image this
+  // site already stores, so a POST naming this predicate directly cannot point
+  // a plugin's picture at somebody else's server.
+  [`${foaf}depiction`]: { label: 'Picture', kind: 'image', viaForm: false }
 })
 
 export class CorrectionError extends Error {
@@ -88,7 +102,7 @@ export class CorrectionError extends Error {
  * Returns the normalised correction or throws. Every message here is shown to
  * the contributor, so each says what to do rather than what went wrong.
  */
-export function validate ({ subject, predicate, value, rationale }) {
+export function validate ({ subject, predicate, value, rationale }, { images = null } = {}) {
   if (!subject || !subject.startsWith(pu)) {
     throw new CorrectionError('That is not a plugin in this catalogue.')
   }
@@ -119,6 +133,28 @@ export function validate ({ subject, predicate, value, rationale }) {
   if (field.kind === 'format' && !/^[A-Za-z0-9]+$/.test(trimmed)) {
     throw new CorrectionError('A format is a name like VST3, LV2 or CLAP.')
   }
+  if (field.kind === 'image') {
+    // Closed when no store is supplied. A caller that cannot say what this
+    // site hosts cannot be allowed to assert what it hosts — and the default
+    // for a check that protects against hotlinking has to be "no".
+    if (!images?.isStoredUrl(trimmed)) {
+      throw new CorrectionError(
+        'A picture has to be one uploaded here. Use the upload form on the plugin page.')
+    }
+    // Absolute, because this becomes the object of a triple.
+    //
+    // A relative IRI in a SPARQL update is resolved against the *store's* base
+    // URI, not the site's: writing `</image/abc.png>` put
+    // `http://server/image/abc.png` into a contributor's graph — an address
+    // that exists nowhere, in a CC0 graph, permanently. It is caught here
+    // because the store is configured with an origin and this is where the
+    // value stops being a string and starts being an identifier.
+    if (!/^https?:\/\//.test(trimmed)) {
+      throw new CorrectionError(
+        'A picture needs a full address. The image store has no site origin configured, ' +
+        'so it produced a relative URL — set site.origin in the configuration.')
+    }
+  }
 
   // A licence is normalised as well as checked, so a correction cannot be the
   // thing that puts a second spelling of GPL-3.0 into the catalogue.
@@ -141,7 +177,7 @@ export function validate ({ subject, predicate, value, rationale }) {
 
 /** The object term a corrected value becomes, by kind. */
 export function valueTerm (kind, value) {
-  if (kind === 'url') return iri(value)
+  if (kind === 'url' || kind === 'image') return iri(value)
   if (kind === 'category') return iri(`${pu}category/${value}`)
   if (kind === 'format') return iri(`${trn}${value}`)
   return literal(value)
@@ -150,13 +186,17 @@ export function valueTerm (kind, value) {
 export class Corrections {
   constructor (client, {
     registry = new GraphRegistry(client), minter = new URIMinter(), graphId = 'corrections',
-    queries = new QueryService()
+    queries = new QueryService(), images = null
   } = {}) {
     if (!client) throw new CorrectionError('Corrections needs a SPARQLClient')
     this.client = client
     this.registry = registry
     this.minter = minter
     this.queries = queries
+    // Only needed to settle what `foaf:depiction` may point at. Null means no
+    // picture can be contributed, which is the right answer for an instance
+    // that stores none.
+    this.images = images
     // Proposals live in the system graph with the accounts, because a pending
     // correction is about a person as much as about a plugin. Only an accepted
     // one reaches the contributor's public graph. The id is a parameter for the
@@ -207,7 +247,7 @@ export class Corrections {
       )
     }
 
-    const correction = validate({ subject, predicate, value, rationale })
+    const correction = validate({ subject, predicate, value, rationale }, { images: this.images })
     const trusted = account.trustLevel === TRUST.TRUSTED || account.trustLevel === TRUST.MODERATOR
     const status = trusted ? STATUS.ACCEPTED : STATUS.PENDING
 
@@ -305,7 +345,7 @@ export class Corrections {
     // directly into a public graph.
     const validated = validate({
       subject: row.subject, predicate: row.predicate, value: row.value
-    })
+    }, { images: this.images })
     await this.apply(correctionIri, validated, contributor, now)
     await this.#setStatus(correctionIri, STATUS.ACCEPTED, moderator, now)
 

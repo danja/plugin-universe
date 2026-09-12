@@ -107,6 +107,31 @@ export class ImageStore {
   }
 
   /**
+   * Is this a URL of an image *this* store holds?
+   *
+   * The question a contribution has to answer before `foaf:depiction` is
+   * written, and it is asked here rather than by a regular expression at the
+   * call site so that "the name of a stored image" has one definition —
+   * `fileFor`'s, which is also what refuses a traversal.
+   *
+   * Same-origin is the point, not a side effect. A depiction the catalogue
+   * hosts is one file on this disk; a depiction pointing anywhere else makes
+   * every reader's browser fetch from a third party, which is the same reason
+   * wiki images render as links rather than loads.
+   */
+  isStoredUrl (value) {
+    if (typeof value !== 'string') return false
+    const prefix = `${this.origin}/image/`
+    if (!value.startsWith(prefix)) return false
+    try {
+      this.fileFor(value.slice(prefix.length))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
    * Store the bytes, and say what they became.
    *
    * Content-addressed, so storing the same picture twice is one file and the

@@ -837,7 +837,12 @@ export function renderCorrectionForm (doc, { account, csrfToken, correctable, er
     error: templates.when(Boolean(error), 'error', { text: error }),
     submitted: templates.when(Boolean(submitted), 'notice', { text: submitted }),
     csrf: csrfToken,
-    options: templates.each('select-option', Object.entries(correctable),
+    // Not every correctable property is one a person types. A picture is
+    // contributed by the upload form above, which is the only thing that can
+    // produce a value the validator accepts — offering "Picture" here would be
+    // a menu entry whose every answer is refused.
+    options: templates.each('select-option',
+      Object.entries(correctable).filter(([, field]) => field.viaForm !== false),
       ([predicate, field]) => ({ value: predicate, label: field.label })),
     maxValue: CONTRIBUTION_CONFIG.maxValueLength,
     maxRationale: CONTRIBUTION_CONFIG.maxRationaleLength

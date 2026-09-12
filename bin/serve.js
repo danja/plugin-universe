@@ -61,14 +61,17 @@ if (auth) {
   // that is not flagged as such is the one failure this design exists to
   // prevent, and it must not wait on somebody signing in.
   await accounts.ensureGraph()
-  corrections = new Corrections(client)
+  // Built before Corrections, which needs it: a contributed picture is a
+  // correction naming foaf:depiction, and the store is what says whether a
+  // value is an image this site actually holds.
+  images = new ImageStore({ origin })
+  corrections = new Corrections(client, { images })
   await corrections.ensureGraph()
   // The same SHACL shapes a harvest is checked against. A plugin somebody
   // typed is not a different kind of plugin, and the shapes are the only thing
   // that knows a format IRI from a typo.
   submissions = new Submissions(client, { validator: await ShapeValidator.load() })
   await submissions.ensureGraph()
-  images = new ImageStore({ origin })
   console.log(`Image uploads enabled, ${(await images.list()).length} stored`)
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
   wiki = new Wiki(client)

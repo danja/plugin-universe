@@ -111,6 +111,7 @@ complained, and each was found in production or by accident:
 | Added a block to `site.css` | its `a { color: … }` rule, one of five opt-ins | 17 of 35 front-page links in browser-default blue |
 | Added `sh:in` to `pu:licenceId` | the submission and correction forms, which wrote licences verbatim | the one path a person controls was the one that could still split a facet |
 | Wrote a house rule into CLAUDE.md | any test that checks it | "no inline SPARQL" reached 17 violations across 8 files before anyone counted |
+| Added `/plugin/<slug>/image`, writing `foaf:depiction` | `CORRECTABLE`, the whitelist that route writes through | every upload refused with "cannot be corrected"; 22 upload tests passed, none wrote the fact |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
@@ -119,6 +120,12 @@ The four that now have such a test have stopped recurring.
 
 Specifically, before finishing a change, check:
 
+- **Does a feature that persists something have a test that reads it back?**
+  Storing the file is not the feature; writing the fact is. Image upload had 22
+  passing tests covering bytes, types, refusals and rendering, and none covering
+  the write — which is the half that was broken, for as long as the route
+  existed. The same check would have caught the relative IRI that RDF resolved
+  into `http://server/...`.
 - Does a SHACL shape enumerate what this code enumerates? And does **every**
   path that writes that property go through the normalisation — a harvester, a
   submission form and a correction form are three, and only the first went

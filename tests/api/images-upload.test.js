@@ -262,3 +262,125 @@ describe('reaching the upload form', () => {
       .not.toContain('enctype=')
   })
 })
+
+/**
+ * What happens to the URL after the bytes are stored.
+ *
+ * Everything above this proves a file is accepted, sniffed, refused or
+ * content-addressed correctly — and every one of those tests passed while
+ * uploading an image failed outright, because storing the file is only half of
+ * it. The other half is writing `foaf:depiction`, which the route contributes
+ * as a correction, and `foaf:depiction` was not in `CORRECTABLE`. Every upload
+ * was refused with "cannot be corrected", naming the six fields that were.
+ *
+ * The shape is the one CLAUDE.md lists a dozen times: a route was built against
+ * a whitelist, the whitelist was not told, and nothing connected them. These
+ * are the tests that connect them.
+ */
+describe('a stored image becomes a fact about a plugin', () => {
+  const PLUGIN = 'http://purl.org/stuff/plugin-universe/plugin/x-1234'
+  const DEPICTION = 'http://xmlns.com/foaf/0.1/depiction'
+  // Absolute, as the graph requires — see the relative-IRI note in
+  // Corrections.validate. `serve.js` configures the store with site.origin.
+  const ORIGIN = 'https://plugin-universe.com'
+  const STORED = `${ORIGIN}/image/${'a'.repeat(64)}.png`
+
+  it('is a predicate a contribution may assert', async () => {
+    const { CORRECTABLE } = await import('../../src/contrib/Corrections.js')
+    expect(Object.keys(CORRECTABLE)).toContain(DEPICTION)
+  })
+
+  it('is the predicate the upload route actually sends', async () => {
+    // The two ends of the bug. The route names a predicate; CORRECTABLE decides
+    // what may be named. They are bound here so that renaming either fails.
+    const { CORRECTABLE } = await import('../../src/contrib/Corrections.js')
+    const server = fs.readFileSync('src/api/server.js', 'utf8')
+    const sent = server.match(/predicate: `\$\{NAMESPACES\.foaf\}(\w+)`/)
+    expect(sent, 'the upload route no longer names a foaf predicate').toBeTruthy()
+    const { NAMESPACES } = await import('../../src/rdf/NamespaceManager.js')
+    expect(Object.keys(CORRECTABLE)).toContain(`${NAMESPACES.foaf}${sent[1]}`)
+  })
+
+  it('accepts a URL of an image this store holds', async () => {
+    const { validate } = await import('../../src/contrib/Corrections.js')
+    const store = new ImageStore({ directory: '/tmp/unused', origin: ORIGIN })
+    const result = validate(
+      { subject: PLUGIN, predicate: DEPICTION, value: STORED }, { images: store })
+    expect(result.value).toBe(STORED)
+    expect(result.kind).toBe('image')
+  })
+
+  it('refuses a picture hosted by somebody else', async () => {
+    // The reason this is a kind of its own rather than a URL. A depiction
+    // pointing elsewhere makes every reader's browser fetch from a third party
+    // — the same objection that keeps wiki images rendering as links.
+    const { validate } = await import('../../src/contrib/Corrections.js')
+    const store = new ImageStore({ directory: '/tmp/unused', origin: ORIGIN })
+    for (const value of [
+      `https://evil.invalid/image/${'a'.repeat(64)}.png`,
+      'https://example.org/logo.png',
+      `${ORIGIN}/image/../../etc/passwd`,
+      `${ORIGIN}/image/not-a-digest.png`
+    ]) {
+      expect(() => validate(
+        { subject: PLUGIN, predicate: DEPICTION, value }, { images: store }), value)
+        .toThrow(/uploaded here/)
+    }
+  })
+
+  it('refuses a picture when there is no store to vouch for it', async () => {
+    // Closed by default. A caller that cannot say what this site hosts must not
+    // be able to assert what it hosts.
+    const { validate } = await import('../../src/contrib/Corrections.js')
+    expect(() => validate({ subject: PLUGIN, predicate: DEPICTION, value: STORED }))
+      .toThrow(/uploaded here/)
+  })
+
+  it('honours the store\'s own origin', async () => {
+    const { validate } = await import('../../src/contrib/Corrections.js')
+    const store = new ImageStore({ directory: '/tmp/unused', origin: ORIGIN })
+    expect(() => validate(
+      { subject: PLUGIN, predicate: DEPICTION, value: STORED }, { images: store })).not.toThrow()
+    // Same path, wrong host.
+    expect(() => validate(
+      { subject: PLUGIN, predicate: DEPICTION, value: `https://elsewhere.invalid/image/${'a'.repeat(64)}.png` },
+      { images: store })).toThrow(/uploaded here/)
+  })
+
+  it('refuses a relative URL, which RDF resolves into somewhere else entirely', async () => {
+    // A store with no origin produces `/image/abc.png`. Written as a triple,
+    // Fuseki resolved it against its own base and stored
+    // `http://server/image/abc.png` — an address that exists nowhere, in a
+    // contributor's CC0 graph, permanently. Found by writing one to the live
+    // store and reading it back; no unit test would have seen it.
+    const { validate } = await import('../../src/contrib/Corrections.js')
+    const relative = new ImageStore({ directory: '/tmp/unused', origin: '' })
+    expect(() => validate(
+      { subject: PLUGIN, predicate: DEPICTION, value: `/image/${'a'.repeat(64)}.png` },
+      { images: relative })).toThrow(/full address/)
+  })
+
+  it('becomes an IRI in the graph, not a string', async () => {
+    const { valueTerm } = await import('../../src/contrib/Corrections.js')
+    expect(valueTerm('image', STORED)).toBe(`<${STORED}>`)
+  })
+
+  it('is not offered in the correction form, where every answer would be refused', async () => {
+    const { CORRECTABLE } = await import('../../src/contrib/Corrections.js')
+    const { renderCorrectionForm } = await import('../../src/api/render.js')
+    const html = renderCorrectionForm(
+      { iri: PLUGIN, name: 'X' },
+      { account: { iri: 'a' }, csrfToken: 't', correctable: CORRECTABLE })
+    expect(html).not.toContain('Picture')
+    // The fields that are typed are still all there.
+    expect(html).toContain('Homepage')
+    expect(html).toContain('Licence')
+  })
+
+  it('gives every correctable field a kind the validator knows', async () => {
+    const { CORRECTABLE, FIELD_KINDS } = await import('../../src/contrib/Corrections.js')
+    for (const [predicate, field] of Object.entries(CORRECTABLE)) {
+      expect(FIELD_KINDS, predicate).toContain(field.kind)
+    }
+  })
+})

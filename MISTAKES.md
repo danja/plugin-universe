@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-one entries is past the point where anyone reads them all, so what follows
+Forty-two entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -53,6 +53,52 @@ by reading rather than by running. Reuse is why this project exists at all, but
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — Image upload never worked, and 669 tests said it did
+
+**What happened.** Uploading a picture failed with *"http://xmlns.com/foaf/0.1/depiction
+cannot be corrected. Correctable: Name, Description, Vendor, Homepage,
+Category, Format, Licence."* Reported by the user; it had never worked.
+
+**Root cause.** The upload route contributes the picture as a correction —
+`corrections.submit({ predicate: foaf:depiction })` — and `foaf:depiction` was
+not in `CORRECTABLE`. The route was built against a whitelist and the whitelist
+was not told. The thirteenth entry in CLAUDE.md's table, in a new costume.
+
+**Why the tests did not see it.** `tests/api/images-upload.test.js` had 22
+tests and every one of them passed. They covered sniffing bytes, refusing SVG,
+refusing a lying content-type, content-addressing, the size cap, and whether
+the form renders for the right trust level. Not one covered what happens to the
+URL *after* the file is stored — so the half that was broken was the half
+nobody had written a test for. **Storing the file is not the feature. Writing
+the fact is the feature.**
+
+**The second bug, found only by doing it for real.** With the fix in place the
+triple wrote, and the value in the graph was `http://server/image/abc.png`.
+`ImageStore` with no configured origin produces a relative URL, and a relative
+IRI in a SPARQL update is resolved against *the store's* base URI, not the
+site's. That would have put an address existing nowhere into a contributor's
+CC0 graph, permanently. No unit test would have seen it: it needs a real
+endpoint to resolve against. `validate` now refuses a relative picture URL and
+its message names the cause — an unset `site.origin`.
+
+**Prevention.** Nine tests in `images-upload.test.js` covering the write path,
+including one that reads the predicate the route actually sends out of
+`server.js` and asserts `CORRECTABLE` contains it — so renaming either end
+fails. `foaf:depiction` is `kind: 'image'`, which requires a URL of an image
+*this* store holds, asked of `ImageStore.isStoredUrl` so that "the name of a
+stored image" keeps one definition. That is what makes it safe for the
+predicate to be reachable at all: a POST naming it directly cannot point a
+plugin's picture at somebody else's server, which is the same objection that
+keeps wiki images rendering as links rather than loads.
+
+**The lesson worth keeping.** When a feature persists something, the test that
+matters is the one that reads it back. Five entries in this file are now some
+form of "the artefact was correct and never reached where it is read"; this is
+the first where the artefact was correct and the *write* was refused, and the
+symptom was identical — everything local passed.
 
 ---
 
