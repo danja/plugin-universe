@@ -141,6 +141,75 @@ export class Promotions {
   }
 
   /**
+   * Grant a placement that has been paid for.
+   *
+   * **Only ever called from a verified Stripe webhook.** `promote()` requires a
+   * moderator because a moderator is who authorises a free placement; a paid
+   * one is authorised by the payment, and there is no moderator in the room
+   * when Stripe delivers the event. So this is a second door, and what makes it
+   * safe is that the only thing holding the key is
+   * `Billing.verifyWebhook()` — an unsigned or wrongly-signed delivery never
+   * reaches here.
+   *
+   * Attribution goes to the buyer's account rather than to nobody: they caused
+   * it, and `prov:wasAttributedTo` is required by the shape precisely so that
+   * every placement can be traced to somebody.
+   *
+   * **Idempotent twice over**, because a webhook is delivered at least once and
+   * sometimes more. A plugin already promoted returns the existing placement
+   * untouched — pressing a button twice must not buy two years — and the
+   * payment reference is recorded, so a replay of the *same* payment is
+   * distinguishable from a genuine second purchase.
+   *
+   * @param {object} options
+   * @param {object} options.account - the buyer's account, `{ iri }`
+   * @param {string} options.pluginIri
+   * @param {string} options.paymentReference - the Stripe Checkout Session id
+   */
+  async grantPaid ({ account, pluginIri, paymentReference }, now = new Date()) {
+    if (!account?.iri) throw new PromotionError('A paid placement needs the buying account.')
+    if (!pluginIri) throw new PromotionError('Which plugin?')
+    if (!/^cs_[A-Za-z0-9_]+$/.test(String(paymentReference ?? ''))) {
+      // Not cosmetic. This value is the only evidence that money changed hands,
+      // and the shape refuses anything that is not a session id — so catching
+      // it here gives a better error than a SHACL violation three steps later.
+      throw new PromotionError(
+        `"${paymentReference}" is not a Stripe Checkout Session id. A placement is only granted against a payment.`)
+    }
+
+    const existing = await this.forPlugin(pluginIri, now)
+    if (existing) {
+      return { promotion: existing.promotion, created: false, endsAt: existing.endsAt }
+    }
+
+    await this.ensureGraph()
+    const endsAt = termEnd(now)
+    const node = this.minter.mint('promotion', `${pluginIri.split('/').pop()}-${now.getTime()}`,
+      [pluginIri, account.iri, paymentReference])
+    const s = iri(node)
+
+    await this.client.update(insertDataQuery(this.graph, [
+      `${s} ${iri(rdf + 'type')} ${iri(pu + 'Promotion')} .`,
+      `${s} ${iri(pu + 'promotes')} ${iri(pluginIri)} .`,
+      `${s} ${iri(pu + 'startedAt')} ${typedLiteral(now)} .`,
+      `${s} ${iri(pu + 'endsAt')} ${typedLiteral(endsAt)} .`,
+      `${s} ${iri(prov + 'wasAttributedTo')} ${iri(account.iri)} .`,
+      `${s} ${iri(pu + 'paidBy')} ${iri(account.iri)} .`,
+      `${s} ${iri(pu + 'paymentReference')} ${literal(paymentReference)} .`
+    ]))
+    return { promotion: node, created: true, endsAt: endsAt.toISOString() }
+  }
+
+  /** The placement bought by one payment, if that payment has been fulfilled. */
+  async forPayment (paymentReference) {
+    const rows = await this.client.select(this.queries.get('promotion/for-payment', {
+      graph: iri(this.graph),
+      reference: literal(paymentReference)
+    }))
+    return rows[0] ?? null
+  }
+
+  /**
    * End a plugin's live placement now.
    *
    * Ending something that is not running is a no-op rather than an error: the

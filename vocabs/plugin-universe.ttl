@@ -259,6 +259,8 @@ pu:endsAt      a owl:DatatypeProperty ; rdfs:domain pu:Promotion ; rdfs:range xs
     rdfs:comment "When the placement stops. The single thing that decides whether a promotion is live: expiry and early revocation are the same fact, so ending one early is a new value here rather than a second state to keep in step. Read at query time, so a lapsed promotion stops being applied whether or not anything swept it up." .
 pu:revokedBy   a owl:ObjectProperty ; rdfs:domain pu:Promotion ;
     rdfs:comment "The moderator who ended a placement before its term. Distinguishes a decision from an expiry, which pu:endsAt alone cannot." .
+pu:paymentReference a owl:DatatypeProperty ; rdfs:domain pu:Promotion ; rdfs:range xsd:string ;
+    rdfs:comment "The payment processor's own identifier for the transaction that bought this placement — a Stripe Checkout Session id. Opaque here and meaningless without the processor, which is the point: it is the thread back to a payment this system deliberately knows nothing else about. It is also what makes fulfilment idempotent, since a webhook may be delivered more than once and the second delivery carries the same id as the first. Never a card number, a name or an address: none of those reaches this system." .
 
 ## A promotion is never deleted. A record of a paid placement that has been
 ## taken down is exactly what an ad repository is asked for, and the audit of

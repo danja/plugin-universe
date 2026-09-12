@@ -108,9 +108,41 @@ describe('the ranking effect, and its bounds', () => {
   })
 
   it('shows at most two placements on a page', () => {
-    const found = ['p', 'q', 's', 't'].map((iri, i) => result(iri, `P${i}`, 0.9 - i * 0.01))
+    // Different vendors, so only the page cap is in play.
+    const found = ['p', 'q', 's', 't'].map((iri, i) =>
+      ({ ...result(iri, `P${i}`, 0.9 - i * 0.01), vendorSlug: `vendor-${i}` }))
     const after = applyPromotion(found, promoting('p', 'q', 's', 't'))
     expect(after.filter(r => r.promoted)).toHaveLength(PROMOTION_CONFIG.maxPromotedPerPage)
+  })
+
+  it('gives one vendor at most one of those slots', () => {
+    // A Pro subscription allows promoting every plugin a vendor owns, and the
+    // largest vendors here have thirty to fifty. Without this, one subscription
+    // would hold the whole promoted area of every search it matched — which is
+    // selling prominence and delivering ownership.
+    const found = ['a', 'b', 'c'].map((iri, i) =>
+      ({ ...result(iri, `Acme ${i}`, 0.9 - i * 0.01), vendorSlug: 'acme' }))
+    const after = applyPromotion(found, promoting('a', 'b', 'c'))
+    expect(after.filter(r => r.promoted)).toHaveLength(PROMOTION_CONFIG.maxPromotedPerVendor)
+  })
+
+  it('still fills both slots when two vendors are promoting', () => {
+    const found = [
+      { ...result('a', 'Acme One', 0.90), vendorSlug: 'acme' },
+      { ...result('b', 'Beta One', 0.88), vendorSlug: 'beta' },
+      { ...result('c', 'Acme Two', 0.86), vendorSlug: 'acme' }
+    ]
+    const after = applyPromotion(found, promoting('a', 'b', 'c'))
+    const placed = after.filter(r => r.promoted)
+    expect(placed).toHaveLength(2)
+    expect(new Set(placed.map(r => r.vendorSlug)).size).toBe(2)
+  })
+
+  it('does not treat two plugins with no vendor as one vendor', () => {
+    // An absent vendor is nobody's, not a shared "unknown" allowance.
+    const found = [result('a', 'One', 0.90), result('b', 'Two', 0.88)]
+    const after = applyPromotion(found, promoting('a', 'b'))
+    expect(after.filter(r => r.promoted)).toHaveLength(2)
   })
 
   it('leaves an unpromoted search exactly as it was', () => {
@@ -254,6 +286,7 @@ describe('every paid placement is labelled', () => {
     expect(page).toContain(String(PROMOTION_CONFIG.floor))
     expect(page).toContain(String(PROMOTION_CONFIG.maxPromotedRank))
     expect(page).toContain(String(PROMOTION_CONFIG.maxPromotedPerPage))
+    expect(page).toContain(String(PROMOTION_CONFIG.maxPromotedPerVendor))
     expect(page).toContain(String(PROMOTION_CONFIG.termDays))
   })
 

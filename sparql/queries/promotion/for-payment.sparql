@@ -1,0 +1,16 @@
+# The placement one payment bought, if it has already been fulfilled.
+#
+# A webhook is delivered at least once and sometimes more, so fulfilment has to
+# be able to recognise its own work. The Checkout Session id is what makes a
+# replay of one payment distinguishable from a genuine second purchase of the
+# same plugin — the plugin IRI alone cannot tell those apart.
+SELECT ?promotion ?startedAt ?endsAt
+WHERE {
+  GRAPH ${graph} {
+    ?promotion a pu:Promotion ;
+               pu:paymentReference ${reference} ;
+               pu:startedAt ?startedAt ;
+               pu:endsAt ?endsAt .
+  }
+}
+LIMIT 1

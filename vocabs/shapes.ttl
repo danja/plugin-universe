@@ -255,6 +255,13 @@ pu:PromotionShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
     ] ;
+    sh:property [
+        sh:path pu:paymentReference ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^cs_[A-Za-z0-9_]+$" ;
+        sh:message "A payment reference is a Stripe Checkout Session id. Anything else here means something other than a verified payment wrote this placement." ;
+    ] ;
     # A placement that ends before it starts reads as permanently inactive
     # rather than as broken, so nothing would ever report it.
     #

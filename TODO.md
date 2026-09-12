@@ -157,11 +157,32 @@ foundations.
   - Paid or free is a pricing decision, not an architectural one: claiming, editing and
     labelling are the same work either way, and giving claiming away free while charging for
     presentation is the option that keeps the catalogue accurate.
-* **Payments: Stripe.** Nothing here handles money yet, and taking it changes what the site is
-  for legal purposes — the terms review in `docs/resources.md` §4 has promotion as its trigger
-  for a real legal reading, and this is that trigger. Card details never touch this server;
-  Stripe Checkout or a payment link keeps it that way, and that is worth deciding before any
-  code.
+* **Payments: Stripe, first increment built.** *2026-09-12:* a signed-in account can buy a
+  promoted listing. `src/billing/Billing.js` configures the client and verifies webhooks,
+  `src/billing/routes.js` has the two routes, and `Promotions.grantPaid()` is a second door into
+  promotion authorised by a payment rather than by a moderator. Hosted Checkout, so no card
+  detail reaches this server and no client-side framework is needed.
+
+  Pricing is set in the sandbox: **€10 one-time** for one plugin for a year, **€99/year** for
+  Pro, which promotes as many of a vendor's plugins as they like. Both are found by Stripe
+  lookup key rather than a price id, so changing either is a dashboard action.
+
+  **Still to do, and the second is the interesting one.**
+
+  - The **pro tier subscription** itself (`TIER.PRO` exists and nothing sets it) and the
+    **Customer Portal** for self-service cancellation. Same shape as what is built.
+  - **A placement granted by a subscription must end when the subscription does.** A one-time
+    placement ends 365 days after it is bought, which is correct because it was bought outright.
+    A Pro placement cannot work that way: cancel after two months and the placements would run
+    for another ten. The fix that suits the existing design is to set `pu:endsAt` to the
+    subscription's current period end and extend it on each successful renewal — then
+    cancellation needs no special handling at all, because the placements lapse on their own
+    dates, which is how everything else here already expires.
+
+  **Two things are not the code's to settle.** Italian tax registration is on Danja's list and
+  gates going live — Stripe's own onboarding is what will stop an unregistered account taking
+  real money. And `docs/resources.md` §4 names payment as the trigger for a real legal reading
+  of the contributor terms; that is still outstanding.
 
 ## Phase 5 — open data — nearly done
 

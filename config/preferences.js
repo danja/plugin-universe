@@ -120,6 +120,19 @@ export const PROMOTION_CONFIG = {
   // Promoted results shown on one page of results, at most.
   maxPromotedPerPage: 2,
 
+  // Promoted results from any one vendor on a page, at most.
+  //
+  // The cap above bounds how much of a page is paid for; this one bounds how
+  // much of *that* any single payer can hold. Without it a Pro subscription —
+  // which allows promoting every plugin a vendor owns — would take both slots
+  // on every search two of their plugins matched, and the largest vendors here
+  // have thirty to fifty plugins each. The subscription buys prominence, not
+  // ownership of the promoted area.
+  //
+  // Vendors are compared by the same folded key the vendor pages group on, so
+  // two spellings of one name count as one vendor.
+  maxPromotedPerVendor: 1,
+
   // The label shown on a promoted result, and a link to /about/promotion.
   //
   // "Promoted", one of the two words docs/architecture.md §7 commits to. Not
@@ -142,6 +155,88 @@ export const PROMOTION_CONFIG = {
   // When a moderator starts being warned that a placement is running out, so
   // the conversation about renewing happens before it lapses rather than after.
   expiringWithinDays: 30
+}
+
+/**
+ * Payments.
+ *
+ * The prices are *not* here. A price is a Stripe object with an id, created in
+ * the dashboard, and duplicating the amount in this file would be a second
+ * place for it to be wrong — the one thing worse than a price nobody can find
+ * is two prices that disagree. What lives here is how this code talks to
+ * Stripe, not what anything costs.
+ */
+export const BILLING_CONFIG = {
+  // Pinned deliberately. Stripe's API is versioned per account, and letting a
+  // library upgrade silently change the shape of a webhook payload is how a
+  // fulfilment path breaks on a day nobody deployed anything.
+  apiVersion: '2025-08-27.basil',
+
+  // Stripe's client retries idempotently on network failure. Two is enough to
+  // cross a blip and few enough that a real outage surfaces as an error rather
+  // than as a slow request.
+  maxNetworkRetries: 2,
+
+  // A webhook payload is larger than a form post — an invoice with several line
+  // items exceeds the 16 kB default in src/api/body.js comfortably. Stripe
+  // retries a delivery this endpoint rejects, so a cap set too low is a
+  // fulfilment that never happens and a retry storm on the way.
+  webhookMaxBytes: 1024 * 1024,
+
+  // How long a Checkout Session stays open. Stripe's own minimum is 30 minutes
+  // and its default is 24 hours; an hour is long enough for somebody to find
+  // their card and short enough that an abandoned session does not sit against
+  // a placement somebody else might want to buy.
+  checkoutExpiryMinutes: 60,
+
+  /**
+   * Everything that can be bought, by Stripe lookup key.
+   *
+   * **A table rather than a constant per product, because there will be more
+   * of them.** A second paid tier is then a row here and a price in the
+   * dashboard, not a new branch in the webhook — and the failure this avoids
+   * is the one where a new price is created, sells fine, and grants nothing
+   * because nothing was taught what it means.
+   *
+   * The keys are *lookup keys*, not price ids. A price in Stripe is immutable,
+   * so changing what something costs means creating a new price and moving the
+   * key onto it: a dashboard action, never a deploy. No amount appears here
+   * for the same reason — two places for a price is one place for it to be
+   * wrong.
+   *
+   * `tier` values must be members of TIER in src/auth/Accounts.js, which
+   * tests/api/billing.test.js checks: a tier granted here that the account
+   * model does not recognise would take somebody's money and give them a
+   * status nothing reads.
+   */
+  sells: {
+    pro_tier_year: {
+      grants: 'tier',
+      tier: 'pro',
+      recurring: true,
+      label: 'Plugin Universe Pro',
+      // A pro subscriber may promote as many of their plugins as they like.
+      // The two caps in PROMOTION_CONFIG still apply to what a *reader* sees —
+      // at most two placements on a page, and never one that does not match —
+      // so "unlimited" means unlimited placements, not unlimited page.
+      promotesUnlimited: true
+    },
+    promoted_listing_year: {
+      grants: 'promotion',
+      // One-time deliberately: the placement already ends by its own date and
+      // the admin page reports one lapsing within thirty days, so the renewal
+      // conversation happens before it stops rather than silently renewing.
+      recurring: false,
+      label: 'Promoted listing, one year'
+    }
+  }
+}
+
+/** The lookup key for a thing this code needs by name. */
+export function lookupKeyFor (grants) {
+  const found = Object.entries(BILLING_CONFIG.sells).find(([, sold]) => sold.grants === grants)
+  if (!found) throw new Error(`Nothing in BILLING_CONFIG.sells grants "${grants}"`)
+  return found[0]
 }
 
 /**

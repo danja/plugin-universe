@@ -31,7 +31,8 @@
     "marked": "^18.0.11",
     "rdf-ext": "^2.5.1",
     "rdf-parse": "^4.0.0",
-    "rdf-validate-shacl": "^0.6.5"
+    "rdf-validate-shacl": "^0.6.5",
+    "stripe": "^22.6.2"
   },
   "devDependencies": {
     "vitest": "^3.0.0"

@@ -67,7 +67,11 @@ export function fuse (lexical, vector) {
  *     reach first place. It is the weakest of the four and always was: what
  *     keeps a search trustworthy is that a paid result cannot appear where it
  *     does not belong, not which position it takes among results that do.
- *  5. **A count cap.** At most `maxPromotedPerPage` placements in one page.
+ *  5. **A count cap.** At most `maxPromotedPerPage` placements in one page, and
+ *     at most `maxPromotedPerVendor` of them from any one vendor. The second
+ *     exists because a Pro subscription allows promoting every plugin a vendor
+ *     owns, and the largest vendors here have thirty to fifty — without it one
+ *     subscription would hold both slots on every search it matched.
  *
  * Reaching first place is *permitted*, not bought outright: the boost is a
  * multiplier, so a substantially better match still wins. A placement scoring
@@ -85,6 +89,9 @@ export function applyPromotion (ranked, promoted, config = PROMOTION_CONFIG) {
   if (!promoted || promoted.size === 0) return ranked
 
   let placed = 0
+  // How many slots each vendor has taken. Keyed by the same folded vendor key
+  // the vendor pages group on, so two spellings of one name are one vendor.
+  const byVendor = new Map()
   const boosted = ranked.map((result, earnedRank) => {
     const placement = promoted.get(result.iri)
     // `earnedRank` is where retrieval put it, before any money. Kept on every
@@ -93,8 +100,16 @@ export function applyPromotion (ranked, promoted, config = PROMOTION_CONFIG) {
     if (!placement) return { ...result, earnedRank }
     // Guard 3: below the floor a placement buys nothing at all.
     if (result.score < config.floor) return { ...result, earnedRank }
-    // Guard 5.
+    // Guard 5, in two parts: how much of the page is paid for, and how much of
+    // that any one payer may hold.
     if (placed >= config.maxPromotedPerPage) return { ...result, earnedRank }
+    // A result with no vendor is nobody's, so it is capped by the page limit
+    // alone rather than sharing an "unknown vendor" allowance with others.
+    const vendor = result.vendorSlug ?? null
+    if (vendor !== null && (byVendor.get(vendor) ?? 0) >= config.maxPromotedPerVendor) {
+      return { ...result, earnedRank }
+    }
+    if (vendor !== null) byVendor.set(vendor, (byVendor.get(vendor) ?? 0) + 1)
     placed += 1
     return {
       ...result,

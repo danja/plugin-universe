@@ -36,7 +36,11 @@ single word in a description clears it. A placement only applies above a
 relevance floor, so a promoted reverb stays absent from a search for "granular
 synthesiser" instead of creeping up it.
 
-**At most two paid placements appear on one page of results.**
+**At most two paid placements appear on one page of results, and at most one of
+them from any one vendor.** The second half matters because a Pro subscription
+allows a vendor to promote every plugin they make, and the larger vendors here
+have thirty to fifty. A subscription buys prominence; it does not buy the
+promoted area.
 
 And the thing it deliberately does not do: **reserve any position.** A
 placement can come first, and it is labelled when it does.
@@ -67,6 +71,7 @@ They are in the repository, in `config/preferences.js`, under
 | `floor` | 0.45 | how well it must already match before that applies |
 | `maxPromotedRank` | 1 | the best position a placement can be lifted into |
 | `maxPromotedPerPage` | 2 | paid placements per page of results |
+| `maxPromotedPerVendor` | 1 | of those, how many one vendor may hold |
 | `termDays` | 365 | how long a placement runs |
 
 Changing any of them changes what is written above, which is why they are one
@@ -83,6 +88,19 @@ list with one home rather than constants scattered through a sort function.
 - **Measurements.** The profiler does not know what is promoted, and a verdict
   of `crashed` stays `crashed`.
 - **Editorial.** Wiki pages are contributors' work under their own licence.
+
+## What it costs
+
+Two ways to buy a placement, both in euros:
+
+| | |
+|---|---|
+| **€10** | one plugin promoted for a year — a one-time payment, not a subscription |
+| **€99 a year** | Plugin Universe Pro: promote as many of your plugins as you like |
+
+Neither buys anything listed under *What money does not buy* above, and both are
+labelled identically. A reader cannot tell which of the two paid for a placement,
+because it makes no difference to what the label means.
 
 ## How long it lasts
 

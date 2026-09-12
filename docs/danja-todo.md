@@ -85,6 +85,76 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   habit already in this file rather than a new job; worth doing before the announcement so the
   endpoint and the site agree if anyone checks.
 
+- [ ] **Before any real money: talk to a commercialista about a partita IVA.** You are in Italy
+  with a codice fiscale and no VAT registration. A codice fiscale is a personal tax identifier
+  that every resident has — it is not a business registration, and on its own it is not normally
+  enough to invoice for ongoing commercial activity.
+
+  **I am not qualified to advise on Italian tax and this is not advice.** What follows is the
+  set of questions worth taking to an accountant, so the conversation is short.
+
+  - **Is this *attività abituale*?** Italy distinguishes occasional work (*prestazione
+    occasionale*, done under a codice fiscale with a ritenuta d'acconto) from habitual business
+    activity, which generally requires a **partita IVA**. Selling advertising placements and
+    subscriptions from a website, repeatedly, to strangers, is much more likely to be the
+    second. Ask directly, and describe it as recurring online sales rather than as a side
+    project.
+  - **Ask about the *regime forfettario*.** It is the small-operator flat-tax regime, up to
+    €85,000 of revenue. It still means holding a partita IVA, but with substantially simpler
+    obligations, and invoices issued without VAT charged under a specific stated exemption.
+    For a one-person web service this is the usual answer, and it is the thing to ask about by
+    name.
+  - **Electronic invoicing through SdI is mandatory, including for forfettari.** Italy requires
+    invoices to go through the Sistema di Interscambio in a prescribed XML format. Stripe's
+    invoices are **not** SdI invoices. So the invoicing half of the plan probably belongs with
+    your accountant's software or an SdI provider rather than with Stripe, and Stripe's role
+    reduces to taking the payment and giving the customer a receipt. Worth settling before any
+    invoice is issued, not after.
+  - **Selling to businesses in other EU countries** is a different VAT treatment again (reverse
+    charge, and the OSS scheme for consumers). Only relevant once you are registered, but ask in
+    the same conversation rather than in a second one.
+
+  **What this blocks and what it does not.**
+
+  - **It does not block building.** Everything is in Stripe test mode, no money moves, and I can
+    build and test the whole flow without any of this being settled.
+  - **It does block going live, and Stripe will be the one to stop you.** The sandbox currently
+    reports `charges_enabled: false` and `details_submitted: false`. Activating a real account
+    means completing Stripe's onboarding, and for an Italian business account that asks for tax
+    identification. So this is not a formality you can defer past launch — it is the gate.
+  - **The currency is worth deciding now.** The account defaults to EUR. Prices can be set in
+    anything, but EUR is the natural choice and changing it later means re-creating prices.
+
+- [ ] **Test the payment flow end to end with the Stripe CLI.** The code is built and unit-tested
+  but nothing has yet completed a real checkout. Two terminals:
+
+  ```sh
+  stripe login
+  stripe listen --forward-to localhost:4100/billing/webhook
+  ```
+
+  That prints a **`whsec_…` signing secret which is different from the one the dashboard gives
+  you** — put it in `.env` as `STRIPE_WEBHOOK_SECRET` and restart the app, or every delivery is
+  refused, which is the deliberate behaviour. Then sign in, open a plugin, buy a placement, and
+  pay with `4242 4242 4242 4242`, any future expiry, any CVC.
+
+  What should happen: a redirect to Stripe, then back to the plugin page, and the plugin carries
+  a **Promoted** label within a second or two. If it does not, `stripe listen` shows the
+  delivery and its response.
+
+  Two test-mode products exist in your sandbox: **€10 one-time** to promote a single plugin for
+  a year (`promoted_listing_year`) and **€99/year** for Plugin Universe Pro, which promotes as
+  many of a vendor's plugins as they like (`pro_tier_year`). Changing the price is a dashboard action and never a deploy — Stripe
+  prices are immutable, so you create a new one and move that lookup key onto it (the dashboard
+  offers this; by API it is `transfer_lookup_key: true`). Archive the old price afterwards so it
+  cannot be bought by an id somebody kept.
+
+  **The two behave differently when a price changes.** The €10 placement is a one-time
+  purchase, so there is nothing to grandfather: past buyers have their year and the next buyer
+  pays whatever the key resolves to that day. The €99 subscription is the opposite —
+  **existing subscribers stay on the price they signed up at** until somebody deliberately
+  migrates them. Worth knowing before the first one signs up, not after.
+
 ## The announcement, when you are ready
 
 The draft is in [announcement-01.md](announcement-01.md). The points that were

@@ -10,6 +10,7 @@ import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
 import Promotions from '../src/catalogue/Promotions.js'
+import Billing from '../src/billing/Billing.js'
 import Submissions from '../src/contrib/Submissions.js'
 import ImageStore from '../src/api/ImageStore.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
@@ -55,6 +56,7 @@ const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
 let corrections = null
 let promotions = null
+let billing = null
 let submissions = null
 let images = null
 let wiki = null
@@ -73,6 +75,19 @@ if (auth) {
   await promotions.ensureGraph()
   search.promotions = promotions
   console.log(`Promotion enabled, ${await search.loadPromotions()} live placement(s)`)
+  const payments = Billing.fromEnvironment({ origin })
+  billing = payments.billing
+  if (billing) {
+    const state = billing.status()
+    console.log(`Payments enabled in ${state.mode} mode, webhook ${state.webhook}`)
+  } else if (payments.reason) {
+    // Half-configured is not the same as deliberately absent, and the
+    // difference has to be visible or a broken payment system reads as a
+    // read-only deployment.
+    console.log(`Payments DISABLED — ${payments.reason}`)
+  } else {
+    console.log('Payments disabled — no Stripe keys set')
+  }
   // The same SHACL shapes a harvest is checked against. A plugin somebody
   // typed is not a different kind of plugin, and the shapes are the only thing
   // that knows a format IRI from a typo.
@@ -104,7 +119,7 @@ try {
 }
 
 const server = createServer({
-  search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images, promotions,
+  search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images, promotions, billing,
   wiki, publication, authProblem
 })
 server.listen(port, () => {

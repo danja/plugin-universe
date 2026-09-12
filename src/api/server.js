@@ -24,6 +24,7 @@ import { PROMOTION_CONFIG } from '../../config/preferences.js'
 import { SUBMITTABLE, SubmissionError } from '../contrib/Submissions.js'
 import PageReader, { PageReadError } from '../contrib/PageReader.js'
 import { PromotionError, daysRemaining } from '../catalogue/Promotions.js'
+import billingRoutes from '../billing/routes.js'
 
 /**
  * What a `promoted` result is, said in the response rather than only on a page.
@@ -209,6 +210,7 @@ export const STATIC_FILES = Object.freeze({
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
   submissions = null, images = null, pageReader = new PageReader(), promotions = null,
+  billing = null,
   wiki: wikiService = null, publication: mcpPublication = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
@@ -892,6 +894,12 @@ export function createServer ({
           // the whitelist. The value itself is checked by the validator.
           if (await wikiRoutes({
             request, response, path, params, viewer, auth, wiki: wikiService, search
+          })) return
+
+          // Buying a placement, and Stripe telling us it was bought. Two routes
+          // with opposite threat models — see src/billing/routes.js.
+          if (await billingRoutes(request, response, {
+            path, billing, promotions, accounts: auth?.accounts, search, auth, viewer
           })) return
 
           // Uploading a picture of a plugin.
