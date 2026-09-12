@@ -122,6 +122,59 @@ describe('every page a visitor can reach', () => {
   })
 })
 
+/**
+ * Tab order, which follows the source unless somebody forces it otherwise.
+ *
+ * Reported from the deployed site: tabbing out of the search box landed in the
+ * Formats list rather than the results. Nobody decided that — the facet panel
+ * was first in the markup and the grid then placed it in the *right-hand*
+ * column, so focus left the search box, jumped to the far right of the page,
+ * returned to the centre for the results, and ended on the far left. Three
+ * columns visited right-to-left.
+ */
+describe('focus reaches the content before the things that refine it', () => {
+  const order = html => {
+    const body = html.slice(html.indexOf('<main'))
+    return {
+      results: body.search(/class="results"|class="page-body"/),
+      facets: body.indexOf('class="side"'),
+      siteLinks: body.indexOf('class="site-links"')
+    }
+  }
+
+  it('puts the results before the facet panel on every page that has both', () => {
+    for (const [name, render] of Object.entries(PAGES)) {
+      const at = order(render())
+      if (at.facets === -1 || at.results === -1) continue
+      expect(at.results, `${name}: facet panel comes before the content`)
+        .toBeLessThan(at.facets)
+    }
+  })
+
+  it('leaves the site links last, where a footer belongs', () => {
+    for (const [name, render] of Object.entries(PAGES)) {
+      const at = order(render())
+      if (at.siteLinks === -1 || at.facets === -1) continue
+      expect(at.siteLinks, `${name}: site links come before the facet panel`)
+        .toBeGreaterThan(at.facets)
+    }
+  })
+
+  it('keeps the browse toggle at the top of a narrow screen', () => {
+    // The panel moved in the markup; it must not move on a phone, where it is
+    // one collapsed button and there was never a tab-order problem to fix.
+    const css = readFileSync('templates/site.css', 'utf8')
+    expect(css).toMatch(/\.columns\s*\{[^}]*flex-direction:\s*column/)
+    expect(css).toMatch(/\.columns > \.browse-toggle[^{]*\{[^}]*order:\s*-1/)
+  })
+
+  it('does not reorder anything on a wide screen, where the grid places it', () => {
+    const css = readFileSync('templates/site.css', 'utf8')
+    const wide = css.slice(css.indexOf('@media (min-width: 58rem)'))
+    expect(wide).toMatch(/\.columns > \.browse-toggle[^{]*\{[^}]*order:\s*0/)
+  })
+})
+
 describe('every form control can be named without seeing it', () => {
   const forms = ['search', 'submit', 'admin', 'contributions', 'plugin']
 

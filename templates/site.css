@@ -105,6 +105,24 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .browse-toggle:checked ~ .browse-button::after { content:" ▴"; }
 .browse-toggle:focus-visible ~ .browse-button { outline:2px solid var(--accent); outline-offset:2px; }
 .side { display:none; margin:0 0 1.5rem; }
+
+/* Tab order follows the source, and the source now puts the facet panel after
+   the results it refines.
+
+   It used to come first, so a keyboard user who had just typed a query tabbed
+   through twenty-one format and category links before reaching a single result
+   — and on a wide screen those links are in the *right-hand* column, so focus
+   left the search box, jumped to the far right of the page, came back to the
+   centre, and finished on the far left. Nobody chose that; it fell out of the
+   markup order that the grid then rearranged.
+
+   On a narrow screen the panel is one collapsed button, so there was nothing
+   to fix and no reason to move it: `order` puts the browse block back at the
+   top where it was designed to sit. The checkbox, its label and the panel stay
+   siblings, so `:checked ~ .side` still opens it — `order` moves boxes, not
+   the DOM. */
+.columns { display:flex; flex-direction:column; }
+.columns > .browse-toggle, .columns > .browse-button, .columns > .side { order:-1; }
 /* Stacked on a narrow screen, the links come last — the same position the
    footer occupies on every other page, so the page ends the way readers
    expect even though the markup is a column. */
@@ -174,8 +192,13 @@ footer .site-links ul { display:flex; flex-wrap:wrap; gap:.3rem 1rem; margin-bot
      so widening the window widens the results and nothing else. They are
      sticky: the way out of a long list should not require scrolling back. */
   .wrap { max-width:82rem; }
+  /* Grid from here up, so the columns are placed explicitly. `order` is a flex
+     and grid property both, and the grid-column rules below override where it
+     would otherwise put things — but it is reset anyway rather than left to
+     interact with auto-placement. */
   .columns { display:grid; grid-template-columns:11rem minmax(0, 1fr) 14rem;
              column-gap:2.5rem; align-items:start; }
+  .columns > .browse-toggle, .columns > .browse-button, .columns > .side { order:0; }
   .columns .results, .columns .pager, .columns .browse-all { grid-column:2; }
   .columns .side { grid-column:3; grid-row:1 / span 4; display:block;
                    position:sticky; top:1.5rem; }

@@ -167,11 +167,15 @@ describe('the submit form', () => {
 
   it('offers every format as a checkbox, because a plugin is built for several', () => {
     const html = render({})
-    const form = html.slice(html.indexOf('<form method="post" action="/submit"'))
+    // Bounded at </form>, not at the end of the document. The browse panel's
+    // own toggle is a checkbox too, and it used to fall outside this slice only
+    // because the panel happened to be rendered before the form — which stopped
+    // being true when the panel moved after the content to fix tab order.
+    const start = html.indexOf('<form method="post" action="/submit"')
+    const form = html.slice(start, html.indexOf('</form>', start))
     for (const format of PLUGIN_FORMATS) {
       expect(form, `no checkbox for ${format}`).toContain(`value="${format}"`)
     }
-    // Counted inside the form: the browse panel's own toggle is a checkbox too.
     expect((form.match(/type="checkbox"/g) ?? []).length).toBe(PLUGIN_FORMATS.length)
   })
 
