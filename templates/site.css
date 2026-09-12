@@ -23,12 +23,23 @@
    not judged: body text, muted text and accent all clear 4.5:1 on both `--bg`
    and `--surface` in both themes, and the control border clears 3:1 on both. */
 :root { font-size: 17px; color-scheme: light dark;
-        --bg:#ffffff; --surface:#e6ecf1; --fg:#12181d; --muted:#59656e;
-        --line:#d3dde3; --panel-edge:#c2cfd7; --control:#707f8a;
-        --accent:#0d6b8a; --on-accent:#ffffff; }
+        /* Three grounds, not two. The page is a field; content sits on a card
+           raised out of it; a panel inside that content is tinted again. A
+           reader never has to work out which kind of thing they are looking at,
+           because the depth says it before the words do.
+
+           An earlier attempt used two grounds a 1.09 step apart, which on a
+           near-white page is invisible — contrast had been measured and
+           *separation* had not, and those are different questions. Every step
+           here clears 1.15, and every ink clears 4.5:1 on all three. */
+        --canvas:#e9eef2; --bg:#ffffff; --surface:#eef3f7;
+        --fg:#12181d; --muted:#54606a;
+        --line:#dbe3e9; --panel-edge:#c8d4dc; --control:#6b7a85;
+        --accent:#0b6480; --on-accent:#ffffff; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg:#0f1418; --surface:#1c252d; --fg:#e6ecf0; --muted:#93a2ac;
-          --line:#2a3641; --panel-edge:#3a4854; --control:#657580;
+  :root { --canvas:#080c0f; --bg:#151d24; --surface:#1e2831;
+          --fg:#e6ecf0; --muted:#93a2ac;
+          --line:#2a3641; --panel-edge:#3a4854; --control:#6b7b86;
           --accent:#5cc6e8; --on-accent:#07121a; }
 }
 
@@ -47,14 +58,26 @@
 }
 * { box-sizing: border-box; }
 body { margin:0; font:1rem/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-       color:var(--fg); background:var(--bg); }
+       color:var(--fg); background:var(--canvas); }
+
+/* The content card. Three containers, one treatment: the results list, an
+   article body, and a prose page are the same kind of thing — what the page is
+   actually about — and they are what the grey field exists to set apart. */
+.results, .page-body, .prose {
+  background:var(--bg); border:1px solid var(--line); border-radius:6px;
+  padding:1.1rem 1.35rem;
+}
+.results > .result:first-child { padding-top:0; }
+.results > .result:last-child { border-bottom:0; padding-bottom:0; }
+.prose { padding:1.5rem 1.75rem; }
 .wrap { max-width: 62rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
-header { border-bottom:1px solid var(--line); padding-bottom:1rem; margin-bottom:1.75rem;
-         position:relative; }
-/* A hairline of accent above the masthead. One line, the full width of the
-   page, and it is most of what makes the top of the page look designed rather
-   than defaulted. */
-body { border-top:3px solid var(--accent); }
+header { border-bottom:0; padding-bottom:.8rem; margin-bottom:1.25rem; position:relative; }
+/* A band of accent across the very top. Full width, above everything, and it
+   is most of what makes the page look composed rather than defaulted. */
+body { border-top:4px solid var(--accent); }
+h1 a::before { content:""; display:inline-block; width:.55rem; height:.55rem;
+               margin-right:.5rem; background:var(--accent); border-radius:1px;
+               vertical-align:baseline; }
 /* The bar wraps rather than overflowing. It has collided with the title twice:
    once when it grew from one link to two and a button, and again when a third
    link was added — an absolutely positioned corner has no way to say "I have
@@ -115,7 +138,11 @@ h1 a { color:inherit; text-decoration:none; }
 .tagline { color:var(--muted); font-size:.9rem; margin:0; }
 form { margin:1.5rem 0 1rem; }
 .search-row { display:flex; gap:.5rem; }
-.search-row button { padding-inline:1.2rem; }
+.search-row button { padding-inline:1.3rem; }
+/* The search form is a region of its own: on the card, above the results,
+   because it is the thing the page is for. */
+form.searchbar { background:var(--bg); border:1px solid var(--line); border-radius:6px;
+                 padding:1rem 1.1rem; margin:0 0 1.25rem; }
 input[type=search] { flex:1 1 auto; min-width:0; padding:.6rem .75rem; font-size:1rem;
                      border:1px solid var(--control); border-radius:4px;
                      background:var(--bg); color:var(--fg); }
@@ -255,16 +282,12 @@ footer .site-links ul { display:flex; flex-wrap:wrap; gap:.3rem 1rem; margin-bot
                          margin-top:0; padding-top:0; border-top:0; }
   .browse-button { display:none; }
 
-  /* The three columns, made visible.
-     Whitespace alone left a reader to infer where navigation stopped and
-     content began — which is the thing that was asked to be clearer. A hairline
-     down each gutter says it without boxing anything in, and the padding keeps
-     the rule off the text. */
-  .columns .site-links { border-right:1px solid var(--line); padding-right:1.75rem; }
-  .columns .side { border-left:1px solid var(--line); padding-left:1.75rem; }
+  /* The side columns stay on the canvas while the middle is raised onto a
+     card. That is the demarcation — a hairline down each gutter was trying to
+     do with a line what the two grounds now do with depth, and two mechanisms
+     for one job is one too many. */
 }
 .result { padding:1rem 0; border-bottom:1px solid var(--line); }
-.result:hover { background:color-mix(in srgb, var(--accent) 4%, transparent); }
 .result.has-shot { display:flex; gap:.9rem; align-items:flex-start; }
 .result-body { min-width:0; flex:1; }
 /* A sized box whether or not the image arrives: a third-party URL that 404s
@@ -339,9 +362,12 @@ th { color:var(--muted); font-weight:600; font-size:.82rem; text-transform:upper
 footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }
 footer a { color:var(--accent); }
 .prov, .wiki, .measured, .submit-fetch, .draft-note {
-  margin:1.5rem 0; padding:.9rem 1.1rem; border:1px solid var(--panel-edge);
+  margin:1.4rem 0; padding:.9rem 1.1rem; border:1px solid var(--panel-edge);
   border-radius:4px; background:var(--surface);
 }
+/* Inside a card the tint alone carries it; the results list has none, so its
+   rows keep their rules. */
+.result:hover { background:var(--surface); }
 .prov p { margin:.25rem 0; font-size:.9rem; }
 .prov a { color:var(--accent); }
 code, .mono { font-family:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
@@ -393,7 +419,10 @@ code { font-size:.88em; background:color-mix(in srgb, var(--fg) 7%, transparent)
    below, so raising the root here cannot move its own breakpoint. */
 @media (max-width: 48rem) {
   :root { font-size: 18px; }
-  .wrap { padding:1.25rem 1rem 3rem; }
+  .wrap { padding:1.25rem .75rem 3rem; }
+  .results, .page-body { padding:.9rem 1rem; }
+  .prose { padding:1.1rem 1.1rem; }
+  form.searchbar { padding:.8rem .9rem; }
   header { padding-bottom:.8rem; margin-bottom:1.2rem; }
   /* Out of the header's top-right corner and into the flow, where it cannot
      collide with the title. */

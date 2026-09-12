@@ -313,13 +313,12 @@ function sidebar (facetValues, total) {
 
 /** The shared shell: the form, a summary line, results, and the optional slots. */
 function searchShell ({
-  query, facets, facetValues, summary, results, services, more, pager: pagerHtml, total
+  query, facets, facetValues, summary, results, more, pager: pagerHtml, total
 }) {
   return templates.render('search', {
     query: query ?? '',
     facets: facetControls(facetValues, facets),
     summary: templates.render('meta-line', { text: summary }),
-    services,
     side: sidebar(facetValues, total),
     // The same list the footer renders on every other page. Here it is the
     // left column instead, so the page has one and not both.
@@ -353,7 +352,6 @@ export function renderLandingPage ({ corpus, results, facetValues, viewer = {} }
     total: corpus,
     // Only here: somebody who has typed a query is looking for a plugin, not
     // for an endpoint.
-    services: templates.render('services-note', {}),
     more: templates.when(results.length > 0, 'browse-all', {}),
     pager: ''
   })
@@ -374,7 +372,6 @@ export function renderSearchPage ({
     facetValues,
     summary: `${total} of ${corpus} plugins${elapsedMs !== undefined ? `, ${elapsedMs} ms` : ''}`,
     results,
-    services: '',
     more: '',
     pager: '',
     total: corpus
@@ -402,7 +399,6 @@ export function renderBrowsePage ({
       ? `${total} of ${corpus} plugins`
       : `All ${total} plugins`,
     results,
-    services: '',
     more: '',
     pager: pager({ total, offset, limit, params: facets, base: '/plugins' }),
     total: corpus
