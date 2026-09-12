@@ -180,6 +180,7 @@ non-redistributable, which the dump assembly excludes. Where the answer is yes b
 | AUFX-O | **CC BY-SA 4.0** (`dcterms:license` in `1.0/rdf/aufx.ttl`, namespace `https://w3id.org/aufx/ontology/1.0#`, verified 2026-09-07) | **Reference, not ingest.** `vocabs/alignment.ttl` asserts `skos:closeMatch` between our IRIs and theirs. Mapping statements are this project's own assertions about other people's identifiers, so the alignment graph is CC0; the ontology itself is not reproduced and must not be copied into the dump. Credited in the file. |
 | Wikidata | **CC0** | **Clear.** Useful for vendor disambiguation and linking. |
 | KVR Audio | No general terms-of-service page exists — the footer offers only a Privacy Statement and Marketplace T&Cs. `robots.txt` disallows only `/mailman/`, `/pipermail/`, `/forum/search.php`, `/auto/`, `/more/`, `/z/` and a few scripts, leaving `/plugins/` and `/product/` technically un-disallowed. However the site returns **403 to any non-browser client**, including a request with a browser user-agent string. | **Excluded.** Three independent reasons, any one sufficient: the sui generis right covers exactly this kind of curated catalogue and a CC0 re-publication would be an extraction of a substantial part; edge-level bot blocking is an access-control measure, and working around it is a worse problem than the one it solves; and the absence of a permissive term is not a permission. `robots.txt` permitting a path is not a licence to re-publish what is on it. If a relationship is ever wanted, the route is `contactus@kvraudio.com`. |
+| A page submitted by URL, by a moderator | The page's own terms, whatever they are. Not reviewed in advance, because the whole point is that it is a page nobody has seen before. | **Permitted as a single fetch, under rule 8.** One page, once, at a named person's request — usually the author's. It is not a harvest and the code must not let it become one: no link-following, no second request, no schedule. Everything else in this table still applies to that one request. |
 | Other third-party catalogues (Audio Plugins for Free, Free VST Hub, Plugin Boutique) | Not individually reviewed — none is a Phase 1 source | **Review before use.** Same analysis as KVR applies by default. |
 | Third-party scraper APIs | — | **Excluded.** A paid wrapper around a scrape does not resolve the underlying rights question; it only adds a second set of terms. |
 
@@ -209,4 +210,20 @@ non-redistributable, which the dump assembly excludes. Where the answer is yes b
    — by asking, per rule 6, rather than by assuming. The practical reason is the same as rule 1: the
    CC0 dump is assembled by querying a licence flag, and `unknown` is flagged not redistributable,
    so harvesting it would add data that can never leave the building.
+8. **A fetch at a person's request is not a harvest, and must not be allowed to become one.**
+   Somebody pasting the URL of their own plugin's page is asking for one document to be read once.
+   That is a different act from crawling, and the difference is consent and scale — not a weaker
+   standard for the request itself. Every rule above still binds it: the same honest user agent
+   (rule 2's spirit — a sysadmin seeing it in a log must be able to find out what it was), a 403 or
+   a 429 is still an answer (rule 3), no email addresses are kept (rule 4), and what is extracted is
+   metadata about one plugin rather than a page reproduced (rule 5).
+
+   The specific things that would turn it into a crawler, and are therefore refused in code rather
+   than in policy: **following any link** found in the fetched document, **fetching more than one
+   URL** per submission, **scheduling** or repeating a fetch, and **accepting a URL from anyone but
+   a moderator**. The last is what keeps the request attributable to a person — an open form is an
+   open proxy, and "a person asked for it" stops being true the moment anyone can ask.
+
+   The result is a draft for a human to check, never a direct write. What a page says about itself
+   is a claim, and the submission queue already exists to hold claims until somebody reviews them.
 

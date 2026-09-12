@@ -110,6 +110,21 @@ button { background:var(--accent); color:#fff; border-color:transparent; cursor:
 .checkbox { display:inline-flex; align-items:center; gap:.3rem; font-size:.95rem; }
 .submit-form .checkbox input { width:auto; display:inline; }
 
+/* Reading a page by URL: a moderator's shortcut, set apart from the form it
+   fills in so it does not read as another field of it. Its button is the one
+   that fetches; the form's own button is the one that saves. */
+.submit-main { min-width:0; }
+.submit-fetch { border:1px solid var(--line); border-radius:8px; padding:.9rem 1rem;
+                margin:0 0 1.5rem; max-width:34rem; }
+.submit-fetch label { display:block; font-weight:600; font-size:.92rem; }
+.submit-fetch .tags { margin:.2rem 0 .6rem; }
+.submit-fetch button { margin-top:.6rem; }
+.draft-note { max-width:34rem; margin:0 0 1.5rem; font-size:.92rem; }
+.draft-note p { margin:0 0 .4rem; }
+.draft-sources, .draft-notes { margin:.2rem 0 .6rem; padding-left:1.2rem; }
+.draft-sources li, .draft-notes li { padding:.1rem 0; }
+.draft-sources { color:var(--muted); }
+
 .site-links ul { list-style:none; margin:0 0 .6rem; padding:0; font-size:.92rem; }
 .site-links li { padding:.12rem 0; }
 .site-links .licence { margin:0; font-size:.85rem; color:var(--muted); }

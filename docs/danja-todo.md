@@ -71,9 +71,11 @@ Things that belong in it, from the inbox and from what has been built since:
   and has a contact address.
 * **How to get your plugin in, without being crawled.** Send the URL and
   permission — that is the offer, and it is a better first impression than
-  "we found you". [TODO.md](../TODO.md) has the moderator URL-submission form
-  that would make it one paste rather than a form to fill in; worth building
-  before the announcement rather than after, or every reply is manual.
+  "we found you". **The moderator URL form is built**, so answering one of these
+  is now a paste and a check rather than seven fields typed by hand: open
+  `/submit` signed in as a moderator and the box is above the form. It reads one
+  page, once, and drafts the fields for you to correct — nothing is saved until
+  you press Submit.
 * **How to get it out.** Erasure is a DROP of a graph, and contributions are
   stored per person so that is one command. Say so — it costs nothing and it
   answers the objection before it is made.

@@ -1,0 +1,10 @@
+<form method="post" action="/submit" class="submit-form submit-fetch">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <label for="page-url">Read a page instead</label>
+  <p class="tags">Paste the plugin's own page and its details will be drafted below
+    for you to check. One page, fetched once — this is not the crawler, and nothing
+    is saved until you press Submit.</p>
+  <input type="url" id="page-url" name="pageUrl" value="{{value}}"
+         placeholder="https://example.org/my-plugin/" maxlength="{{maxLength}}">
+  <button type="submit" name="read" value="1">Read the page</button>
+</form>

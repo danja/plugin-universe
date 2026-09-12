@@ -41,15 +41,33 @@ export class HttpSource {
     this.lastRequestAt = Date.now()
   }
 
-  async fetchText (url) {
+  /**
+   * @param {string} url
+   * @param {object} [options]
+   * @param {string} [options.accept] - the Accept header. The default asks for
+   *   the machine-readable forms a harvester wants; a caller reading a page
+   *   somebody linked has to ask for HTML, and does so here rather than by
+   *   opening a second way out of this process.
+   * @param {number} [options.maxBytes] - refuse a body larger than this. A
+   *   harvester's sources are known and bounded; a URL a person pastes is not.
+   * @param {'follow'|'manual'} [options.redirect] - `follow` by default, which
+   *   is what every configured source needs: the registries redirect, and a
+   *   harvester that treated a 301 as a failure would retry it twice and give
+   *   up. A caller fetching a URL somebody pasted wants `manual`, because the
+   *   address it vetted is not the address a redirect leads to.
+   */
+  async fetchText (url, {
+    accept = 'application/json, text/plain', maxBytes = null, redirect = 'follow'
+  } = {}) {
     let lastError = null
     for (let attempt = 1; attempt <= HARVEST_CONFIG.maxRetries; attempt++) {
       await this.#pace()
       let response
       try {
         response = await fetch(url, {
-          headers: { 'User-Agent': HARVEST_CONFIG.userAgent, Accept: 'application/json, text/plain' },
-          signal: AbortSignal.timeout(HARVEST_CONFIG.requestTimeoutMs)
+          headers: { 'User-Agent': HARVEST_CONFIG.userAgent, Accept: accept },
+          signal: AbortSignal.timeout(HARVEST_CONFIG.requestTimeoutMs),
+          redirect
         })
       } catch (error) {
         lastError = error
@@ -66,6 +84,21 @@ export class HttpSource {
       if (!response.ok) {
         lastError = new HarvestError(`${url} returned HTTP ${response.status}`, { source: url })
         continue
+      }
+      if (maxBytes !== null) {
+        const declared = Number(response.headers.get('content-length'))
+        if (Number.isFinite(declared) && declared > maxBytes) {
+          throw new HarvestError(
+            `${url} is ${declared} bytes, over the ${maxBytes} limit.`, { source: url })
+        }
+        const body = await response.text()
+        // Checked again after reading: content-length is a claim, and a
+        // chunked response does not make one at all.
+        if (Buffer.byteLength(body) > maxBytes) {
+          throw new HarvestError(
+            `${url} returned more than ${maxBytes} bytes.`, { source: url })
+        }
+        return body
       }
       return response.text()
     }

@@ -88,18 +88,27 @@ catalogue now carry a reading.
   The gap is that nothing notices: `/health` reports both numbers and nothing compares them
   except a live test nobody runs on a schedule. Worth making the acceptance path report an
   embedding failure to the moderator who caused it, rather than only to the log.
-* **Submit a plugin by URL, for a moderator.** Paste `https://danja.github.io/valis/` and have
-  the target read on a best-effort basis rather than typing seven fields. Moderator-only,
-  because it is the difference between a form and a fetch: the site would be making a request
-  on somebody's say-so.
+* **Submit a plugin by URL, for a moderator.** *Done 2026-09-12:* paste a page and its
+  details are drafted into the submit form for a moderator to check. `src/contrib/PageReader.js`
+  reads JSON-LD first, then `og:`, then `<title>` — and says which of the three each field came
+  from, because a page that describes itself for machines and one with only a title do not
+  deserve the same trust. It writes nothing: the ordinary Submit button still saves.
 
-  **This is not the crawler and must not become it.** `docs/resources.md` §4 governs what is
-  harvested at scale, and the rules there — a sanctioned API where one exists, never work
-  around an access-control measure, `robots.txt` permitting a path is not a licence to
-  re-publish it — still apply to a single fetch. What is different is consent and scale: one
-  page, fetched once, at the request of a person who is usually its author. Worth writing that
-  distinction into the terms review before building it, not after, and worth sending the same
-  honest user agent so a sysadmin seeing it in their log can find out what it was.
+  **It is not the crawler and the code is what stops it becoming one.** `docs/resources.md` §4
+  gained a findings row and standing rule 8 *before* this was built, naming the four things that
+  would turn a fetch at a person's request into a crawl: following a link, a second request, a
+  schedule, and a URL from anyone but a moderator. Each is refused in code — there is one
+  `fetchText` call in the reader and one `pageReader.read` in the route, and a test asserts both
+  counts stay at one.
+
+  The security question rule 8 raises — the server issuing a request somebody else chose — is
+  answered by `checkFetchable`: DNS-resolved rather than pattern-matched, because `localtest.me`
+  resolves to 127.0.0.1 and looks nothing like it. Loopback, the private ranges, link-local
+  (where cloud metadata lives), IPv4-mapped IPv6 and credentials in the URL are all refused, and
+  a redirect is reported rather than followed. Fuseki's update endpoint is on one of those
+  addresses. The residual TOCTOU — resolved here, resolved again by `fetch` — is written down in
+  the code rather than papered over; closing it needs a pinned connection Node's fetch does not
+  offer, and the feature is moderators-only, one request, reviewed by a person before any write.
 
 * **Licence identifiers are normalised.** *Done 2026-09-11:* the catalogue held 23 spellings
   of 19 licences — `GPL-3.0` 317 against `GPLv3` 27 and `GPL3` 1, `MIT` 201 against

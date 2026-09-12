@@ -463,7 +463,7 @@ export function renderPluginPage (
  */
 export function renderSubmitPage (submittable, {
   csrfToken, error = null, submitted = null, values = {}, viewer = {},
-  facetValues = {}, corpus = 0
+  facetValues = {}, corpus = 0, mayRead = false, draft = null, pageUrl = ''
 }) {
   /** One field: a row of checkboxes where it takes several values, a box where it does not. */
   const field = ([name, spec]) => {
@@ -508,6 +508,30 @@ export function renderSubmitPage (submittable, {
       linkText: submitted?.linkText ?? ''
     }),
     fields: Object.entries(submittable).map(field).join('\n  '),
+    // Moderators only. `docs/resources.md` §4 rule 8: an open form is an open
+    // proxy, and "a person asked for it" stops being true the moment anyone
+    // can ask. The route checks it too — this only decides whether to draw it.
+    fetch: templates.when(Boolean(mayRead), 'submit-fetch', {
+      csrf: csrfToken ?? '',
+      value: pageUrl,
+      maxLength: String(CONTRIBUTION_CONFIG.maxValueLength)
+    }),
+    // Where each drafted field came from, shown rather than summarised: a page
+    // that named itself in JSON-LD and one that had a <title> and nothing else
+    // do not deserve the same trust, and only the moderator can weigh that.
+    draft: templates.when(Boolean(draft), 'submit-draft', {
+      url: draft?.url ?? '',
+      sources: draft && Object.keys(draft.sources ?? {}).length
+        ? `<ul class="draft-sources">${templates.each('submit-draft-source',
+            Object.entries(draft.sources), ([key, from]) => ({
+              label: submittable[key]?.label ?? key, from
+            }))}</ul>`
+        : '',
+      notes: draft?.notes?.length
+        ? `<ul class="draft-notes">${templates.each('submit-draft-note',
+            draft.notes, text => ({ text }))}</ul>`
+        : ''
+    }),
     // The same two columns the search pages carry. Somebody who has just
     // submitted a plugin, or been told theirs is already here, wants a way
     // back into the catalogue rather than a dead end.

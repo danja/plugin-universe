@@ -5,6 +5,9 @@
 {{{done}}}
 <div class="columns">
 {{{side}}}
+<div class="submit-main">
+{{{fetch}}}
+{{{draft}}}
 <form method="post" action="/submit" class="submit-form">
   <input type="hidden" name="csrf" value="{{csrf}}">
   {{{fields}}}
@@ -13,5 +16,6 @@
     the project's real address. If the catalogue already has it, you will be told
     which one it is rather than creating a second copy.</p>
 </form>
+</div>
 {{{links}}}
 </div>

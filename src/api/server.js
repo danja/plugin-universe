@@ -20,6 +20,7 @@ import ImageStore, { ImageError } from './ImageStore.js'
 import { IMAGE_CONFIG } from '../../config/preferences.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 import { SUBMITTABLE, SubmissionError } from '../contrib/Submissions.js'
+import PageReader, { PageReadError } from '../contrib/PageReader.js'
 import buildRegistry from './registry.js'
 import { handleMcp, MCP_PATH } from '../mcp/server.js'
 import wikiRoutes from '../wiki/routes.js'
@@ -186,7 +187,7 @@ export const STATIC_FILES = Object.freeze({
 
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
-  submissions = null, images = null,
+  submissions = null, images = null, pageReader = new PageReader(),
   wiki: wikiService = null, publication: mcpPublication = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
@@ -588,12 +589,18 @@ export function createServer ({
           }
           const account = viewer.account
           const facetValues = await search.facets()
+          // Moderators only, and checked here as well as in the renderer: the
+          // form not being drawn is a decision about a page, not a control.
+          // docs/resources.md §4 rule 8 — the request has to stay attributable
+          // to a named person, or it is an open proxy.
+          const mayRead = account.trustLevel === TRUST.MODERATOR
           const render = extra => sendText(response, extra.status ?? 200,
             renderSubmitPage(SUBMITTABLE, {
               csrfToken: auth.session.csrfToken(account.iri),
               viewer,
               facetValues,
               corpus: search.documents.size,
+              mayRead,
               ...extra
             }), HTML)
 
@@ -614,6 +621,37 @@ export function createServer ({
           // form people fill in once.
           const values = Object.fromEntries(Object.entries(SUBMITTABLE).map(([name, spec]) =>
             [name, spec.multiple ? form.getAll(name) : (form.get(name) ?? '')]))
+
+          // "Read the page" — one fetch, at this moderator's request, into a
+          // draft they then check. It writes nothing: the draft comes back as
+          // a filled-in form and the ordinary Submit button is still what
+          // saves it. See src/contrib/PageReader.js for the four refusals that
+          // keep this from being a crawler.
+          if (form.get('read')) {
+            const pageUrl = String(form.get('pageUrl') ?? '').trim()
+            if (!mayRead) {
+              return send(response, 403, {
+                error: 'Reading a page by URL is for moderators. Fill the form in instead.'
+              })
+            }
+            if (!pageUrl) {
+              return render({ error: 'Paste the address of the page to read.', values, status: 400 })
+            }
+            try {
+              const draft = await pageReader.read(pageUrl)
+              return render({
+                // The draft fills the form; anything already typed that the
+                // page did not mention is kept, so a half-filled form is not
+                // wiped by pressing Read.
+                values: { ...values, ...draft.fields },
+                draft,
+                pageUrl
+              })
+            } catch (error) {
+              if (!(error instanceof PageReadError)) throw error
+              return render({ error: error.message, values, pageUrl, status: 400 })
+            }
+          }
 
           try {
             const result = await submissions.submit({ account, fields: values })
