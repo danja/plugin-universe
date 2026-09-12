@@ -9,7 +9,8 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import {
   renderLandingPage, renderSearchPage, renderBrowsePage,
   renderPluginPage, renderCategoryPage, renderDocPage, renderAdminPage,
-  renderContributionsPage, renderVocabularies, renderSubmitPage
+  renderContributionsPage, renderVocabularies, renderSubmitPage,
+  renderVendorPage, renderVendorsPage
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
@@ -664,6 +665,12 @@ export function createServer ({
           }), HTML)
         }
 
+        case '/vendors': {
+          return sendText(response, 200, renderVendorsPage(search.vendorList(), viewer, {
+            facetValues: await search.facets(), corpus: search.documents.size
+          }), HTML)
+        }
+
         case '/submit': {
           if (!submissions) return send(response, 404, { error: 'Submissions are not enabled on this instance' })
           if (!viewer.account) {
@@ -819,6 +826,34 @@ export function createServer ({
             if (!file) return send(response, 404, { error: 'No such vocabulary', name: vocab[1] })
             const body = await fs.promises.readFile(isAbsolute(file) ? file : pathJoin(projectRoot, file), 'utf8')
             return sendText(response, 200, body, 'text/turtle; charset=utf-8')
+          }
+
+          // /vendor/<slug> — everything the catalogue holds by one maker.
+          //
+          // The slug is a fold of the vendor's name, not a minted identity:
+          // `trn:vendor` is free text and there is nothing else to key on. That
+          // is fine for a listing and is *not* enough to hang a claimable,
+          // editable profile on — see the note in TODO.md before selling one.
+          const vendor = path.match(/^\/vendor\/([a-z0-9-]+?)(\.json)?$/)
+          if (vendor) {
+            const record = search.vendor(vendor[1])
+            if (!record) return send(response, 404, { error: 'No such vendor', vendor: vendor[1] })
+            if (vendor[2] === '.json') {
+              return send(response, 200, {
+                vendor: record.name,
+                slug: record.slug,
+                // Every spelling the catalogue met, because a consumer
+                // reconciling this against their own data needs the variants
+                // rather than our pick of them.
+                names: record.spellings,
+                total: record.count,
+                results: record.results,
+                licence: LICENCE
+              })
+            }
+            return sendText(response, 200, renderVendorPage(record, viewer, {
+              facetValues: await search.facets(), corpus: search.documents.size
+            }), HTML)
           }
 
           // /category/<slug> — a SKOS concept from the category scheme, and the

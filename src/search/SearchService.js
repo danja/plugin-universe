@@ -182,6 +182,48 @@ export function isLocalImage (url, origin = '') {
   return Boolean(origin) && typeof url === 'string' && url.startsWith(`${origin}/image/`)
 }
 
+/**
+ * A vendor's name as it appears in a URL: lower case, hyphen-separated.
+ *
+ * Readable, because a person reads it — `/vendor/chowdhury-dsp` says who it is
+ * and `/vendor/chowdhurydsp` makes them guess.
+ */
+export function vendorSlug (name) {
+  return String(name ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * The key two spellings of one vendor have in common.
+ *
+ * Stricter than the slug: punctuation and spacing are dropped rather than
+ * turned into hyphens, so "SFZ Tools" and "SFZTools" land on `sfztools` and are
+ * recognised as one vendor. Slugging alone keeps them apart, which is why there
+ * are two functions — the URL wants the separators and the grouping does not.
+ *
+ * Of 365 vendor strings in the catalogue this merges exactly two pairs, both of
+ * them genuine: "SFZ Tools"/"SFZTools" and "olegkapitonov"/"Oleg Kapitonov".
+ *
+ * **It is a grouping, not an identity**, and the difference is the whole of why
+ * a paid vendor profile is not simply this with an edit button. "danja" and
+ * "Danny Ayers" are one person and 86 plugins, and nothing derivable from the
+ * strings will ever say so; a vendor who renames gets a new key and loses
+ * whatever was attached to the old one. A profile somebody pays for needs a
+ * minted IRI that names point at, rather than a key computed from a name — see
+ * the note in TODO.md.
+ */
+export function vendorKey (name) {
+  return String(name ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+}
+
 export class SearchService {
   /**
    * @param {object} deps
@@ -329,6 +371,48 @@ export class SearchService {
       parameters: row.parameters ? row.parameters.split(', ').filter(Boolean) : [],
       cautions: row.cautions || null
     }]))
+    // Vendors, grouped by key. Built from the documents that are already in
+    // memory rather than asked of the store: it is a fold over 645 strings, and
+    // a page listing one vendor's plugins should not be a query.
+    const byKey = new Map()
+    for (const doc of this.documents.values()) {
+      if (!doc.vendor) continue
+      const key = vendorKey(doc.vendor)
+      if (!key) continue
+      if (!byKey.has(key)) byKey.set(key, { key, names: new Map(), plugins: [] })
+      const vendor = byKey.get(key)
+      vendor.names.set(doc.vendor, (vendor.names.get(doc.vendor) ?? 0) + 1)
+      vendor.plugins.push(doc.iri)
+    }
+
+    this.vendors = new Map()
+    // Every spelling's slug resolves to the same vendor, so a link built from
+    // one plugin's spelling and a link built from another's arrive at one page.
+    this.vendorAliases = new Map()
+    for (const vendor of byKey.values()) {
+      // The spelling most of their plugins use. Ties go to the longer one,
+      // which is how "SFZ Tools" wins over "SFZTools" and "Oleg Kapitonov" over
+      // "olegkapitonov" — the separators are information, and the form with
+      // them is the one somebody wrote deliberately.
+      const spellings = [...vendor.names.entries()]
+        .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+      vendor.name = spellings[0][0]
+      vendor.spellings = spellings.map(([name]) => name)
+      vendor.count = vendor.plugins.length
+      vendor.slug = vendorSlug(vendor.name)
+      this.vendors.set(vendor.slug, vendor)
+      for (const [name] of spellings) this.vendorAliases.set(vendorSlug(name), vendor.slug)
+      this.vendorAliases.set(vendor.key, vendor.slug)
+    }
+
+    // Stamped on the document so every link the site builds is the canonical
+    // one. Deriving it at render time from the plugin's own spelling would send
+    // two plugins of a vendor whose name is spelled two ways to two addresses.
+    for (const doc of this.documents.values()) {
+      if (!doc.vendor) continue
+      doc.vendorSlug = this.vendorAliases.get(vendorSlug(doc.vendor)) ?? null
+    }
+
     // Document frequencies are corpus-wide, so they are computed once here
     // rather than per query.
     this.lexical.build(this.documents.values())
@@ -402,6 +486,31 @@ export class SearchService {
    * Never throws. A store that cannot answer this should degrade to a site with
    * no paid placement, not to a site with no search.
    */
+  /**
+   * One vendor and their plugins, or null.
+   *
+   * Plugins come back as documents in name order, which is the order a person
+   * scanning somebody's catalogue wants — a vendor page is a shelf, not a
+   * ranking, so relevance has nothing to sort by here.
+   */
+  vendor (slug) {
+    const canonical = this.vendorAliases?.get(slug) ?? slug
+    const vendor = this.vendors?.get(canonical)
+    if (!vendor) return null
+    const results = vendor.plugins
+      .map(iri => this.documents.get(iri))
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name))
+    return { ...vendor, results }
+  }
+
+  /** Every vendor, most plugins first. */
+  vendorList () {
+    return [...(this.vendors?.values() ?? [])]
+      .map(({ slug, name, count }) => ({ slug, name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  }
+
   async loadPromotions (now = new Date()) {
     if (!this.promotions) return 0
     try {

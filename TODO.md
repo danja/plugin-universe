@@ -219,9 +219,54 @@ foundations.
 
 ## Phase 4 — pro tier — not started
 
-* **Company and developer profiles**, so a paying vendor can present themselves: a page per
-  vendor, claimed by a verified account, with their plugins listed. `pu:vendor` IRIs are
-  already minted, so identity exists; claiming and the labelling rules do not.
+* **Vendor pages exist; vendor *profiles* do not.** *Done 2026-09-12:* `/vendor/<slug>` lists
+  everything one maker has in the catalogue, `/vendors` indexes all 363, and every vendor name
+  on a result row and a plugin page links to it.
+
+  **The claim in the old version of this entry was wrong and worth recording: "`pu:vendor` IRIs
+  are already minted, so identity exists" — there are zero such triples.** `trn:vendor` is a
+  bare literal, 365 distinct strings over 645 plugins. Someone building the paid feature on that
+  sentence would have found out late.
+
+  So the pages group by a *key*: the name folded to lower-case alphanumerics. That merges
+  exactly the two genuine duplicates the catalogue holds ("SFZ Tools"/"SFZTools",
+  "olegkapitonov"/"Oleg Kapitonov") and nothing else, and both spellings' URLs resolve to the
+  one page. It is a grouping and not an identity, and the gap is precisely what a paid profile
+  needs closing first:
+
+  - **Two names, one vendor.** "danja" (50 plugins) and "Danny Ayers" (36) are the same person.
+    Nothing derivable from the strings will ever say so. Only a human assertion can.
+  - **A rename orphans the page.** The key is computed from the name, so a vendor who rebrands
+    gets a new page and whatever was attached to the old one stays there.
+  - **Nothing to attach anything to.** There is no resource to hang a description, a logo, a
+    support URL or an owning account on.
+
+  The fix is the ordinary one and it is a harvest change, not a page change: mint
+  `pu:vendor/<slug>-<hash>` (`URIMinter` already knows the `vendor` type), give it `foaf:name`
+  plus `skos:altLabel` for every spelling met, and have plugins carry `trn:vendor` as an IRI
+  alongside the literal. Then merging two vendors is adding an altLabel, a rename is editing
+  `foaf:name`, and a claim is a triple linking an account to the vendor IRI.
+
+* **Selling a vendor profile.** Not started, and it needs the identity above first. The shape
+  that fits what is already built:
+
+  - **Claiming before editing.** An account proves it speaks for a vendor — the cheapest
+    credible check is a link or file at a domain the vendor's plugins already point at through
+    `foaf:homepage`, since the catalogue holds that URL and did not get it from the claimant.
+    A moderator confirms; the claim is a triple, so it is revocable by deleting one.
+  - **Edited prose is CC BY-SA, not CC0**, and goes in the vendor's own prose graph — the same
+    split the contributor terms already make, for the same reason. A vendor's blurb about
+    themselves is authored text, not a fact about a plugin.
+  - **It must not become a way to edit facts.** A profile is the vendor's own words next to the
+    catalogue's findings, never on top of them. A `crashed` measurement stays `crashed` on a
+    paid profile; that boundary is the whole reason anybody would trust the catalogue, and it
+    is the same line `/about/promotion` already draws for placement.
+  - **Disclosure.** A claimed profile should say it is the vendor's own, in the way a promoted
+    result says it is paid for — a reader must be able to tell harvested fact from vendor copy
+    without being told twice.
+  - Paid or free is a pricing decision, not an architectural one: claiming, editing and
+    labelling are the same work either way, and giving claiming away free while charging for
+    presentation is the option that keeps the catalogue accurate.
 * Promoted placement must be labelled to meet DSA Art. 26/39 and ASA guidance — and the ASA
   advises against "sponsored" as the word.
 * **Promoted listings, without the payments.** *Done 2026-09-12:* a moderator can promote and

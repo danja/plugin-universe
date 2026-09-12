@@ -208,6 +208,13 @@ footer .site-links ul { display:flex; flex-wrap:wrap; gap:.3rem 1rem; margin-bot
                         text-decoration:none; }
 a.badge-ad:hover, a.badge-ad:focus { background:#a08000; text-decoration:none; }
 .promoted-note { font-size:.92rem; color:var(--muted); margin:.6rem 0; }
+/* The vendor index: 363 rows, so it wants to be scannable in columns on a wide
+   screen and a single list on a handset. column-count rather than grid, because
+   the rows are one line each and reading down a column is how a list of names
+   is read. */
+.vendor-list { list-style:none; margin:1rem 0; padding:0; columns:3 14rem; column-gap:2rem; }
+.vendor-list li { padding:.15rem 0; break-inside:avoid; }
+.vendor-list .tags { margin-left:.3rem; }
 .score { float:right; font-variant-numeric:tabular-nums; font-size:.9rem; color:var(--muted); }
 table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }
 th, td { text-align:left; padding:.35rem .6rem .35rem 0; border-bottom:1px solid var(--line); }

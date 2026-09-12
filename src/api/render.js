@@ -6,6 +6,7 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import { linkable, pluginJsonLd } from './serialise.js'
 import templates, { escape } from './Templates.js'
 import { UNVERSIONED, NOASSERTION } from '../harvest/Licensing.js'
+import { vendorSlug } from '../search/SearchService.js'
 
 /**
  * HTML and RDF rendering for the public pages.
@@ -188,7 +189,11 @@ function resultItem (r) {
     score: templates.when(r.score !== undefined, 'result-score', { score: r.score?.toFixed(3) }),
     slug: r.iri?.split('/').pop() ?? '',
     name: r.name,
-    vendor: templates.when(Boolean(r.vendor), 'result-vendor', { vendor: r.vendor }),
+    // The vendor's name is a link now that there is a page behind it. It was
+    // the one identifier on a result row that named something real and went
+    // nowhere.
+    vendor: templates.when(Boolean(r.vendor), 'result-vendor',
+      { vendor: r.vendor, slug: r.vendorSlug ?? vendorSlug(r.vendor ?? '') }),
     description: templates.when(Boolean(r.description), 'description',
       { description: String(r.description ?? '').split('\n')[0].slice(0, 220) }),
     badges: availabilityBadges(r),
@@ -409,6 +414,8 @@ export function renderPluginPage (
   { facetValues = {}, corpus = 0 } = {}
 ) {
   const rows = [
+    // Left as text here: the heading above is already a link to the same page,
+    // and two links to one place in one screen is noise rather than emphasis.
     ['Vendor', doc.vendor],
     ['Formats', (doc.formats ?? []).join(', ')],
     ['Roles', (doc.roles ?? []).join(', ')],
@@ -426,7 +433,8 @@ export function renderPluginPage (
     side: sidebar(facetValues, corpus),
     links: templates.render('site-links', {}),
     name: doc.name,
-    vendor: templates.when(Boolean(doc.vendor), 'tagline', { text: doc.vendor }),
+    vendor: templates.when(Boolean(doc.vendor), 'plugin-vendor',
+      { vendor: doc.vendor, slug: doc.vendorSlug ?? vendorSlug(doc.vendor ?? '') }),
     // Disclosed on the plugin's own page, not only in a result row. Somebody
     // arriving from a link has seen no label at all, and "this placement is
     // paid for" is a fact about the listing wherever it is read.
@@ -856,6 +864,59 @@ function categoryLinks (label, slugs) {
  * something to show, and showing it is also how it gets checked — a definition
  * nobody reads is a definition nobody notices is wrong.
  */
+/**
+ * One vendor, and everything of theirs the catalogue holds.
+ *
+ * Deliberately modest about what it is. The page is assembled from harvested
+ * facts — nobody has written a word of it, and the vendor has not seen it — so
+ * it says so rather than reading like a profile they wrote. That note is also
+ * what a vendor profile would replace, if one is ever sold.
+ */
+export function renderVendorPage (
+  vendor, viewer = {}, { facetValues = {}, corpus = 0 } = {}
+) {
+  const body = templates.render('vendor', {
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {}),
+    heading: templates.render('page-heading', { title: vendor.name }),
+    // Shown only when the catalogue really did meet more than one spelling, so
+    // it reads as information rather than as boilerplate.
+    alsoKnownAs: templates.when(vendor.spellings.length > 1, 'labelled-tags', {
+      label: 'Also written',
+      items: templates.each('tag', vendor.spellings.slice(1), value => ({ value }))
+    }),
+    claim: templates.render('vendor-claim', { name: vendor.name }),
+    count: `${vendor.count} plugin${vendor.count === 1 ? '' : 's'}`,
+    slug: vendor.slug,
+    results: vendor.results.map(resultItem).join('\n')
+  })
+  return layout(`${vendor.name} — Plugin Universe`, body, {
+    description: `Plugins by ${vendor.name} in the Plugin Universe catalogue.`,
+    ...viewer,
+    footer: false
+  })
+}
+
+/** Every vendor, as a way in. */
+export function renderVendorsPage (vendors, viewer = {}, { facetValues = {}, corpus = 0 } = {}) {
+  const body = templates.render('vendors', {
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {}),
+    heading: templates.render('page-heading', { title: 'Vendors' }),
+    count: `${vendors.length} vendor${vendors.length === 1 ? '' : 's'}`,
+    rows: templates.each('vendor-row', vendors, vendor => ({
+      slug: vendor.slug,
+      name: vendor.name,
+      count: `${vendor.count} plugin${vendor.count === 1 ? '' : 's'}`
+    }))
+  })
+  return layout('Vendors — Plugin Universe', body, {
+    description: 'Every vendor with plugins in the Plugin Universe catalogue.',
+    ...viewer,
+    footer: false
+  })
+}
+
 export function renderCategoryPage (
   slug, results, total, viewer = {}, concept = null,
   { facetValues = {}, corpus = 0 } = {}
