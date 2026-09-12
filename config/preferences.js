@@ -120,9 +120,16 @@ export const PROMOTION_CONFIG = {
   // Promoted results shown on one page of results, at most.
   maxPromotedPerPage: 2,
 
-  // The label shown on a promoted result. Not "Sponsored": the ASA advises
-  // against it as ambiguous.
-  label: 'Ad',
+  // The label shown on a promoted result, and a link to /about/promotion.
+  //
+  // "Promoted", one of the two words docs/architecture.md §7 commits to. Not
+  // "Sponsored", which the ASA advises against as ambiguous — readers take it
+  // to mean several things, most of them not "someone paid for this".
+  //
+  // "Promoted" is a shade softer than "Ad", which is why the label is a link
+  // and its title attribute says "paid placement" in as many words: the
+  // disclosure does not rest on the single word being read correctly.
+  label: 'Promoted',
 
   // How long a placement runs before it lapses.
   //

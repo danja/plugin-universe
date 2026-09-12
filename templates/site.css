@@ -200,7 +200,13 @@ footer .site-links ul { display:flex; flex-wrap:wrap; gap:.3rem 1rem; margin-bot
 /* Paid placement. High contrast and first in the row, because the ASA asks for
    disclosure that is immediate and prominent — a label a reader has to look for
    is not one. It must not be styled to recede. */
-.badge-ad { background:#8a6d00; color:#fff8e1; border-color:transparent; }
+/* `a.badge-ad`, not `.badge-ad`: the label is a link to the disclosure page, and
+   the base `a { color: var(--accent) }` rule would otherwise win on specificity
+   and repaint it. text-decoration is dropped because the pill already reads as
+   something to click, and an underline inside it looks like damage. */
+.badge-ad, a.badge-ad { background:#8a6d00; color:#fff8e1; border-color:transparent;
+                        text-decoration:none; }
+a.badge-ad:hover, a.badge-ad:focus { background:#a08000; text-decoration:none; }
 .promoted-note { font-size:.92rem; color:var(--muted); margin:.6rem 0; }
 .score { float:right; font-variant-numeric:tabular-nums; font-size:.9rem; color:var(--muted); }
 table { border-collapse:collapse; width:100%; margin:1rem 0; font-size:.9rem; }

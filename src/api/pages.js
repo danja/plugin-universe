@@ -79,7 +79,7 @@ export const PAGES = Object.freeze({
   },
   '/about/promotion': {
     file: 'docs/promotion.md',
-    // Linked from every Ad label and every promoted plugin's page, so it is
+    // The Promoted label links straight here, so it is
     // what somebody clicks the moment they notice a result was paid for. The
     // DSA asks for the main ranking parameters to be disclosed; this is where
     // they are, with the numbers rather than a description of them.

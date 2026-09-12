@@ -203,15 +203,29 @@ describe('every paid placement is labelled', () => {
     })
     // The rendered element, not the class name — site.css is inlined into
     // every page, so `badge-ad` alone matches the stylesheet on any page.
-    expect(html).toContain('<span class="badge badge-ad"')
-    expect(html).toContain(`>${PROMOTION_CONFIG.label}</span>`)
+    expect(html).toContain('<a class="badge badge-ad" href="/about/promotion"')
+    expect(html).toContain(`>${PROMOTION_CONFIG.label}</a>`)
+  })
+
+  it('makes the label itself the way to the disclosure', () => {
+    // Somebody who notices the label is the one person certain to want the
+    // explanation, and they should not have to go looking for it.
+    const html = renderSearchPage({
+      query: 'reverb', results: [{ ...doc, score: 1, promoted: true }],
+      total: 1, corpus: 1, elapsedMs: 1
+    })
+    const label = html.slice(html.indexOf('<a class="badge badge-ad"'))
+    expect(label.slice(0, label.indexOf('</a>'))).toContain('/about/promotion')
+    // And the word alone is not the whole disclosure: "Promoted" is softer than
+    // "Ad", so the tooltip says what it means in as many words.
+    expect(label.slice(0, label.indexOf('</a>'))).toMatch(/[Pp]aid/)
   })
 
   it('does not label an ordinary result', () => {
     const html = renderSearchPage({
       query: 'reverb', results: [{ ...doc, score: 1 }], total: 1, corpus: 1, elapsedMs: 1
     })
-    expect(html).not.toContain('<span class="badge badge-ad"')
+    expect(html).not.toContain('class="badge badge-ad"')
   })
 
   it('discloses on the plugin page too, where there is no ranking to see', () => {

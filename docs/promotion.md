@@ -5,13 +5,15 @@ buys, because a ranking effect nobody can inspect is one nobody can check.
 
 ## How you can tell
 
-Every paid placement carries an **Ad** label, on the result itself and on the
-plugin's own page. Not in a footnote, not on hover, not only on the search
-page — wherever the listing appears, the label appears with it.
+Every paid placement carries a **Promoted** label, on the result itself and on
+the plugin's own page. Not in a footnote, not on hover, not only on the search
+page — wherever the listing appears, the label appears with it. The label is a
+link, and it points here: if you have noticed it, you are the person most
+likely to want this page.
 
-The label is "Ad" rather than "Sponsored" deliberately. The UK advertising
-regulator advises against "sponsored" because readers understand it to mean
-several different things, most of them not "someone paid for this".
+It does not say "Sponsored", deliberately. The UK advertising regulator advises
+against that word because readers take it to mean several different things,
+most of them not "someone paid for this".
 
 ## What it changes
 

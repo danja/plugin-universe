@@ -24,7 +24,7 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 - [ ] **Try promoting a plugin**, and tell me if the ranking feels wrong. Sign in as a
   moderator, open `/admin`, and the promotion panel is below the moderation queue — paste a
   plugin slug and press *Promote for a year*. Search for something that plugin genuinely
-  matches and it should come first with an **Ad** label; search for something it does not
+  matches and it should come first with a **Promoted** label; search for something it does not
   match and it should not appear at all.
 
   A placement can take first place, per your call — `maxPromotedRank: 1`. It is *permitted*

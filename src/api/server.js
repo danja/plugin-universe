@@ -568,7 +568,7 @@ export function createServer ({
                   if (form.get('promote')) {
                     const result = await promotions.promote({ moderator, pluginIri })
                     message = result.created
-                      ? `${doc.name} is promoted until ${String(result.endsAt).slice(0, 10)}. Its results now carry an Ad label.`
+                      ? `${doc.name} is promoted until ${String(result.endsAt).slice(0, 10)}. Its results now carry a Promoted label.`
                       : `${doc.name} was already promoted, until ${String(result.endsAt).slice(0, 10)}. Nothing changed — pressing the button twice does not extend a placement.`
                   } else {
                     const result = await promotions.unpromote({ moderator, pluginIri })

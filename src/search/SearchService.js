@@ -413,7 +413,7 @@ export class SearchService {
     // Stamped onto the documents as well as kept as a map, so that a plugin
     // page — which reads a document and never sees a ranking — can disclose
     // the placement too. One pass over the corpus, and it clears the flag from
-    // anything no longer promoted: a stale "Ad" label is a worse defect than a
+    // anything no longer promoted: a stale "Promoted" label is a worse defect than a
     // missing one, because it is a claim about money that is not true.
     for (const doc of this.documents.values()) {
       const placement = this.promoted.get(doc.iri)
