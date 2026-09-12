@@ -1,0 +1,6 @@
+<p>Your <strong>{{proLabel}}</strong> plan ended on {{until}}.
+  Any placements it was paying for have stopped.</p>
+<form method="post" action="/billing/subscribe">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <button type="submit">Subscribe again</button>
+</form>

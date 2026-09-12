@@ -189,6 +189,60 @@ export class Billing {
   }
 
   /**
+   * A Checkout Session for a subscription tier.
+   *
+   * `mode: 'subscription'`, and the difference from a placement is not just the
+   * mode. A placement is bought outright and ends 365 days later whatever
+   * happens; a tier is *rented*, and its expiry has to track the subscription
+   * or a cancellation leaves somebody paid-up for months. So the customer is
+   * created here and remembered, because every later event — renewed, lapsed,
+   * card declined — names the customer and nothing else this system knows.
+   */
+  async checkoutForTier ({ account, priceId, returnPath = '/account' }) {
+    if (!account?.iri) throw new BillingError('Checkout needs the subscribing account')
+    if (!priceId) throw new BillingError('Checkout needs a price')
+
+    return this.stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${this.origin}${returnPath}?subscribed={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${this.origin}${returnPath}`,
+      billing_address_collection: 'required',
+      metadata: { kind: 'tier', accountIri: account.iri },
+      // Carried onto the subscription itself, not just the session. A renewal
+      // a year from now delivers a subscription event, which never sees the
+      // session — so metadata left only on the session would be unreachable at
+      // exactly the moment it is needed.
+      subscription_data: { metadata: { accountIri: account.iri } },
+      client_reference_id: account.iri
+    })
+  }
+
+  /**
+   * A Customer Portal session: Stripe's own page for managing a subscription.
+   *
+   * Cancelling, updating a card, and reading past invoices, none of which this
+   * site has to build or hold data for. A sole operator must not be the
+   * cancellation desk, and a subscription somebody cannot cancel without
+   * emailing a person is the kind of thing consumer protection regulators have
+   * opinions about.
+   */
+  async portalSession ({ stripeCustomer, returnPath = '/account' }) {
+    if (!stripeCustomer) {
+      throw new BillingError('No Stripe customer on this account; there is nothing to manage yet.')
+    }
+    return this.stripe.billingPortal.sessions.create({
+      customer: stripeCustomer,
+      return_url: `${this.origin}${returnPath}`
+    })
+  }
+
+  /** One subscription, for reading its period end. */
+  async subscription (id) {
+    return this.stripe.subscriptions.retrieve(id)
+  }
+
+  /**
    * Find a price by its lookup key rather than by a hardcoded id.
    *
    * A price id is created in the dashboard and would have to be pasted into

@@ -43,6 +43,35 @@ export const TIER = Object.freeze({
   ADMIN: 'admin'
 })
 
+/**
+ * The tier an account actually has right now.
+ *
+ * A paid tier is an *entitlement with an expiry*, not a permanent grant —
+ * `docs/architecture.md` §7 says so in those words. This is where that becomes
+ * true rather than aspirational: the expiry is checked at the moment the tier
+ * is read, so a subscription that stopped being paid for lapses on its own.
+ *
+ * **The alternative fails in the expensive direction.** Setting `tier: pro` and
+ * waiting for a cancellation webhook means a delivery that never arrives — a
+ * missed event, an endpoint down for an afternoon, a subscription ended from
+ * the Stripe dashboard by hand — leaves somebody paid-up for ever. Nothing
+ * would ever notice, because there is nothing to notice: the graph says pro and
+ * no message is coming to say otherwise. An expiry that must be actively
+ * extended cannot fail that way; the worst a missed renewal event does is
+ * lapse an entitlement early, which somebody complains about the same day.
+ *
+ * The identical rule governs a promotion's `pu:endsAt`, deliberately.
+ *
+ * ADMIN is exempt. It is granted by `bin/grant.js` on the server and is not
+ * bought, so an admin with no expiry is an admin rather than a lapsed one.
+ */
+export function effectiveTier (tier, tierEndsAt, now = new Date()) {
+  if (!tier || tier === TIER.REGISTERED) return TIER.REGISTERED
+  if (tier === TIER.ADMIN) return TIER.ADMIN
+  if (!tierEndsAt) return TIER.REGISTERED
+  return new Date(tierEndsAt).getTime() > now.getTime() ? tier : TIER.REGISTERED
+}
+
 export class AccountError extends Error {
   constructor (message) {
     super(message)
@@ -158,7 +187,16 @@ export class Accounts {
       name: row.label ?? row.login,
       avatarUrl: row.avatar ?? null,
       trustLevel: row.trust ?? TRUST.NEW,
-      tier: row.tier ?? TIER.REGISTERED,
+      // The tier as *currently effective*, not as last written. A paid tier
+      // carries an expiry and lapses on its own; see effectiveTier below.
+      tier: effectiveTier(row.tier, row.tierEndsAt),
+      // What was written, and until when — for the account page, and so that a
+      // renewal can extend rather than guess.
+      paidTier: row.tier ?? null,
+      tierEndsAt: row.tierEndsAt ?? null,
+      // The payment processor's handle, and the whole of what is known here
+      // about anybody's payment details.
+      stripeCustomer: row.customer ?? null,
       // SPARQL returns literals as strings; "false" is truthy.
       suspended: row.suspended === 'true'
     }
@@ -187,6 +225,54 @@ export class Accounts {
 
   async setSuspended (accountIri, suspended) {
     return this.#replace(accountIri, pu + 'suspended', typedLiteral(Boolean(suspended)))
+  }
+
+  /**
+   * Record what a payment bought: a tier, until a date, for a customer.
+   *
+   * Written as one act because the three are one fact. A tier without its
+   * expiry is a permanent grant — `effectiveTier` treats that as *no* tier
+   * rather than an unlimited one, so writing them separately and failing
+   * between would deny the entitlement rather than give it away for ever.
+   * That is the right direction, and doing it in one call means it does not
+   * come up.
+   *
+   * Called only from a verified webhook. Nothing a person can reach writes a
+   * tier, which is why there is no route that does.
+   */
+  async grantTier (accountIri, { tier, endsAt, stripeCustomer }) {
+    if (!Object.values(TIER).includes(tier)) {
+      throw new AccountError(`Unknown tier "${tier}". Known: ${Object.values(TIER).join(', ')}`)
+    }
+    if (!endsAt) throw new AccountError('A paid tier needs an expiry; without one it never lapses.')
+    await this.#replace(accountIri, pu + 'tier', literal(tier))
+    await this.#replace(accountIri, pu + 'tierEndsAt', typedLiteral(new Date(endsAt)))
+    if (stripeCustomer) {
+      await this.#replace(accountIri, pu + 'stripeCustomer', literal(stripeCustomer))
+    }
+    return true
+  }
+
+  /**
+   * End a paid tier now.
+   *
+   * The expiry is moved rather than the tier deleted, so the record of what
+   * they had survives — and so the one rule that decides entitlement stays one
+   * rule. `effectiveTier` needs no cancellation case: an expiry in the past is
+   * already how a lapse is expressed.
+   */
+  async endTier (accountIri, now = new Date()) {
+    await this.#replace(accountIri, pu + 'tierEndsAt', typedLiteral(now))
+    return true
+  }
+
+  /** The account holding a Stripe customer id, or null. */
+  async findByStripeCustomer (customerId) {
+    const rows = await this.client.select(this.queries.get('account/by-stripe-customer', {
+      graph: iri(this.graph),
+      customer: literal(customerId)
+    }))
+    return rows[0] ? this.find(rows[0].account) : null
   }
 
   async #replace (accountIri, predicate, term) {

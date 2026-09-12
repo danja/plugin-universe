@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-six entries is past the point where anyone reads them all, so what follows
+Forty-seven entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index. Entries are consolidated when several
 turn out to be one lesson, and promoted into [CLAUDE.md](CLAUDE.md) when a
@@ -81,6 +81,39 @@ moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — Reported a test result I had not read, then a failure I had caused
+
+**What happened.** Twice in a few minutes, in opposite directions. First I said
+"both suites pass" having piped the store run through `tail -6`, which showed a
+duration and no verdict. Then two store runs came back with 8 and 17 failures
+and I reported those as real — they were an artefact of my having started two
+suites concurrently against one Fuseki. Run alone, all 175 pass.
+
+**Root cause, both times: asserting a result rather than looking at one.** The
+first was a claim made from a log that could not have contained the answer. The
+second was a claim made without asking why two runs of the same code disagreed
+with each other — which is the question that would have identified the cause
+immediately, because a suite whose results depend on what else is running is
+telling you something specific.
+
+**What makes this suite different.** `npm run test:store` writes to shared named
+graphs in one Fuseki. It is not parallel-safe against itself, by design — the
+graphs are the thing under test. So two concurrent runs do not produce two
+results; they produce two corrupted ones.
+
+**Prevention.**
+
+- **One store run at a time.** If one is already going, wait for it rather than
+  starting another. Two disagreeing runs are not two data points.
+- **Never pipe a test run through `tail` in the command itself.** Write the full
+  output to a file and read the tail of that, or the detail is gone before it
+  can be looked at. `npm test 2>&1 | tail -5` is fine for a suite that passes
+  and useless the moment one does not.
+- **A duration is not a verdict.** If the captured output does not contain a
+  pass/fail count, the honest report is "I have not seen the result".
 
 ---
 

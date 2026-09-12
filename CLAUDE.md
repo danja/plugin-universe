@@ -280,6 +280,11 @@ change, and a long one rarely does.
 
 - ES modules throughout. Node ≥ 20.
 - Scripts are run from the repository root.
+- **`npm run test:store` is not parallel-safe against itself.** It writes to shared named graphs
+  in one Fuseki, so two concurrent runs corrupt each other and report failures that are not
+  real — 8 and 17 of 175, from code that passes 175/175 run alone. One at a time. And write a
+  run's output to a file rather than piping it through `tail` in the command, or the failure
+  detail is discarded before anyone can read it and a duration gets mistaken for a verdict.
 - Vitest, with separate core / store / live configurations. `npm test` is core (no services),
   `npm run test:store` needs Fuseki and Ollama, `npm run test:live` tests the **deployed site**
   over the internet and is never part of a sweep — `tests/rdf/suite-coverage.test.js` binds each

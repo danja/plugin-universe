@@ -23,6 +23,26 @@ import { PromotionError } from '../catalogue/Promotions.js'
  * POST, because that is what it is.
  */
 
+/**
+ * What each thing costs, as text, read from Stripe.
+ *
+ * The account page shows prices and this is the only place they come from —
+ * never a figure in a template. Stripe is the one authority on what something
+ * costs, and a second copy is a second thing to keep true.
+ */
+export async function billingPrices (billing) {
+  const shown = {}
+  const money = price => new Intl.NumberFormat('en-IE', {
+    style: 'currency', currency: price.currency.toUpperCase(), minimumFractionDigits: 0
+  }).format(price.unit_amount / 100)
+
+  for (const [key, sold] of Object.entries(BILLING_CONFIG.sells)) {
+    const price = await billing.priceByLookupKey(key)
+    shown[sold.grants === 'tier' ? 'pro' : 'single'] = { text: money(price), label: sold.label }
+  }
+  return shown
+}
+
 /** Stripe's own header. Case-insensitive on the wire; Node lower-cases it. */
 const SIGNATURE_HEADER = 'stripe-signature'
 
@@ -34,7 +54,18 @@ const SIGNATURE_HEADER = 'stripe-signature'
  * than an error — returning a failure makes Stripe retry something this code
  * was never going to handle, for days.
  */
-const HANDLED = Object.freeze(['checkout.session.completed'])
+const HANDLED = Object.freeze([
+  // Something was bought: a placement, or a subscription starting.
+  'checkout.session.completed',
+  // A subscription renewed and was paid for. This is what extends an
+  // entitlement — and the reason an entitlement has to be extended at all
+  // rather than granted once, so that silence expires it.
+  'invoice.paid',
+  // Ended: cancelled, or given up on after failed payments. Not the only way a
+  // tier lapses — it also lapses simply by its expiry passing — which is what
+  // makes a missed delivery here survivable rather than permanent.
+  'customer.subscription.deleted'
+])
 
 /**
  * @returns {Promise<boolean>} whether this request was a billing route
@@ -110,6 +141,48 @@ export default async function billingRoutes (request, response, {
     return true
   }
 
+  // ── Outbound: subscribe, and manage a subscription ───────────────────────
+  if (path === '/billing/subscribe' || path === '/billing/portal') {
+    if (request.method !== 'POST') {
+      send(response, 405, { error: 'POST only' })
+      return true
+    }
+    if (!viewer.account) {
+      needsSignIn(request, response, { returnTo: '/account', message: 'Sign in to manage a subscription' })
+      return true
+    }
+    let form
+    try {
+      form = await readForm(request)
+    } catch (error) {
+      send(response, error.status ?? 400, { error: error.message })
+      return true
+    }
+    if (!auth.session.verifyCsrf(form.get('csrf'), viewer.account.iri)) {
+      send(response, 403, { error: 'That form has expired. Reload the page and try again.' })
+      return true
+    }
+
+    try {
+      let url
+      if (path === '/billing/portal') {
+        // Cancelling, changing a card, reading past invoices — Stripe's page,
+        // not one built here, and not an email to a person.
+        url = (await billing.portalSession({ stripeCustomer: viewer.account.stripeCustomer })).url
+      } else {
+        const price = await billing.priceByLookupKey(lookupKeyFor('tier'))
+        url = (await billing.checkoutForTier({ account: viewer.account, priceId: price.id })).url
+      }
+      response.writeHead(303, { Location: url, 'Content-Length': 0 })
+      response.end()
+    } catch (error) {
+      if (!(error instanceof BillingError)) throw error
+      logger.warn(`[billing] ${path} refused: ${error.message}`)
+      send(response, 400, { error: error.message })
+    }
+    return true
+  }
+
   // ── Inbound: Stripe tells us what happened ───────────────────────────────
   if (path === '/billing/webhook') {
     if (request.method !== 'POST') {
@@ -148,7 +221,7 @@ export default async function billingRoutes (request, response, {
     }
 
     try {
-      const outcome = await fulfil(event, { promotions, accounts, search })
+      const outcome = await fulfil(event, { promotions, accounts, search, billing })
       sendText(response, 200, outcome, 'text/plain; charset=utf-8')
     } catch (error) {
       // 500 on purpose, so Stripe retries. The payment succeeded and the thing
@@ -171,10 +244,14 @@ export default async function billingRoutes (request, response, {
  * be removed and an account erased between checkout and delivery — so both are
  * resolved against the catalogue rather than trusted.
  */
-async function fulfil (event, { promotions, accounts, search }) {
+async function fulfil (event, { promotions, accounts, search, billing }) {
+  if (event.type === 'invoice.paid') return renewTier(event, { accounts, billing })
+  if (event.type === 'customer.subscription.deleted') return endTier(event, { accounts })
+
   const session = event.data.object
   const { kind, pluginIri, accountIri } = session.metadata ?? {}
 
+  if (kind === 'tier') return startTier(session, { accounts, billing })
   if (kind !== 'promotion') return `ignored: unknown kind ${kind}`
   if (session.payment_status !== 'paid') {
     // A completed session is not always a paid one — a delayed method can
@@ -209,4 +286,98 @@ async function fulfil (event, { promotions, accounts, search }) {
     if (error instanceof PromotionError) throw new Error(`could not grant: ${error.message}`)
     throw error
   }
+}
+
+/**
+ * A subscription has just started.
+ *
+ * The tier is written with an expiry taken from the subscription's own period
+ * end rather than from a guess here: Stripe decides when the period ends, and
+ * a date computed locally would drift from it by however long the two clocks
+ * and the payment took to agree.
+ */
+async function startTier (session, { accounts, billing }) {
+  if (session.payment_status !== 'paid') return `ignored: payment_status ${session.payment_status}`
+  const accountIri = session.metadata?.accountIri
+  const account = await accounts.find(accountIri)
+  if (!account) throw new Error(`paid session ${session.id} names an account that no longer exists: ${accountIri}`)
+
+  const sold = BILLING_CONFIG.sells[await lookupKeyOf(session, billing)]
+  if (!sold || sold.grants !== 'tier') {
+    throw new Error(`session ${session.id} bought a tier this build does not sell`)
+  }
+
+  const subscription = await billing.subscription(session.subscription)
+  await accounts.grantTier(accountIri, {
+    tier: sold.tier,
+    endsAt: periodEnd(subscription),
+    stripeCustomer: session.customer
+  })
+  return `granted ${sold.tier} to ${account.login} until ${periodEnd(subscription).toISOString()}`
+}
+
+/**
+ * A subscription renewed and was paid for: push the expiry out.
+ *
+ * Extending rather than re-granting is the whole design. An entitlement that
+ * must be actively extended lapses if this stops arriving; one granted
+ * permanently and cancelled by a message lasts for ever if that message is
+ * lost. The first fails in the direction somebody complains about the same
+ * day, which is the one to choose.
+ */
+async function renewTier (event, { accounts, billing }) {
+  const invoice = event.data.object
+  if (!invoice.subscription) return 'ignored: invoice with no subscription'
+
+  const account = await accounts.findByStripeCustomer(invoice.customer)
+  if (!account) {
+    // Not an error worth retrying: an erased account is a legitimate state and
+    // Stripe would redeliver this for days.
+    logger.warn(`[billing] invoice.paid for unknown customer ${invoice.customer}`)
+    return `ignored: no account for customer ${invoice.customer}`
+  }
+  const subscription = await billing.subscription(invoice.subscription)
+  await accounts.grantTier(account.iri, {
+    tier: account.paidTier ?? 'pro',
+    endsAt: periodEnd(subscription),
+    stripeCustomer: invoice.customer
+  })
+  return `extended ${account.login} until ${periodEnd(subscription).toISOString()}`
+}
+
+/**
+ * A subscription ended.
+ *
+ * Belt and braces rather than the mechanism: the entitlement would lapse at its
+ * expiry anyway. What this adds is *promptness* — somebody who cancels mid-term
+ * keeps what they paid for until the period ends, and somebody whose payments
+ * failed stops now rather than at a date already passed.
+ */
+async function endTier (event, { accounts }) {
+  const subscription = event.data.object
+  const account = await accounts.findByStripeCustomer(subscription.customer)
+  if (!account) return `ignored: no account for customer ${subscription.customer}`
+
+  // Ends when the paid-for period ends, not at this instant. Cancelling on day
+  // two of a year does not take back the other 363 days.
+  const at = periodEnd(subscription)
+  await accounts.grantTier(account.iri, { tier: account.paidTier ?? 'pro', endsAt: at })
+  return `${account.login} lapses at ${at.toISOString()}`
+}
+
+/** A subscription's current period end, as a Date. */
+function periodEnd (subscription) {
+  const seconds = subscription.current_period_end ??
+    subscription.items?.data?.[0]?.current_period_end
+  if (!seconds) throw new Error(`subscription ${subscription.id} has no period end`)
+  return new Date(seconds * 1000)
+}
+
+/** Which of the things we sell a completed session bought. */
+async function lookupKeyOf (session, billing) {
+  const { data } = await billing.stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+  const priceId = data[0]?.price?.id
+  if (!priceId) throw new Error(`session ${session.id} has no line item`)
+  const price = await billing.stripe.prices.retrieve(priceId)
+  return price.lookup_key
 }

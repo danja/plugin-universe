@@ -86,6 +86,16 @@ pu:suspended a owl:DatatypeProperty ; rdfs:range xsd:boolean ;
     rdfs:comment "Checked against the account on every request rather than carried in the session cookie, so suspension takes effect immediately even though sessions are stateless." .
 pu:lastSeen a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
 
+## The paid part of an account. docs/architecture.md §7: payment is an external
+## provider's job, and what is stored here is "only a customer reference and an
+## entitlement with an expiry". Both halves of that sentence are load-bearing.
+
+pu:stripeCustomer a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "The payment processor's customer id, and the whole of what this system knows about somebody's payment details. Opaque and useless without the processor, which is the point: no card, no name, no billing address is stored here, and the one thing that is stored is a handle rather than a fact about a person. Personal data nonetheless — it links an account to a payment relationship — so it lives in the accounts graph, which is flagged personal-data and never reaches a dump." .
+
+pu:tierEndsAt a owl:DatatypeProperty ; rdfs:range xsd:dateTime ;
+    rdfs:comment "When a paid tier lapses. The tier itself is pu:tier; this is what makes it an entitlement rather than a permanent grant. Read at the moment the tier is used, exactly as a promotion's pu:endsAt is, so an entitlement whose subscription stopped being paid for expires on its own — whether or not any webhook arrived to say so. A paid status that persists because a cancellation message went missing is the failure this avoids, and it is the expensive direction to fail in." .
+
 ## ── Contributions ───────────────────────────────────────────────────────────
 ## A person proposing a change to a fact. Corrections are *proposals* until
 ## accepted, and an accepted one takes effect through source precedence rather

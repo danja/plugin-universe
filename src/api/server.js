@@ -10,7 +10,7 @@ import {
   renderLandingPage, renderSearchPage, renderBrowsePage,
   renderPluginPage, renderCategoryPage, renderDocPage, renderAdminPage,
   renderContributionsPage, renderVocabularies, renderSubmitPage,
-  renderVendorPage, renderVendorsPage
+  renderVendorPage, renderVendorsPage, renderAccountPage
 } from './render.js'
 import { pluginJsonLd, pluginTurtle, categoryTurtle } from './serialise.js'
 import loadPage, { PAGES } from './pages.js'
@@ -24,7 +24,7 @@ import { PROMOTION_CONFIG } from '../../config/preferences.js'
 import { SUBMITTABLE, SubmissionError } from '../contrib/Submissions.js'
 import PageReader, { PageReadError } from '../contrib/PageReader.js'
 import { PromotionError, daysRemaining } from '../catalogue/Promotions.js'
-import billingRoutes from '../billing/routes.js'
+import billingRoutes, { billingPrices } from '../billing/routes.js'
 
 /**
  * What a `promoted` result is, said in the response rather than only on a page.
@@ -47,7 +47,7 @@ import buildRegistry from './registry.js'
 import { handleMcp, MCP_PATH } from '../mcp/server.js'
 import wikiRoutes from '../wiki/routes.js'
 import { renderWikiBlock } from '../wiki/render.js'
-import { TRUST } from '../auth/Accounts.js'
+import { TRUST, TIER } from '../auth/Accounts.js'
 
 /**
  * The public read API.
@@ -496,6 +496,50 @@ export function createServer ({
         // project's own crawler user agent points at, so it is a promise made
         // to every source that has ever seen a request from it.
 
+
+        case '/account': {
+          if (!auth) return send(response, 404, { error: 'Accounts are not enabled' })
+          if (!viewer.account) {
+            return needsSignIn(request, response, {
+              returnTo: '/account', message: 'Sign in to see your account'
+            })
+          }
+          const account = viewer.account
+          // The plan, as three states. Lapsed is the one worth naming: without
+          // it somebody whose subscription ended sees the free plan and is left
+          // wondering what happened to the placements they were paying for.
+          const remaining = account.tierEndsAt
+            ? Math.ceil((new Date(account.tierEndsAt).getTime() - Date.now()) / 86400000)
+            : null
+          const plan = account.paidTier && account.paidTier !== TIER.REGISTERED
+            ? (account.tier === TIER.REGISTERED
+                ? { state: 'lapsed', endsAt: account.tierEndsAt }
+                : { state: 'paid', endsAt: account.tierEndsAt, daysRemaining: remaining, cancelling: false })
+            : { state: 'free' }
+
+          // Prices come from Stripe rather than from anything written here.
+          // Unreachable is not fatal: the page still tells somebody what they
+          // are on, which is most of why they opened it.
+          let prices = {}
+          if (billing) {
+            try {
+              prices = await billingPrices(billing)
+            } catch (error) {
+              logger.warn(`[billing] could not read prices for /account: ${error.message}`)
+            }
+          }
+
+          return sendText(response, 200, renderAccountPage({
+            account,
+            csrfToken: auth.session.csrfToken(account.iri),
+            plan,
+            prices,
+            corpus: search.documents.size,
+            notice: params.get('subscribed') ? 'Thank you — your subscription is active.' : null,
+            viewer,
+            facetValues: await search.facets()
+          }), HTML)
+        }
 
         case '/contributions': {
           if (!auth || !corrections) return send(response, 404, { error: 'Contributions are not enabled' })

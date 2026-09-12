@@ -1,0 +1,14 @@
+# The account a Stripe customer id belongs to.
+#
+# A subscription event names a customer and nothing else this system knows, so
+# this is the only way back from "somebody's subscription renewed" to whose it
+# is. The id is written when the first payment is fulfilled, from the Checkout
+# Session — which is why fulfilment stores it even though nothing needs it
+# until the first renewal, a year later.
+SELECT ?account
+WHERE {
+  GRAPH ${graph} {
+    ?account pu:stripeCustomer ${customer} .
+  }
+}
+LIMIT 1

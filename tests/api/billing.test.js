@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { readFileSync } from 'fs'
 import { Billing, BillingError, keyMode } from '../../src/billing/Billing.js'
 import { BILLING_CONFIG, lookupKeyFor } from '../../config/preferences.js'
-import { TIER } from '../../src/auth/Accounts.js'
+import { TIER, effectiveTier } from '../../src/auth/Accounts.js'
 import { MAX_BODY_BYTES } from '../../src/api/body.js'
 import Stripe from 'stripe'
 
@@ -318,5 +318,85 @@ describe('the two routes have opposite threat models, and the code says so', () 
     const buy = source.slice(source.indexOf('const buying ='), source.indexOf("path === '/billing/webhook'"))
     expect(buy).toContain('verifyCsrf')
     expect(buy).toContain('needsSignIn')
+  })
+})
+
+/**
+ * A paid tier is an entitlement with an expiry, not a permanent grant.
+ *
+ * `docs/architecture.md` §7 says exactly that, and `effectiveTier` is where it
+ * becomes true rather than aspirational. The distinction decides what happens
+ * when a message goes missing, which for anything involving a subscription is
+ * the question that matters — deliveries are lost, endpoints go down for an
+ * afternoon, and subscriptions get ended by hand in a dashboard.
+ */
+describe('a paid tier lapses on its own', () => {
+  const future = new Date(Date.now() + 86400000).toISOString()
+  const past = new Date(Date.now() - 86400000).toISOString()
+
+  it('grants the tier while it is paid for', () => {
+    expect(effectiveTier(TIER.PRO, future)).toBe(TIER.PRO)
+  })
+
+  it('stops granting it the moment the expiry passes', () => {
+    // No webhook needed. This is the whole design: silence expires it.
+    expect(effectiveTier(TIER.PRO, past)).toBe(TIER.REGISTERED)
+  })
+
+  it('treats a paid tier with no expiry as no tier at all', () => {
+    // A tier written without one would otherwise be permanent. Denying it is
+    // the right direction to fail: somebody complains the same day, rather
+    // than nobody ever noticing.
+    expect(effectiveTier(TIER.PRO, null)).toBe(TIER.REGISTERED)
+  })
+
+  it('leaves admin alone, because admin is granted on the server and never bought', () => {
+    expect(effectiveTier(TIER.ADMIN, null)).toBe(TIER.ADMIN)
+  })
+
+  it('is unaffected by the ordinary registered tier', () => {
+    expect(effectiveTier(TIER.REGISTERED, null)).toBe(TIER.REGISTERED)
+    expect(effectiveTier(null, null)).toBe(TIER.REGISTERED)
+  })
+})
+
+describe('the subscription lifecycle is extension, not permanence', () => {
+  const source = readFileSync('src/billing/routes.js', 'utf8')
+
+  it('acts on renewal, so that an entitlement has to be re-earned', () => {
+    expect(source).toContain('invoice.paid')
+    expect(source).toMatch(/async function renewTier/)
+  })
+
+  it('takes the expiry from Stripe rather than computing one here', () => {
+    // Two clocks and a payment; a locally computed date drifts from the one
+    // the customer is actually being billed against.
+    expect(source).toMatch(/current_period_end/)
+    expect(source).not.toMatch(/endsAt:\s*termEnd/)
+  })
+
+  it('ends a cancelled subscription at its period end, not immediately', () => {
+    // Cancelling on day two of a year does not take back the other 363 days.
+    const ending = source.slice(source.indexOf('async function endTier'))
+    expect(ending).toContain('periodEnd(subscription)')
+  })
+
+  it('does not retry forever on an event for an account that is gone', () => {
+    // An erased account is a legitimate state, and a 500 would have Stripe
+    // redelivering for days over something that will never succeed.
+    const renew = source.slice(source.indexOf('async function renewTier'), source.indexOf('async function endTier'))
+    expect(renew).toMatch(/ignored: no account/)
+  })
+
+  it('carries the account onto the subscription, not only the session', () => {
+    // A renewal a year from now delivers a subscription event, which never
+    // sees the Checkout Session. Metadata left only on the session would be
+    // unreachable at exactly the moment it is needed.
+    expect(readFileSync('src/billing/Billing.js', 'utf8')).toMatch(/subscription_data:\s*\{\s*metadata/)
+  })
+
+  it('offers a portal, so cancelling is not an email to a person', () => {
+    expect(source).toContain("path === '/billing/portal'")
+    expect(readFileSync('src/billing/Billing.js', 'utf8')).toContain('billingPortal')
   })
 })

@@ -3,7 +3,7 @@
 # The login and the GitHub id are required: a row without them is not an
 # account, and matching them rather than making them OPTIONAL is what makes
 # "no rows" mean "no such account" instead of "an empty row".
-SELECT ?login ?label ?trust ?tier ?suspended ?avatar ?githubId
+SELECT ?login ?label ?trust ?tier ?suspended ?avatar ?githubId ?customer ?tierEndsAt
 WHERE {
   GRAPH ${graph} {
     ${account} foaf:accountName ?login ;
@@ -13,6 +13,10 @@ WHERE {
     OPTIONAL { ${account} pu:tier ?tier }
     OPTIONAL { ${account} pu:suspended ?suspended }
     OPTIONAL { ${account} foaf:depiction ?avatar }
+    # The paid part. A tier without its expiry is a permanent grant, so the two
+    # are always read together — see effectiveTier() in src/auth/Accounts.js.
+    OPTIONAL { ${account} pu:stripeCustomer ?customer }
+    OPTIONAL { ${account} pu:tierEndsAt ?tierEndsAt }
   }
 }
 LIMIT 1

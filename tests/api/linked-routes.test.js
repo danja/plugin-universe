@@ -75,9 +75,17 @@ const SERVER = routeSources()
  *  - a `case '/x':` label in the dispatcher
  *  - a key of PAGES, dispatched by lookup
  *  - a key of STATIC_FILES, likewise
+ *  - `path === '/x'`, which is how a feature's own route module dispatches
+ *    when it has two or three fixed paths and no switch of its own
+ *
+ * That fourth was missing until the billing routes were added, and adding it
+ * brought `/auth/login`, `/auth/callback` and `/auth/logout` under the guard
+ * for the first time as a side effect — they had been declared that way since
+ * sign-in was built and this test had never been able to see them.
  */
 const STATIC_ROUTES = new Set([
   ...[...SERVER.matchAll(/case '(\/[^']*)':/g)].map(match => match[1]),
+  ...[...SERVER.matchAll(/path === '(\/[^']*)'/g)].map(match => match[1]),
   ...Object.keys(PAGES),
   ...Object.keys(STATIC_FILES)
 ])
@@ -143,6 +151,14 @@ describe('the routes the site links to', () => {
   it('reads the dispatcher rather than a second copy of it', () => {
     expect(STATIC_ROUTES.has('/health')).toBe(true)
     expect(DYNAMIC_ROUTES.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('sees a route declared by equality, not only by a case label', () => {
+    // The form a feature's own route module uses. Missing it made the guard
+    // report the billing routes as broken while they worked, and left the
+    // auth routes unchecked for as long as they have existed.
+    expect(STATIC_ROUTES.has('/billing/subscribe')).toBe(true)
+    expect(STATIC_ROUTES.has('/auth/logout')).toBe(true)
   })
 
   it('discriminates — an invented path is not served', () => {

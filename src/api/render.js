@@ -643,6 +643,67 @@ export function renderSubmitPage (submittable, {
   })
 }
 
+/**
+ * A person's own account: what they are on, and how to change it.
+ *
+ * Three states and one of them is easy to forget — **lapsed**. Somebody whose
+ * subscription ended needs to be told so plainly, because the alternative is a
+ * page that looks like the free plan and leaves them wondering what happened to
+ * the placements they were paying for.
+ *
+ * Prices are passed in rather than written here. They live in Stripe, and a
+ * figure typed into a template is a second place for a price to be wrong — the
+ * failure this whole integration is arranged to avoid.
+ */
+export function renderAccountPage ({
+  account, csrfToken, plan, prices, corpus = 0, notice = null,
+  viewer = {}, facetValues = {}
+}) {
+  const day = value => String(value ?? '').slice(0, 10)
+  const proLabel = prices.pro?.label ?? 'Pro'
+
+  const planBlock = () => {
+    if (plan.state === 'paid') {
+      return templates.render('account-plan-paid', {
+        proLabel,
+        remaining: plan.daysRemaining === 1 ? '1 day left' : `${plan.daysRemaining} days left`,
+        renews: plan.cancelling ? 'ends' : 'renews',
+        until: day(plan.endsAt),
+        csrf: csrfToken
+      })
+    }
+    if (plan.state === 'lapsed') {
+      return templates.render('account-plan-lapsed', { proLabel, until: day(plan.endsAt), csrf: csrfToken })
+    }
+    return templates.render('account-plan-free', {
+      singlePrice: prices.single?.text ?? '—',
+      proPrice: prices.pro?.text ?? '—',
+      proLabel,
+      csrf: csrfToken
+    })
+  }
+
+  const body = templates.render('account', {
+    heading: templates.render('page-heading', { title: 'Your account' }),
+    login: account.login,
+    standing: account.trustLevel === TRUST.MODERATOR
+      ? 'You are a moderator.'
+      : account.trustLevel === TRUST.TRUSTED
+        ? 'Your contributions go live without review.'
+        : 'Your contributions are reviewed before they go live.',
+    notice: templates.when(Boolean(notice), 'notice', { text: notice }),
+    plan: planBlock(),
+    corpus: String(corpus),
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {})
+  })
+  return layout('Your account — Plugin Universe', body, {
+    description: 'Your plan and your standing in the Plugin Universe catalogue.',
+    ...viewer,
+    footer: false
+  })
+}
+
 export function renderContributionsPage (rows, { viewer = {}, correctable = {}, trustLevel = null }) {
   const BADGE = { accepted: 'src', rejected: 'warn', pending: 'price' }
   const accepted = rows.filter(row => row.status === 'accepted').length

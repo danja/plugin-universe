@@ -1,0 +1,8 @@
+<p><strong>{{proLabel}}</strong>, {{remaining}} — {{renews}} {{until}}.</p>
+<form method="post" action="/billing/portal">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <button type="submit">Manage or cancel</button>
+</form>
+<p class="tags">That opens Stripe's own page, where you can change your card,
+  read past invoices, or cancel. Cancelling keeps your plan until
+  {{until}}; nothing stops on the day you press it.</p>

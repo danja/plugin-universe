@@ -1,0 +1,14 @@
+<p>You are on the free plan, which is the whole catalogue.</p>
+<table>
+  <tr><th>Promote one plugin</th><td>{{singlePrice}} for a year, paid once
+    — the button is on the plugin's own page</td></tr>
+  <tr><th>{{proLabel}}</th><td>{{proPrice}} a year, and promote as many of your
+    plugins as you like</td></tr>
+</table>
+<form method="post" action="/billing/subscribe">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <button type="submit">Subscribe to {{proLabel}}</button>
+</form>
+<p class="tags">Payment is handled by Stripe. No card details reach this server.
+  You can cancel at any time from this page, and keep what you have paid for
+  until the end of the period.</p>
