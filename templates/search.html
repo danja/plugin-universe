@@ -1,6 +1,7 @@
 <form method="get" action="/search">
   <div class="search-row">
-    <input type="search" name="q" value="{{query}}" placeholder="warm analogue bus compressor" autofocus>
+    <label for="q" class="visually-hidden">Search for a plugin</label>
+    <input type="search" id="q" name="q" value="{{query}}" placeholder="warm analogue bus compressor" autofocus>
     <button type="submit">Search</button>
   </div>
   <div class="facets">{{{facets}}}</div>

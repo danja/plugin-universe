@@ -54,6 +54,11 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   carrying `owl:sameAs` for ever, so it is not worth doing over one outage — only over a
   pattern. Worth noting the dates if you see it again.
 
+- [ ] **Try the site with the keyboard alone**, before you announce. Tab from the top: the
+  first stop should be "Skip to content", which was not there until now. Everything focusable
+  should show a visible ring in both light and dark. If anything traps focus or hides it, that
+  is worth knowing before the traffic arrives rather than after.
+
 ## 2. The announcement, when you are ready
 
 Worth drafting before posting anywhere, because the first thing people ask is

@@ -191,18 +191,27 @@ catalogue now carry a reading.
 Built on the accounts and moderation machinery Phase 3 finished, so none of this needs new
 foundations.
 
-* **`/ns` is useless to a person.** It returns a JSON list of vocabulary names, and it is linked
-  from the footer of every page. It should be an HTML page saying what each vocabulary is for,
-  negotiating to JSON for machines the way plugin pages already do.
-* **Tags and categories in search results are not clickable.** A category should link to its
-  page, a format to the filtered search. They look like links already.
 * **Stars** — one per signed-in account per plugin, so the catalogue can say what people
   actually rate. Needs a vocabulary term, a graph decision (a user's own graph, like
   corrections), and a rate limit. Worth thinking about what it is *for* before building it:
   a popularity signal that feeds ranking is a different thing from a display number.
-* **An accessibility audit.** One deliberate pass over every page type — headings, landmarks,
-  focus order, contrast in both themes, form labels, the account bar, the wiki editor. Then the
-  habit above keeps it.
+* **The accessibility pass is done, and enforced.** *Done 2026-09-12:* one deliberate sweep of
+  every page type. Contrast was already fine — every token pair passes WCAG AA in both themes,
+  the worst being the Ad badge at 4.63:1 — and images already carried alt text. Everything found
+  was an **absence** rather than a mistake, which is what a person building a page does not see:
+
+  - no `<main>` landmark on any page, so "skip to content" had nothing to skip to
+  - no skip link, so reaching the results meant tabbing the account bar, masthead and category
+    sidebar on every page, every time
+  - no `:focus-visible` rule beyond the one control that happened to get noticed — the
+    browser default ring is very nearly invisible against the dark theme's `#16181a`
+  - the search box named only by a placeholder, which is a hint and disappears on typing
+
+  `tests/api/accessibility.test.js` renders all twelve page types and checks the lot: one `h1`,
+  no skipped heading levels, every `<nav>` labelled, every image with alt, every visible input
+  named, the skip link present and pointing at an id that exists, and — because these were opt-in
+  lists before — a general focus rule rather than a per-control one. An audit nothing enforces is
+  a preference; this is the difference.
 * **An admin area** for `TIER.ADMIN` only. The tier exists and `bin/grant.js` sets it; nothing
   reads it. Account list, trust and suspension, the graph registry.
 * **A Plugin Resources page and a Developers page** — categorised links for people using

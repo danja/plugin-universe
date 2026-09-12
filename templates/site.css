@@ -22,6 +22,37 @@ header { border-bottom:1px solid var(--line); padding-bottom:1rem; margin-bottom
            flex-wrap:wrap; justify-content:flex-end; max-width:60%; }
 .account-name { font-weight:600; color:var(--fg); }
 .account a { color:var(--accent); }
+
+/* Keyboard users, who otherwise had nothing.
+
+   Three things, and each was missing rather than wrong:
+
+   `:focus-visible` on everything interactive — the browser's default ring is
+   a thin dark line, which against the dark theme's #16181a is very nearly
+   invisible. Only the browse toggle had a rule, because that one was noticed.
+
+   A skip link, so that reaching the results does not mean tabbing through an
+   account bar, a masthead and a category sidebar on every single page. It sits
+   off-screen until focused, which is the one place a negative offset is the
+   correct tool rather than a trick.
+
+   `.visually-hidden` for labels that a sighted person reads from context and a
+   screen reader cannot — the search box says what it is with a placeholder,
+   and a placeholder is a hint, not a name. */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, summary:focus-visible,
+[tabindex]:focus-visible {
+  outline:2px solid var(--accent); outline-offset:2px; border-radius:2px;
+}
+
+.skip-link { position:absolute; left:-9999px; top:0; z-index:10;
+             background:var(--bg); color:var(--accent); padding:.6rem 1rem;
+             border:1px solid var(--accent); border-radius:0 0 4px 0; }
+.skip-link:focus { left:0; }
+
+.visually-hidden { position:absolute; width:1px; height:1px; margin:-1px;
+                   padding:0; overflow:hidden; clip:rect(0 0 0 0);
+                   white-space:nowrap; border:0; }
 .account form { margin:0; }
 .account button { padding:.15rem .5rem; font-size:.9rem; background:none; color:var(--muted);
                   border:1px solid var(--line); cursor:pointer; }
