@@ -81,8 +81,20 @@ export function pickImage (images, origin = '') {
   if (!images) return null
   const candidates = String(images).split(' ').filter(Boolean)
   if (candidates.length === 0) return null
-  const local = origin && candidates.find(url => url.startsWith(`${origin}/image/`))
+  const local = candidates.find(url => isLocalImage(url, origin))
   return local ?? candidates[0]
+}
+
+/**
+ * Is this depiction one the catalogue itself stores?
+ *
+ * Decided here, where the origin is known, and carried on the document — the
+ * renderer has no origin and would have to be given one to work it out again.
+ * It changes what a reader is told: an image served from here *is* copied here,
+ * and the caption saying it was not is then simply false.
+ */
+export function isLocalImage (url, origin = '') {
+  return Boolean(origin) && typeof url === 'string' && url.startsWith(`${origin}/image/`)
 }
 
 export class SearchService {
@@ -205,6 +217,7 @@ export class SearchService {
       homepage: row.homepage ?? null,
       seeAlso: row.seeAlso ?? null,
       image: pickImage(row.images, this.origin),
+      imageIsLocal: isLocalImage(pickImage(row.images, this.origin), this.origin),
       created: row.created ?? null,
       licenceId: row.licenceId ?? null,
       sourceAvailability: row.sourceAvailability ? row.sourceAvailability.replace(/^.*\//, '') : null,

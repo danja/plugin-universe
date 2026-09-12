@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-two entries is past the point where anyone reads them all, so what follows
+Forty-four entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -53,6 +53,54 @@ by reading rather than by running. Reuse is why this project exists at all, but
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — A caption that was true of every image until one was uploaded
+
+**What happened.** The first successfully uploaded picture was captioned
+"Image served by the source, plugin-universe.com — not copied here, and its
+author's." It is copied here. That is the whole of what the catalogue does with
+an uploaded file.
+
+**Root cause.** The caption was written when hotlinked third-party images were
+the only kind there was, and it was accurate about all of them. Uploads did not
+make it wrong so much as make a second case exist, and there was one caption.
+The same commit that fixed the upload made its caption false.
+
+**Prevention.** `imageIsLocal` is settled in `SearchService`, which is the only
+part that knows this site's origin, and carried on the document —
+`pluginFigure` picks one of two templates from it. Tests assert each caption
+appears for the right kind of image *and* that neither claims something untrue
+of the other, including that a document with no flag at all is treated as not
+local: saying "we copied this" of something we did not is the worse error.
+
+**Worth noticing.** The bug was shipped by the fix. A feature that has never
+worked has no second case to get wrong, and the moment it works, every piece of
+prose written around it is describing a world with one fewer case in it than it
+now has. Look for the text when you fix the function.
+
+---
+
+## 2026-09-12 — Screenshots cropped to squares
+
+**What happened.** Uploaded pictures looked badly cropped.
+
+**Root cause.** `.shot { object-fit: cover }` inside `.shot-full
+{ aspect-ratio: 1 }`. Plugin screenshots are wide — a mixer strip, a rack, an
+EQ curve — and `cover` in a square box discards the left and right, which is
+where the picture is. The `<img>` also declared `width="320" height="320"`,
+so the browser reserved a square before the bytes arrived and had the wrong
+aspect ratio to work from.
+
+**Why now.** Same reason as the caption: every image before this was harvested
+cover art, which is usually square-ish and survived the treatment.
+
+**Prevention.** `object-fit: contain`, no forced ratio on the full image, a
+`max-height` so a tall picture cannot push the profile down the page, and two
+templates so that dimensions are declared for the thumbnail — where the box is
+fixed and the claim is true — and not for the full image, whose shape is not
+known until it loads.
 
 ---
 

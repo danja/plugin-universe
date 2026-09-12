@@ -129,6 +129,18 @@ catalogue now carry a reading.
   re-harvest: `dcterms:license` holds what each source said and never leaves the graph, so the
   derived `pu:licenceId` is re-derived from it in place. On Danja's list.
 
+* **The contributor terms do not cover pictures.** §2 splits contributions two ways — facts are
+  CC0, authored prose is CC BY-SA — and an uploaded image is neither. It is a copyright work,
+  usually not the uploader's: a screenshot of a plugin is the plugin author's. The *statement*
+  `foaf:depiction` is a fact and goes to the contributor's CC0 graph correctly; the file it
+  points at is not covered by anything.
+
+  Nothing is being claimed wrongly right now — the caption on a hosted picture says the picture
+  is its author's and not the catalogue's, which is the honest position and the reason it was
+  worded that way. But §4's promise ("you are free to state it, or you have permission from
+  whoever holds the rights") was written about statements, and the terms should say what
+  uploading a picture means before many are uploaded. **A legal question, so Danja's.**
+
 * **Uploads have no size story beyond the per-file cap.** 2 MB each, no per-account quota and
   no total. Content-addressing means duplicates cost nothing, but nothing stops one trusted
   account filling the disk. A quota wants adding before that matters.

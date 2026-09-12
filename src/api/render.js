@@ -121,11 +121,20 @@ export function pluginImage (doc, { size = 'thumb' } = {}) {
     return ''
   }
   if (url.protocol !== 'https:') return ''
+  // Two templates rather than one with a conditional, because the difference
+  // is whether dimensions are declared at all. A thumbnail sits in a fixed
+  // square box, so width and height are true and stop the row reflowing. The
+  // full image has whatever shape it has — plugin screenshots are wide — and
+  // declaring it square told the browser to reserve a square and then scale a
+  // wide picture into it, which is what made them look cropped.
+  if (size === 'full') {
+    return templates.render('plugin-image-full', { src: doc.image, alt: doc.name ?? '' })
+  }
   return templates.render('plugin-image', {
     size,
     src: doc.image,
     alt: doc.name ?? '',
-    box: size === 'full' ? 320 : 72
+    box: 72
   })
 }
 
@@ -141,6 +150,10 @@ export function pluginImage (doc, { size = 'thumb' } = {}) {
 function pluginFigure (doc) {
   const image = pluginImage(doc, { size: 'full' })
   if (!image) return ''
+  // An image the catalogue stores is copied here, and saying it is not was
+  // false the moment uploads started working. `imageIsLocal` is settled by
+  // SearchService, which is the only part that knows this site's own origin.
+  if (doc.imageIsLocal) return templates.render('plugin-figure-local', { image })
   let host = ''
   try {
     host = new URL(doc.image).host

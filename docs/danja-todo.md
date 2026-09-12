@@ -14,6 +14,13 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   in `essential` and `full`, not in `measurements`. Nothing has been uploaded
   yet, so this is untested against real files.
 
+- [ ] **Decide what uploading a picture means, in the contributor terms.** §2 covers facts
+  (CC0) and authored prose (CC BY-SA). An image is neither — a screenshot of a plugin is
+  usually the *plugin author's* copyright, not the uploader's. Nothing wrong is being claimed:
+  the caption under a hosted picture says it is its author's and not the catalogue's. But the
+  terms should say what the upload form means before there are many pictures, and that is a
+  legal call rather than a coding one. It pairs with the review trigger in §4 below.
+
 ## 2. The announcement, when you are ready
 
 Worth drafting before posting anywhere, because the first thing people ask is

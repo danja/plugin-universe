@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
+import { readFileSync } from 'fs'
 import { pluginImage, renderPluginPage, renderSearchPage } from '../../src/api/render.js'
 import { pickImage } from '../../src/search/SearchService.js'
 import { pluginJsonLd, pluginTurtle } from '../../src/api/serialise.js'
@@ -169,5 +170,106 @@ describe('choosing between two depictions', () => {
   it('does not mistake another site\'s path for ours', () => {
     expect(pickImage('https://evil.invalid/image/x.png', 'https://plugin-universe.com'))
       .toBe('https://evil.invalid/image/x.png')
+  })
+})
+
+/**
+ * What the caption under a picture claims.
+ *
+ * There is one, it has legal content, and until uploads started working there
+ * was only ever one kind of image to caption — a hotlinked third-party one. So
+ * the text said "not copied here, and its author's", which was true of every
+ * image the catalogue had. The first uploaded picture made it false: that one
+ * *is* copied here.
+ *
+ * Two things are being asserted. That each caption is shown for the right kind
+ * of image, and — the part that failed — that neither says something untrue of
+ * the other.
+ */
+describe('the caption under a picture', () => {
+  const base = {
+    iri: 'http://purl.org/stuff/plugin-universe/plugin/x-1', name: 'X', vendor: 'v',
+    formats: [], categories: [], roles: [], tags: [], parameters: []
+  }
+  const local = {
+    ...base,
+    image: `https://plugin-universe.com/image/${'a'.repeat(64)}.png`,
+    imageIsLocal: true
+  }
+  const remote = { ...base, image: 'https://cdn.example.org/shot.png', imageIsLocal: false }
+
+  it('does not tell a reader a hosted image was not copied here', () => {
+    // The bug, exactly. Reported once a picture finally uploaded.
+    expect(renderPluginPage(local)).not.toContain('not copied here')
+  })
+
+  it('says where a hosted image came from instead', () => {
+    const html = renderPluginPage(local)
+    expect(html).toContain('served from here')
+    // And still does not claim the picture: the contributor terms cover facts
+    // and prose, and an image is neither.
+    expect(html).toMatch(/its author's/)
+  })
+
+  it('keeps the source note, and the host, for one served elsewhere', () => {
+    const html = renderPluginPage(remote)
+    expect(html).toContain('not copied here')
+    expect(html).toContain('cdn.example.org')
+  })
+
+  it('never shows both captions', () => {
+    for (const doc of [local, remote]) {
+      const html = renderPluginPage(doc)
+      const captions = (html.match(/<figcaption>/g) ?? []).length
+      expect(captions, doc.image).toBe(1)
+    }
+  })
+
+  it('shows no caption when there is no picture', () => {
+    expect(renderPluginPage(base)).not.toContain('<figcaption>')
+  })
+
+  it('treats a missing imageIsLocal as not local, which is the safe claim', () => {
+    // A document built before the flag existed must not be captioned as hosted
+    // here — saying "we copied this" of something we did not is the worse error.
+    const older = { ...base, image: 'https://cdn.example.org/shot.png' }
+    expect(renderPluginPage(older)).toContain('not copied here')
+  })
+})
+
+/**
+ * Scaling, not cropping.
+ *
+ * `object-fit: cover` inside a forced square threw away the left and right of
+ * every screenshot — which for a mixer strip, a rack or an EQ curve is where
+ * the picture is. The full-size image also declared itself square in HTML,
+ * so the browser reserved a square box before the bytes arrived.
+ */
+describe('how a picture is fitted', () => {
+  const css = readFileSync('templates/site.css', 'utf8')
+
+  it('contains the whole image rather than covering the box', () => {
+    const shot = css.slice(css.indexOf('.shot {'), css.indexOf('.shot-thumb'))
+    expect(shot).toContain('object-fit:contain')
+    expect(shot).not.toContain('object-fit:cover')
+  })
+
+  it('lets the full-size image keep its own shape', () => {
+    const full = css.slice(css.indexOf('.shot-full'), css.indexOf('.shot-figure'))
+    // A forced 1:1 is what a wide screenshot was being squeezed into.
+    expect(full).not.toContain('aspect-ratio')
+    // Capped height, so a tall picture cannot push the profile off the page.
+    expect(full).toContain('max-height')
+  })
+
+  it('declares dimensions for the thumbnail and not for the full image', () => {
+    const doc = {
+      iri: 'http://purl.org/stuff/plugin-universe/plugin/x-1', name: 'X',
+      image: `https://plugin-universe.com/image/${'a'.repeat(64)}.png`
+    }
+    // True, and it stops the result row reflowing as thumbnails arrive.
+    expect(pluginImage(doc, { size: 'thumb' })).toMatch(/width="72" height="72"/)
+    // Not true of an image whose shape is unknown, so it is not claimed.
+    expect(pluginImage(doc, { size: 'full' })).not.toMatch(/width=/)
   })
 })

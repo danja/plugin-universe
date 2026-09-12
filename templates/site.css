@@ -160,10 +160,18 @@ footer .site-links ul { display:flex; flex-wrap:wrap; gap:.3rem 1rem; margin-bot
 .result-body { min-width:0; flex:1; }
 /* A sized box whether or not the image arrives: a third-party URL that 404s
    must not collapse the row or shift the text under it. */
-.shot { background:var(--line); border-radius:4px; object-fit:cover; display:block; }
+/* `contain`, not `cover`. A plugin screenshot is wide — a mixer strip, a rack,
+   an EQ curve — and `cover` inside a square box throws away the left and right
+   of it, which is exactly where the interesting part of a wide screenshot is.
+   `contain` scales the whole picture down to fit and letterboxes the rest
+   against .shot's own background, so what is shown is what was uploaded. */
+.shot { background:var(--line); border-radius:4px; object-fit:contain; display:block; }
 .shot-thumb { width:72px; height:72px; flex:0 0 72px; }
-.shot-full { width:100%; max-width:320px; height:auto; aspect-ratio:1; margin:.6rem 0; }
-.shot-figure { margin:.6rem 0; max-width:320px; }
+/* No aspect-ratio: the image keeps its own. The height cap is what stops a tall
+   screenshot pushing the whole profile down the page, and because the ratio is
+   the image's, capping the height narrows it rather than cropping it. */
+.shot-full { width:auto; max-width:100%; height:auto; max-height:15rem; margin:.6rem 0; }
+.shot-figure { margin:.6rem 0; max-width:24rem; }
 .shot-figure figcaption { font-size:.9rem; color:var(--muted); margin-top:.3rem; }
 .pager { display:flex; gap:1rem; align-items:baseline; justify-content:space-between;
          margin:1.2rem 0 .4rem; font-size:.9rem; }
