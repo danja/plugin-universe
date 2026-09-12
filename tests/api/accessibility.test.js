@@ -248,3 +248,96 @@ describe('no template reintroduces a pattern the pass removed', () => {
     }
   })
 })
+
+/**
+ * Contrast, measured rather than judged.
+ *
+ * The palette was checked by hand when it was written and that is worth exactly
+ * one afternoon. These are the ratios WCAG asks for, computed from the
+ * stylesheet as it stands — so a colour tweaked later either still clears the
+ * bar or fails here.
+ *
+ * Two thresholds, and the second is the one that gets forgotten. Text needs
+ * 4.5:1 (AA). **The boundary of a control needs 3:1** under 1.4.11, which the
+ * old border missed at 1.32:1 — a box you inferred from the text inside it.
+ * That is why `--control` is a different token from `--line`: a rule between
+ * table rows is decoration and has no such requirement.
+ */
+describe('every colour pair clears the bar it has to', () => {
+  const css = readFileSync('templates/site.css', 'utf8')
+
+  /** The text between a rule's own braces, found by scanning rather than guessed. */
+  const blockAt = start => {
+    const open = css.indexOf('{', start)
+    let depth = 0
+    let i = open
+    for (; i < css.length; i++) {
+      if (css[i] === '{') depth++
+      else if (css[i] === '}') { depth--; if (!depth) break }
+    }
+    return css.slice(open, i)
+  }
+  const vars = text =>
+    Object.fromEntries([...text.matchAll(/--([a-z-]+):\s*(#[0-9a-f]{6})/g)].map(m => [m[1], m[2]]))
+
+  const relativeLuminance = hex => {
+    const channels = hex.replace('#', '').match(/../g).map(pair => {
+      const value = parseInt(pair, 16) / 255
+      return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+  }
+  const contrast = (a, b) => {
+    const [light, dark] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x)
+    return (light + 0.05) / (dark + 0.05)
+  }
+
+  const themes = {
+    light: vars(blockAt(css.indexOf(':root { font-size'))),
+    dark: vars(blockAt(css.indexOf('@media (prefers-color-scheme: dark)')))
+  }
+
+  it('reads both themes, and does not read one of them twice', () => {
+    // A first attempt at this check picked up the dark block for both and
+    // reported the light theme as passing without ever having looked at it.
+    expect(themes.light.bg).toBeTruthy()
+    expect(themes.dark.bg).toBeTruthy()
+    expect(themes.light.bg).not.toBe(themes.dark.bg)
+    expect(themes.light.accent).not.toBe(themes.dark.accent)
+  })
+
+  it('puts text at 4.5:1 on both the page and a panel', () => {
+    for (const [name, palette] of Object.entries(themes)) {
+      for (const ground of ['bg', 'surface']) {
+        for (const ink of ['fg', 'muted', 'accent']) {
+          expect(contrast(palette[ink], palette[ground]), `${name}: ${ink} on ${ground}`)
+            .toBeGreaterThanOrEqual(4.5)
+        }
+      }
+    }
+  })
+
+  it('puts a control border at 3:1, which the old one missed', () => {
+    for (const [name, palette] of Object.entries(themes)) {
+      for (const ground of ['bg', 'surface']) {
+        expect(contrast(palette.control, palette[ground]), `${name}: control on ${ground}`)
+          .toBeGreaterThanOrEqual(3)
+      }
+    }
+  })
+
+  it('makes a button label readable on the button', () => {
+    for (const [name, palette] of Object.entries(themes)) {
+      expect(contrast(palette['on-accent'], palette.accent), `${name}: button text`)
+        .toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  it('uses the control token for things you type into, not the decorative rule', () => {
+    // The distinction is the whole reason there are two tokens.
+    for (const control of ['input[type=search]', '.correct input[type=text]']) {
+      const rule = css.slice(css.indexOf(control), css.indexOf('}', css.indexOf(control)))
+      expect(rule, control).toContain('var(--control)')
+    }
+  })
+})
