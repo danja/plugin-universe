@@ -1,0 +1,22 @@
+# Every revision of one page, newest first. The page's history.
+#
+# The text is matched but not selected: only its length is, so a history listing
+# does not carry every version of the prose across the wire to render a table of
+# dates and sizes.
+SELECT ?revision ?summary ?author ?authorName ?at ?length
+WHERE {
+  GRAPH ?g {
+    ?revision a pu:WikiRevision ;
+              pu:wikiSubject ${plugin} ;
+              pu:wikiText ?text ;
+              prov:wasAttributedTo ?author ;
+              prov:generatedAtTime ?at .
+    OPTIONAL { ?revision pu:editSummary ?summary }
+    BIND(STRLEN(?text) AS ?length)
+  }
+  OPTIONAL {
+    GRAPH ${accountsGraph} { ?author foaf:accountName ?authorName }
+  }
+}
+ORDER BY DESC(?at)
+LIMIT ${limit}

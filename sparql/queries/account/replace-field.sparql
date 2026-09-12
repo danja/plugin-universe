@@ -1,0 +1,8 @@
+# Replace one property of one account.
+#
+# Trust, tier and suspension go through here. The OPTIONAL in the WHERE is what
+# makes it an upsert: without it, setting a property an account does not yet
+# have would match nothing and write nothing, silently.
+DELETE { GRAPH ${graph} { ${account} ${predicate} ?old } }
+INSERT { GRAPH ${graph} { ${account} ${predicate} ${value} } }
+WHERE  { OPTIONAL { GRAPH ${graph} { ${account} ${predicate} ?old } } }

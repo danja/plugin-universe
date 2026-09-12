@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import ImageStore from '../api/ImageStore.js'
 import GraphRegistry from './GraphRegistry.js'
+import QueryService from './QueryService.js'
 import { loadTurtleIntoGraph } from './TurtleLoader.js'
 import { iri } from './SPARQLHelper.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
@@ -76,10 +77,13 @@ export function isMeasurement (graph) {
 export const SCOPES = Object.freeze(['full', 'essential', 'measurements'])
 
 export class BackupBuilder {
-  constructor (client, { registry = new GraphRegistry(client) } = {}) {
+  constructor (client, {
+    registry = new GraphRegistry(client), queries = new QueryService()
+  } = {}) {
     if (!client) throw new BackupError('BackupBuilder needs a SPARQLClient')
     this.client = client
     this.registry = registry
+    this.queries = queries
   }
 
   /**
@@ -97,7 +101,7 @@ export class BackupBuilder {
 
   async #countTriples (graph) {
     const [row] = await this.client.select(
-      `SELECT (COUNT(*) AS ?n) WHERE { GRAPH ${iri(graph)} { ?s ?p ?o } }`)
+      this.queries.get('graph/triple-count', { graph: iri(graph) }))
     return Number(row?.n ?? 0)
   }
 
@@ -170,7 +174,7 @@ export class BackupBuilder {
     const graphs = []
     for (const graph of wanted) {
       const turtle = await this.client.construct(
-        `CONSTRUCT { ?s ?p ?o } WHERE { GRAPH ${iri(graph)} { ?s ?p ?o } }`)
+        this.queries.get('graph/contents', { graph: iri(graph) }))
       const file = BackupBuilder.fileNameFor(graph)
       await fs.promises.writeFile(path.join(outputDir, file), turtle)
       const entry = { graph, file, triples: await this.#countTriples(graph), bytes: Buffer.byteLength(turtle) }

@@ -1,0 +1,14 @@
+# Record a moderator's decision on a proposed plugin.
+#
+# A DELETE of whatever status is there rather than of the one expected: a
+# submission with two statuses is the case worth collapsing, and deleting by
+# value would leave the other behind.
+DELETE { GRAPH ${queueGraph} { ${submission} pu:submissionStatus ?old } }
+INSERT {
+  GRAPH ${queueGraph} {
+    ${submission} pu:submissionStatus ${status} ;
+                  pu:reviewedBy ${moderator} ;
+                  pu:reviewedAt ${at} .
+  }
+}
+WHERE { GRAPH ${queueGraph} { ${submission} pu:submissionStatus ?old } }

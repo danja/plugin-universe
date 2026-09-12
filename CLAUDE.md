@@ -110,6 +110,7 @@ complained, and each was found in production or by accident:
 | Added a facet to the search | the copy of the facet list in `/plugins` | `?category=reverb` silently ignored on the browse list |
 | Added a block to `site.css` | its `a { color: … }` rule, one of five opt-ins | 17 of 35 front-page links in browser-default blue |
 | Added `sh:in` to `pu:licenceId` | the submission and correction forms, which wrote licences verbatim | the one path a person controls was the one that could still split a facet |
+| Wrote a house rule into CLAUDE.md | any test that checks it | "no inline SPARQL" reached 17 violations across 8 files before anyone counted |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
@@ -150,6 +151,14 @@ Specifically, before finishing a change, check:
   to a service or a server block, read the whole of it first — `grep -A 14` is how a second
   `volumes:` key got written under one that was already there.
 - Did a new term in `vocabs/` reach the *store's* copy? `bin/ingest.js --vocabs-only`.
+
+**A rule worth stating in this file is worth a test.** "No inline SPARQL"
+sat here from Phase 0 and reached seventeen violations; `tests/rdf/no-inline-sparql.test.js`
+now parses every template literal in `src/` and fails on any that reads as a
+query. When adding a rule here, ask what would notice it being broken — and if
+the answer is "a careful reader", write the check instead. A guard that scrapes
+source needs its own test that the scraping still works, or it goes blind
+rather than red.
 
 **Where a list must exist, make it one list and export it.** `FACET_NAMES` in
 `src/api/server.js` and the base `a` rule in `templates/site.css` are both

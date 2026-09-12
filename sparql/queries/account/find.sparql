@@ -1,0 +1,18 @@
+# One account, by IRI.
+#
+# The login and the GitHub id are required: a row without them is not an
+# account, and matching them rather than making them OPTIONAL is what makes
+# "no rows" mean "no such account" instead of "an empty row".
+SELECT ?login ?label ?trust ?tier ?suspended ?avatar ?githubId
+WHERE {
+  GRAPH ${graph} {
+    ${account} foaf:accountName ?login ;
+               pu:githubId ?githubId .
+    OPTIONAL { ${account} rdfs:label ?label }
+    OPTIONAL { ${account} pu:trustLevel ?trust }
+    OPTIONAL { ${account} pu:tier ?tier }
+    OPTIONAL { ${account} pu:suspended ?suspended }
+    OPTIONAL { ${account} foaf:depiction ?avatar }
+  }
+}
+LIMIT 1

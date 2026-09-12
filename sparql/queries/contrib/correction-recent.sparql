@@ -1,0 +1,12 @@
+# Corrections by one account since a moment, for the hourly rate limit.
+#
+# Counted in the store rather than kept in memory, so it survives a restart and
+# cannot be reset by making the app forget.
+SELECT (COUNT(*) AS ?n)
+WHERE {
+  GRAPH ${queueGraph} {
+    ?correction prov:wasAttributedTo ${account} ;
+                prov:generatedAtTime ?at .
+    FILTER(?at > ${since})
+  }
+}

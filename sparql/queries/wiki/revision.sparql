@@ -1,0 +1,15 @@
+# One revision by IRI, for reading an old version of a page.
+SELECT ?text ?summary ?author ?authorName ?at ?subject
+WHERE {
+  GRAPH ?g {
+    ${revision} pu:wikiText ?text ;
+                pu:wikiSubject ?subject ;
+                prov:wasAttributedTo ?author ;
+                prov:generatedAtTime ?at .
+    OPTIONAL { ${revision} pu:editSummary ?summary }
+  }
+  OPTIONAL {
+    GRAPH ${accountsGraph} { ?author foaf:accountName ?authorName }
+  }
+}
+LIMIT 1

@@ -79,6 +79,26 @@ export function typedLiteral (value) {
   return literal(value)
 }
 
+/**
+ * A bare integer, for the places SPARQL wants a number and not a term.
+ *
+ * `LIMIT` and `OFFSET` take a plain integer: `LIMIT "50"^^xsd:integer` does not
+ * parse, so `typedLiteral` is the wrong tool and a query needing a limit was
+ * the reason one was being assembled in JavaScript instead of loaded from a
+ * file. This closes that gap, so "every value passed to QueryService came from
+ * SPARQLHelper" is true rather than nearly true.
+ *
+ * Rejects anything that is not a non-negative safe integer, which is what makes
+ * it safe to interpolate: there is no string that reaches the query.
+ */
+export function integer (value) {
+  const n = Number(value)
+  if (!Number.isSafeInteger(n) || n < 0) {
+    throw new SPARQLSyntaxError(`Expected a non-negative integer, got ${JSON.stringify(value)}`)
+  }
+  return String(n)
+}
+
 /** INSERT DATA into a named graph. Triples are pre-formatted strings. */
 export function insertDataQuery (graph, triples, prefixes = '') {
   if (!Array.isArray(triples) || triples.length === 0) {

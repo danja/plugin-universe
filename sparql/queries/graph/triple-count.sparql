@@ -1,0 +1,8 @@
+# How many triples are in one named graph.
+#
+# Counted in the store, not by constructing the graph and measuring it here.
+# Three callers compare this number against one they recorded earlier — a
+# backup's manifest, a dump's, a publication's — so it is the check that a copy
+# arrived whole.
+SELECT (COUNT(*) AS ?n)
+WHERE { GRAPH ${graph} { ?s ?p ?o } }

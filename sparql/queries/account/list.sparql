@@ -1,0 +1,4 @@
+# Every account, for the moderation view. Small by construction for now.
+SELECT ?account
+WHERE { GRAPH ${graph} { ?account a foaf:Person } }
+LIMIT ${limit}

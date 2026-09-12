@@ -1,0 +1,28 @@
+# The current revision of one plugin's page.
+#
+# Across every contributor's prose graph, newest first. ORDER BY with LIMIT 1
+# rather than a stored "current" pointer: a pointer is a second thing to keep
+# true, and it is wrong the moment two graphs are written in either order.
+#
+# The author's login is joined from the accounts graph because CC BY-SA requires
+# attribution and an account IRI ends in a content hash — without it the byline
+# read "1b505ba2", which names nobody. ?author is always bound by the pattern
+# above, so the OPTIONAL is constrained; an unbound subject there would match
+# every account in the graph, which is how the category synonyms went wrong.
+SELECT ?revision ?text ?summary ?author ?authorName ?at ?previous
+WHERE {
+  GRAPH ?g {
+    ?revision a pu:WikiRevision ;
+              pu:wikiSubject ${plugin} ;
+              pu:wikiText ?text ;
+              prov:wasAttributedTo ?author ;
+              prov:generatedAtTime ?at .
+    OPTIONAL { ?revision pu:editSummary ?summary }
+    OPTIONAL { ?revision prov:wasRevisionOf ?previous }
+  }
+  OPTIONAL {
+    GRAPH ${accountsGraph} { ?author foaf:accountName ?authorName }
+  }
+}
+ORDER BY DESC(?at)
+LIMIT 1

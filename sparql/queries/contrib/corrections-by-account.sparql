@@ -1,0 +1,22 @@
+# Everything one account has proposed, newest first.
+#
+# Their own contributions only. A pending correction sits in the personal-data
+# graph and carries a person's own words about why they think something is
+# wrong; that is theirs to see, not a public record. What becomes public when a
+# correction is accepted is the fact, in their CC0 graph, attributed to them —
+# and that is already on the plugin page.
+SELECT ?correction ?subject ?predicate ?value ?rationale ?status ?at ?reviewedAt
+WHERE {
+  GRAPH ${queueGraph} {
+    ?correction prov:wasAttributedTo ${account} ;
+                pu:correctionStatus ?status ;
+                pu:correctionSubject ?subject ;
+                pu:correctionPredicate ?predicate ;
+                pu:proposedValue ?value ;
+                prov:generatedAtTime ?at .
+    OPTIONAL { ?correction pu:rationale ?rationale }
+    OPTIONAL { ?correction pu:reviewedAt ?reviewedAt }
+  }
+}
+ORDER BY DESC(?at)
+LIMIT ${limit}

@@ -132,7 +132,15 @@ describe('putting it back', () => {
   })
 
   it('refuses a directory that is not a backup', async () => {
-    await expect(BackupBuilder.readManifest(os.tmpdir())).rejects.toThrow(/not a backup/)
+    // An empty directory of its own, not os.tmpdir(). Pointed at /tmp this
+    // asserted on a directory every other test in this file drops a
+    // `pu-backup-*` into, so `readManifest` found a backup one level down and
+    // gave its *helpful* message — "point at that instead" — rather than the
+    // refusal. It passed or failed on which tests were mid-flight, which is
+    // the worst way for a test to be wrong.
+    const empty = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pu-empty-'))
+    await expect(BackupBuilder.readManifest(empty)).rejects.toThrow(/not a backup/)
+    await fs.promises.rm(empty, { recursive: true, force: true })
   })
 
   it('restores a graph that has been destroyed', async () => {

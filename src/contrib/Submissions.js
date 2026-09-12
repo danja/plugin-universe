@@ -462,14 +462,13 @@ export class Submissions {
   }
 
   async #setStatus (submissionIri, status, moderator, now) {
-    await this.client.update(
-      `DELETE { GRAPH ${iri(this.queueGraph)} { ${iri(submissionIri)} ${iri(pu + 'submissionStatus')} ?old } }
-       INSERT { GRAPH ${iri(this.queueGraph)} {
-         ${iri(submissionIri)} ${iri(pu + 'submissionStatus')} ${literal(status)} ;
-                               ${iri(pu + 'reviewedBy')} ${iri(moderator.iri)} ;
-                               ${iri(pu + 'reviewedAt')} ${typedLiteral(now)} .
-       } }
-       WHERE { GRAPH ${iri(this.queueGraph)} { ${iri(submissionIri)} ${iri(pu + 'submissionStatus')} ?old } }`)
+    await this.client.update(this.queries.get('contrib/submission-set-status', {
+      queueGraph: iri(this.queueGraph),
+      submission: iri(submissionIri),
+      status: literal(status),
+      moderator: iri(moderator.iri),
+      at: typedLiteral(now)
+    }))
   }
 
   /** How many of this account's submissions have been accepted. */

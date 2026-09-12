@@ -1,0 +1,8 @@
+# Remove everything said about one account.
+#
+# The contributor terms promise this, and they state its limit: a CC0 grant
+# already made is irrevocable and anything already in a published dump is beyond
+# recall. What this does is remove the account and its attribution from this
+# catalogue, which is what can honestly be offered. The contributor's own graphs
+# are dropped separately by the caller.
+DELETE WHERE { GRAPH ${graph} { ${account} ?p ?o } }

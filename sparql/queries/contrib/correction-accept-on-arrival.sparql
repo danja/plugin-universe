@@ -1,0 +1,17 @@
+# Mark a correction accepted with no moderator named.
+#
+# The trusted-contributor path: past the trust threshold a correction goes live
+# as it arrives, so there is nobody to record as the reviewer and pu:reviewedBy
+# is deliberately absent rather than filled in with the contributor.
+#
+# Its sibling is contrib/correction-set-status, which a moderator's decision
+# uses. Two queries and not one, because the difference is exactly whether a
+# person made the call.
+DELETE { GRAPH ${queueGraph} { ${correction} pu:correctionStatus ?old } }
+INSERT {
+  GRAPH ${queueGraph} {
+    ${correction} pu:correctionStatus ${status} ;
+                  pu:reviewedAt ${at} .
+  }
+}
+WHERE { GRAPH ${queueGraph} { ${correction} pu:correctionStatus ?old } }

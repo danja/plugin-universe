@@ -135,9 +135,22 @@ catalogue now carry a reading.
   corrections use; and one moderation queue holding both kinds. Not yet decided: whether a
   contributor may edit or withdraw a pending submission, and whether an accepted plugin should
   be announced anywhere.
-* **`src/contrib/Corrections.js` inlines SPARQL in five places**, which CLAUDE.md forbids —
-  queries belong in `sparql/queries/<category>/<name>.sparql`. `Submissions.js` put its three
-  in `sparql/queries/contrib/` rather than add to the pile; the five should follow.
+* **Every SPARQL query is in a file.** *Done 2026-09-12:* the entry here said Corrections.js
+  inlined five; a scan found **seventeen across eight files** — Corrections 7, Accounts 5,
+  Wiki 4, and one in Submissions, plus six copies of the same two generic graph queries spread
+  over `BackupBuilder`, `DumpBuilder`, `Publication` and `ShapeValidator`. All are now under
+  `sparql/queries/`, the two generic ones as a single `graph/contents` and `graph/triple-count`.
+
+  What keeps them there is `tests/rdf/no-inline-sparql.test.js`, which parses every template
+  literal in `src/` and fails on any that looks like a query — the rule had been stated in
+  CLAUDE.md since Phase 0 and checked by nobody, which is the rate prose decays at. It exempts
+  `SPARQLHelper.js` alone, and requires a written reason for each exemption.
+
+  Three things fell out of it: `ShapeValidator` interpolated a graph name as `<${graph}>` with
+  no `iri()`; `sparql/queries/plugin/by-iri.sparql` had been dead since Phase 0.5 and is
+  deleted, found by the same test's orphan check; and `integer()` is now in `SPARQLHelper`,
+  because a query needing `LIMIT` was the one thing a file could not express and was why some
+  of these were assembled in JavaScript at all.
 
 * **"Most recently added" is alphabetical, and the label is false.** Checked
   2026-09-11: `byRecency` is correct and the ordering *is* applied — but all 752

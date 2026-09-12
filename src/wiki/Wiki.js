@@ -1,10 +1,10 @@
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
-import { iri, literal, typedLiteral, insertDataQuery } from '../store/SPARQLHelper.js'
+import { iri, literal, typedLiteral, integer, insertDataQuery } from '../store/SPARQLHelper.js'
 import GraphRegistry from '../store/GraphRegistry.js'
 import URIMinter from '../rdf/URIMinter.js'
+import QueryService from '../store/QueryService.js'
 import ensureContributorGraphs from '../contrib/ContributorGraphs.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
-import { NAMESPACES as NS } from '../rdf/NamespaceManager.js'
 
 /**
  * Wiki prose about plugins, as revisions.
@@ -31,19 +31,15 @@ const rdf = NAMESPACES.rdf
 const prov = NAMESPACES.prov
 
 /**
- * The author's login, joined from the accounts graph.
+ * The accounts graph, joined to for the author's login.
  *
- * CC BY-SA requires attribution, and an account IRI ends in a content hash —
- * so without this the byline read "1b505ba2", which names nobody. `?author` is
- * always bound by the pattern this follows, so the OPTIONAL is constrained;
- * an unbound subject here would match every account in the graph, which is
- * exactly how the category synonyms went wrong.
+ * CC BY-SA requires attribution and an account IRI ends in a content hash, so
+ * without the join the byline read "1b505ba2", which names nobody. The join is
+ * written out in each query that needs it rather than spliced in from here:
+ * a fragment assembled in JavaScript is the thing these files exist to remove,
+ * and three copies of five lines of SPARQL is cheaper than a second syntax.
  */
-const AUTHOR_NAME = `OPTIONAL {
-          GRAPH ${iri(GraphRegistry.graphIri('system', 'accounts'))} {
-            ?author ${iri(NS.foaf + 'accountName')} ?authorName .
-          }
-        }`
+const ACCOUNTS_GRAPH = GraphRegistry.graphIri('system', 'accounts')
 
 export class WikiError extends Error {
   constructor (message) {
@@ -62,11 +58,15 @@ export class WikiConflictError extends WikiError {
 }
 
 export class Wiki {
-  constructor (client, { registry = new GraphRegistry(client), minter = new URIMinter() } = {}) {
+  constructor (client, {
+    registry = new GraphRegistry(client), minter = new URIMinter(),
+    queries = new QueryService()
+  } = {}) {
     if (!client) throw new WikiError('Wiki needs a SPARQLClient')
     this.client = client
     this.registry = registry
     this.minter = minter
+    this.queries = queries
   }
 
   /**
@@ -78,67 +78,38 @@ export class Wiki {
    * either order.
    */
   async current (pluginIri) {
-    const rows = await this.client.select(`
-      SELECT ?revision ?text ?summary ?author ?authorName ?at ?previous WHERE {
-        GRAPH ?g {
-          ?revision ${iri(rdf + 'type')} ${iri(pu + 'WikiRevision')} ;
-                    ${iri(pu + 'wikiSubject')} ${iri(pluginIri)} ;
-                    ${iri(pu + 'wikiText')} ?text ;
-                    ${iri(prov + 'wasAttributedTo')} ?author ;
-                    ${iri(prov + 'generatedAtTime')} ?at .
-          OPTIONAL { ?revision ${iri(pu + 'editSummary')} ?summary }
-          OPTIONAL { ?revision ${iri(prov + 'wasRevisionOf')} ?previous }
-        }
-        ${AUTHOR_NAME}
-      } ORDER BY DESC(?at) LIMIT 1`)
+    const rows = await this.client.select(this.queries.get('wiki/current-revision', {
+      plugin: iri(pluginIri),
+      accountsGraph: iri(ACCOUNTS_GRAPH)
+    }))
     return rows[0] ?? null
   }
 
   /** Every revision of one page, newest first. The page's history. */
   async history (pluginIri, limit = 50) {
-    return this.client.select(`
-      SELECT ?revision ?summary ?author ?authorName ?at ?length WHERE {
-        GRAPH ?g {
-          ?revision ${iri(rdf + 'type')} ${iri(pu + 'WikiRevision')} ;
-                    ${iri(pu + 'wikiSubject')} ${iri(pluginIri)} ;
-                    ${iri(pu + 'wikiText')} ?text ;
-                    ${iri(prov + 'wasAttributedTo')} ?author ;
-                    ${iri(prov + 'generatedAtTime')} ?at .
-          OPTIONAL { ?revision ${iri(pu + 'editSummary')} ?summary }
-          BIND(STRLEN(?text) AS ?length)
-        }
-        ${AUTHOR_NAME}
-      } ORDER BY DESC(?at) LIMIT ${Number(limit)}`)
+    return this.client.select(this.queries.get('wiki/history', {
+      plugin: iri(pluginIri),
+      accountsGraph: iri(ACCOUNTS_GRAPH),
+      limit: integer(limit)
+    }))
   }
 
   /** One revision by IRI, for reading an old version. */
   async revision (revisionIri) {
-    const rows = await this.client.select(`
-      SELECT ?text ?summary ?author ?authorName ?at ?subject WHERE {
-        GRAPH ?g {
-          ${iri(revisionIri)} ${iri(pu + 'wikiText')} ?text ;
-                              ${iri(pu + 'wikiSubject')} ?subject ;
-                              ${iri(prov + 'wasAttributedTo')} ?author ;
-                              ${iri(prov + 'generatedAtTime')} ?at .
-          OPTIONAL { ${iri(revisionIri)} ${iri(pu + 'editSummary')} ?summary }
-        }
-        ${AUTHOR_NAME}
-      } LIMIT 1`)
+    const rows = await this.client.select(this.queries.get('wiki/revision', {
+      revision: iri(revisionIri),
+      accountsGraph: iri(ACCOUNTS_GRAPH)
+    }))
     return rows[0] ?? null
   }
 
   /** How many revisions this account has saved in the last hour. */
   async recentEdits (accountIri, now = new Date()) {
     const since = new Date(now.getTime() - 60 * 60 * 1000)
-    const rows = await this.client.select(`
-      SELECT (COUNT(*) AS ?n) WHERE {
-        GRAPH ?g {
-          ?revision ${iri(rdf + 'type')} ${iri(pu + 'WikiRevision')} ;
-                    ${iri(prov + 'wasAttributedTo')} ${iri(accountIri)} ;
-                    ${iri(prov + 'generatedAtTime')} ?at .
-          FILTER(?at > ${typedLiteral(since)})
-        }
-      }`)
+    const rows = await this.client.select(this.queries.get('wiki/recent-edits', {
+      account: iri(accountIri),
+      since: typedLiteral(since)
+    }))
     return Number(rows[0]?.n ?? 0)
   }
 

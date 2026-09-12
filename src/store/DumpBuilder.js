@@ -115,8 +115,8 @@ export class DumpBuilder {
         withheld.push({ graph: row.graph, licence: row.licence, reason: 'not redistributable' })
         continue
       }
-      const turtle = await this.client.construct(`
-        CONSTRUCT { ?s ?p ?o } WHERE { GRAPH ${iri(row.graph)} { ?s ?p ?o } }`)
+      const turtle = await this.client.construct(
+        this.queries.get('graph/contents', { graph: iri(row.graph) }))
       const file = path.join(section, fileNameFor(row.graph))
       await this.#write(file, turtle)
       parts[section].push({
@@ -167,7 +167,7 @@ export class DumpBuilder {
 
   async #countTriples (graph) {
     const [row] = await this.client.select(
-      `SELECT (COUNT(*) AS ?n) WHERE { GRAPH ${iri(graph)} { ?s ?p ?o } }`)
+      this.queries.get('graph/triple-count', { graph: iri(graph) }))
     return Number(row?.n ?? 0)
   }
 

@@ -5,6 +5,8 @@ import SHACLValidator from 'rdf-validate-shacl'
 import { Readable } from 'stream'
 import { rdfParser } from 'rdf-parse'
 import { parseTurtleFile } from '../harvest/TurtleReader.js'
+import QueryService from './QueryService.js'
+import { iri } from './SPARQLHelper.js'
 
 /**
  * SHACL validation of what a harvester is about to write, and of what is
@@ -45,9 +47,10 @@ export async function parseTriples (triples) {
 }
 
 export class ShapeValidator {
-  constructor (shapes) {
+  constructor (shapes, { queries = new QueryService() } = {}) {
     if (!shapes) throw new ValidationError('ShapeValidator needs a shapes dataset')
     this.shapes = shapes
+    this.queries = queries
     // No factory override: rdf-validate-shacl needs a clownface-capable
     // factory, which rdf-ext v2 is not. Its own default is the right one.
     this.validator = new SHACLValidator(shapes)
@@ -106,8 +109,13 @@ export class ShapeValidator {
    * computing similarity outside the vector index.
    */
   async validateGraph (client, graph) {
+    // `iri()` rather than `<${graph}>`: this interpolated a graph name straight
+    // into the query, so a name holding `>` produced a query that parsed as
+    // something else. Every graph name here comes from the registry, so it was
+    // never reachable — but that is an argument about today's callers, not
+    // about the code.
     const turtle = await client.construct(
-      `CONSTRUCT { ?s ?p ?o } WHERE { GRAPH <${graph}> { ?s ?p ?o } }`
+      this.queries.get('graph/contents', { graph: iri(graph) })
     )
     const quads = []
     await new Promise((resolve, reject) => {

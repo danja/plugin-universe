@@ -1,0 +1,9 @@
+# Every triple in one named graph.
+#
+# The whole of a graph, as Turtle, for anything that copies a graph rather than
+# reasons about it: a dump, a backup, SHACL validation. CONSTRUCT rather than
+# SELECT, because all three want the triples — pulling them back as rows to
+# reassemble in JavaScript would be the same mistake as computing similarity
+# outside the vector index.
+CONSTRUCT { ?s ?p ?o }
+WHERE { GRAPH ${graph} { ?s ?p ?o } }

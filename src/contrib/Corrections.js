@@ -1,11 +1,12 @@
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
-import { iri, literal, typedLiteral, insertDataQuery } from '../store/SPARQLHelper.js'
+import { iri, literal, typedLiteral, integer, insertDataQuery } from '../store/SPARQLHelper.js'
 import GraphRegistry from '../store/GraphRegistry.js'
 import URIMinter from '../rdf/URIMinter.js'
 import { TRUST } from '../auth/Accounts.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 import ensureContributorGraphs from './ContributorGraphs.js'
 import { toKnownSpdx } from '../harvest/Licensing.js'
+import QueryService from '../store/QueryService.js'
 
 /**
  * Corrections: a person proposing that one fact about one plugin is wrong.
@@ -148,12 +149,14 @@ export function valueTerm (kind, value) {
 
 export class Corrections {
   constructor (client, {
-    registry = new GraphRegistry(client), minter = new URIMinter(), graphId = 'corrections'
+    registry = new GraphRegistry(client), minter = new URIMinter(), graphId = 'corrections',
+    queries = new QueryService()
   } = {}) {
     if (!client) throw new CorrectionError('Corrections needs a SPARQLClient')
     this.client = client
     this.registry = registry
     this.minter = minter
+    this.queries = queries
     // Proposals live in the system graph with the accounts, because a pending
     // correction is about a person as much as about a plugin. Only an accepted
     // one reaches the contributor's public graph. The id is a parameter for the
@@ -245,27 +248,23 @@ export class Corrections {
       `${valueTerm(correction.kind, correction.value)} .`
     ]
     await this.client.update(insertDataQuery(graphs.facts, triples))
-    await this.client.update(`
-      DELETE { GRAPH ${iri(this.queueGraph)} { ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ?s } }
-      INSERT { GRAPH ${iri(this.queueGraph)} {
-        ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ${literal(STATUS.ACCEPTED)} ;
-                              ${iri(pu + 'reviewedAt')} ${typedLiteral(now)} .
-      } }
-      WHERE { GRAPH ${iri(this.queueGraph)} { ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ?s } }`)
+    await this.client.update(this.queries.get('contrib/correction-accept-on-arrival', {
+      queueGraph: iri(this.queueGraph),
+      correction: iri(correctionIri),
+      status: literal(STATUS.ACCEPTED),
+      at: typedLiteral(now)
+    }))
     return graphs.facts
   }
 
   /** How many corrections this account has made in the last hour. */
   async recentCount (accountIri, now = new Date()) {
     const since = new Date(now.getTime() - 60 * 60 * 1000)
-    const rows = await this.client.select(`
-      SELECT (COUNT(*) AS ?n) WHERE {
-        GRAPH ${iri(this.queueGraph)} {
-          ?c ${iri(prov + 'wasAttributedTo')} ${iri(accountIri)} ;
-             ${iri(prov + 'generatedAtTime')} ?at .
-          FILTER(?at > ${typedLiteral(since)})
-        }
-      }`)
+    const rows = await this.client.select(this.queries.get('contrib/correction-recent', {
+      queueGraph: iri(this.queueGraph),
+      account: iri(accountIri),
+      since: typedLiteral(since)
+    }))
     return Number(rows[0]?.n ?? 0)
   }
 
@@ -285,16 +284,11 @@ export class Corrections {
     if (!moderator || moderator.trustLevel !== TRUST.MODERATOR) {
       throw new CorrectionError('Only a moderator can review corrections.')
     }
-    const rows = await this.client.select(`
-      SELECT ?subject ?predicate ?value ?by WHERE {
-        GRAPH ${iri(this.queueGraph)} {
-          ${iri(correctionIri)} ${iri(pu + 'correctionSubject')} ?subject ;
-                                ${iri(pu + 'correctionPredicate')} ?predicate ;
-                                ${iri(pu + 'proposedValue')} ?value ;
-                                ${iri(pu + 'correctionStatus')} ${literal(STATUS.PENDING)} ;
-                                ${iri(prov + 'wasAttributedTo')} ?by .
-        }
-      } LIMIT 1`)
+    const rows = await this.client.select(this.queries.get('contrib/correction-pending-one', {
+      queueGraph: iri(this.queueGraph),
+      correction: iri(correctionIri),
+      status: literal(STATUS.PENDING)
+    }))
     const row = rows[0]
     if (!row) throw new CorrectionError('That correction is not pending; it may already have been decided.')
 
@@ -321,30 +315,22 @@ export class Corrections {
   }
 
   async #setStatus (correctionIri, status, moderator, now) {
-    await this.client.update(`
-      DELETE { GRAPH ${iri(this.queueGraph)} { ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ?old } }
-      INSERT { GRAPH ${iri(this.queueGraph)} {
-        ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ${literal(status)} ;
-                              ${iri(pu + 'reviewedBy')} ${iri(moderator.iri)} ;
-                              ${iri(pu + 'reviewedAt')} ${typedLiteral(now)} .
-      } }
-      WHERE { GRAPH ${iri(this.queueGraph)} { ${iri(correctionIri)} ${iri(pu + 'correctionStatus')} ?old } }`)
+    await this.client.update(this.queries.get('contrib/correction-set-status', {
+      queueGraph: iri(this.queueGraph),
+      correction: iri(correctionIri),
+      status: literal(status),
+      moderator: iri(moderator.iri),
+      at: typedLiteral(now)
+    }))
   }
 
   /** Corrections awaiting review, oldest first — a queue, not a list. */
   async pending (limit = 50) {
-    return this.client.select(`
-      SELECT ?correction ?subject ?predicate ?value ?rationale ?by ?at WHERE {
-        GRAPH ${iri(this.queueGraph)} {
-          ?correction ${iri(pu + 'correctionStatus')} ${literal(STATUS.PENDING)} ;
-                      ${iri(pu + 'correctionSubject')} ?subject ;
-                      ${iri(pu + 'correctionPredicate')} ?predicate ;
-                      ${iri(pu + 'proposedValue')} ?value ;
-                      ${iri(prov + 'wasAttributedTo')} ?by ;
-                      ${iri(prov + 'generatedAtTime')} ?at .
-          OPTIONAL { ?correction ${iri(pu + 'rationale')} ?rationale }
-        }
-      } ORDER BY ?at LIMIT ${Number(limit)}`)
+    return this.client.select(this.queries.get('contrib/corrections-pending', {
+      queueGraph: iri(this.queueGraph),
+      status: literal(STATUS.PENDING),
+      limit: integer(limit)
+    }))
   }
 
   /**
@@ -357,30 +343,20 @@ export class Corrections {
    * them — and that is already visible on the plugin page.
    */
   async byAccount (accountIri, limit = 100) {
-    return this.client.select(`
-      SELECT ?correction ?subject ?predicate ?value ?rationale ?status ?at ?reviewedAt WHERE {
-        GRAPH ${iri(this.queueGraph)} {
-          ?correction ${iri(prov + 'wasAttributedTo')} ${iri(accountIri)} ;
-                      ${iri(pu + 'correctionStatus')} ?status ;
-                      ${iri(pu + 'correctionSubject')} ?subject ;
-                      ${iri(pu + 'correctionPredicate')} ?predicate ;
-                      ${iri(pu + 'proposedValue')} ?value ;
-                      ${iri(prov + 'generatedAtTime')} ?at .
-          OPTIONAL { ?correction ${iri(pu + 'rationale')} ?rationale }
-          OPTIONAL { ?correction ${iri(pu + 'reviewedAt')} ?reviewedAt }
-        }
-      } ORDER BY DESC(?at) LIMIT ${Number(limit)}`)
+    return this.client.select(this.queries.get('contrib/corrections-by-account', {
+      queueGraph: iri(this.queueGraph),
+      account: iri(accountIri),
+      limit: integer(limit)
+    }))
   }
 
   /** How many of this account's corrections have been accepted. */
   async acceptedCount (accountIri) {
-    const rows = await this.client.select(`
-      SELECT (COUNT(*) AS ?n) WHERE {
-        GRAPH ${iri(this.queueGraph)} {
-          ?c ${iri(prov + 'wasAttributedTo')} ${iri(accountIri)} ;
-             ${iri(pu + 'correctionStatus')} ${literal(STATUS.ACCEPTED)} .
-        }
-      }`)
+    const rows = await this.client.select(this.queries.get('contrib/correction-accepted-count', {
+      queueGraph: iri(this.queueGraph),
+      account: iri(accountIri),
+      status: literal(STATUS.ACCEPTED)
+    }))
     return Number(rows[0]?.n ?? 0)
   }
 }

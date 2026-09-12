@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Thirty-nine entries is past the point where anyone reads them all, so what follows
+Forty-one entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -53,6 +53,61 @@ by reading rather than by running. Reuse is why this project exists at all, but
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — A house rule stated in prose and checked by nobody
+
+**What happened.** CLAUDE.md has said "do not inline SPARQL as template
+literals in JavaScript" since Phase 0. TODO.md recorded one file as breaking
+it, in five places. A scan found seventeen, across eight files.
+
+**Root cause.** The rule was written down and never given a mechanism. Six of
+the seventeen were the *same two* generic queries — "every triple in a graph"
+and "how many triples in a graph" — copied into four different modules, which
+is what happens when there is no obvious place to put a query that more than
+one caller wants. One of the copies interpolated a graph name as `<${graph}>`
+with no `iri()`, so a name containing `>` would have produced a query that
+parsed as something else; every caller passes a registry-supplied name, so it
+was not reachable, but that is a fact about today's callers.
+
+**Why the count was wrong in the notes.** The TODO entry was written while
+looking at one file. Nobody had asked the question of the whole tree, because
+asking it by hand is tedious — which is the same reason the rule decayed.
+
+**Prevention.** `tests/rdf/no-inline-sparql.test.js` parses every template
+literal in `src/` — tracking `${...}` so an interpolated `}` does not end the
+literal early — and fails on any that reads as a query. It exempts
+`SPARQLHelper.js`, which *is* the query constructor, and asserts that every
+exemption carries a written reason. Two further tests check the detector still
+detects, because a scraper that finds nothing looks exactly like one that has
+gone blind — `tests/api/linked-routes.test.js` went blind for precisely that
+reason. A fourth check looks for a caller of every query on disk, and found
+`plugin/by-iri.sparql`, dead since Phase 0.5 and still looking maintained.
+
+**What made it possible to finish.** `integer()` in `SPARQLHelper`. A query
+wanting `LIMIT` could not be expressed as a file, because QueryService accepts
+only formatted terms and `LIMIT "50"^^xsd:integer` does not parse — so those
+queries stayed in JavaScript. The missing helper was the reason for part of the
+debt, not an afterthought to clearing it.
+
+---
+
+## 2026-09-12 — A test that asserted about `/tmp`
+
+**What happened.** `tests/store/backup.test.js` checked that `readManifest`
+refuses a directory that is not a backup, and passed it `os.tmpdir()`. It
+failed during a full-suite run and passed on its own.
+
+**Root cause.** Every other test in that file creates `pu-backup-*` under
+`/tmp`. `readManifest` looks one level down for a nested backup and, finding
+one, returns its *helpful* message — "point at that instead" — rather than the
+refusal. So the assertion turned on which tests were mid-flight. It had been
+passing by luck.
+
+**Prevention.** It gets an empty directory of its own, created and removed
+inside the test. A test whose subject is a shared mutable directory is testing
+the machine as much as the code.
 
 ---
 

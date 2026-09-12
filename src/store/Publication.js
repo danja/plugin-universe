@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { iri } from './SPARQLHelper.js'
+import QueryService from './QueryService.js'
 import { loadTurtleIntoGraph } from './TurtleLoader.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 
@@ -37,10 +38,11 @@ export class PublicationError extends Error {
 export const NEVER_PUBLISH = Object.freeze(['graph:system/', 'graph:discovery/'])
 
 export class Publication {
-  constructor (client, { dumpDir = 'data/dumps' } = {}) {
+  constructor (client, { dumpDir = 'data/dumps', queries = new QueryService() } = {}) {
     if (!client) throw new PublicationError('Publication needs a SPARQLClient for the target dataset')
     this.client = client
     this.dumpDir = dumpDir
+    this.queries = queries
   }
 
   /** What the dump says it produced. */
@@ -113,7 +115,7 @@ export class Publication {
       await this.client.update(`DROP SILENT GRAPH ${iri(graph.graph)}`)
       await loadTurtleIntoGraph(this.client, graph.graph, turtle)
       const [row] = await this.client.select(
-        `SELECT (COUNT(*) AS ?n) WHERE { GRAPH ${iri(graph.graph)} { ?s ?p ?o } }`)
+        this.queries.get('graph/triple-count', { graph: iri(graph.graph) }))
       const count = Number(row.n)
       if (count !== graph.triples) {
         throw new PublicationError(

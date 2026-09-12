@@ -1,0 +1,12 @@
+# How many of one account's corrections have been accepted.
+#
+# This is the number trust promotion is decided on, so it is asked of the store
+# each time rather than cached — a contributor's standing is a fact about the
+# queue, not a counter that can drift away from it.
+SELECT (COUNT(*) AS ?n)
+WHERE {
+  GRAPH ${queueGraph} {
+    ?correction prov:wasAttributedTo ${account} ;
+                pu:correctionStatus ${status} .
+  }
+}

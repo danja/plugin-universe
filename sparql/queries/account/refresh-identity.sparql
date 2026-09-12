@@ -1,0 +1,24 @@
+# Clear the fields GitHub is authoritative for, before they are re-inserted.
+#
+# Only those fields. Trust, tier and suspension are this project's judgements
+# about a person and must survive a sign-in — re-asserting them from the
+# identity would let anyone reset their own suspension by logging in again.
+#
+# Each is OPTIONAL in the WHERE because an account need not have all of them,
+# and a missing one must not stop the others being replaced.
+DELETE {
+  GRAPH ${graph} {
+    ${account} foaf:accountName ?login .
+    ${account} rdfs:label ?label .
+    ${account} foaf:depiction ?avatar .
+    ${account} pu:lastSeen ?seen .
+  }
+}
+WHERE {
+  GRAPH ${graph} {
+    OPTIONAL { ${account} foaf:accountName ?login }
+    OPTIONAL { ${account} rdfs:label ?label }
+    OPTIONAL { ${account} foaf:depiction ?avatar }
+    OPTIONAL { ${account} pu:lastSeen ?seen }
+  }
+}

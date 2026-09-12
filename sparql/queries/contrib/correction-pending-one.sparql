@@ -1,0 +1,16 @@
+# One pending correction, read back before it is decided.
+#
+# The status is matched rather than selected: a correction already accepted or
+# rejected must not match at all, so that deciding one twice returns nothing
+# instead of silently applying it again.
+SELECT ?subject ?predicate ?value ?by
+WHERE {
+  GRAPH ${queueGraph} {
+    ${correction} pu:correctionSubject ?subject ;
+                  pu:correctionPredicate ?predicate ;
+                  pu:proposedValue ?value ;
+                  pu:correctionStatus ${status} ;
+                  prov:wasAttributedTo ?by .
+  }
+}
+LIMIT 1

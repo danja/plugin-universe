@@ -1,0 +1,18 @@
+# Corrections awaiting review, oldest first — a queue, not a list.
+#
+# Oldest first because a queue that shows the newest first is one where an
+# awkward suggestion can be outrun by fresher ones and never decided.
+SELECT ?correction ?subject ?predicate ?value ?rationale ?by ?at
+WHERE {
+  GRAPH ${queueGraph} {
+    ?correction pu:correctionStatus ${status} ;
+                pu:correctionSubject ?subject ;
+                pu:correctionPredicate ?predicate ;
+                pu:proposedValue ?value ;
+                prov:wasAttributedTo ?by ;
+                prov:generatedAtTime ?at .
+    OPTIONAL { ?correction pu:rationale ?rationale }
+  }
+}
+ORDER BY ?at
+LIMIT ${limit}

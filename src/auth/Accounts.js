@@ -1,7 +1,8 @@
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
-import { iri, literal, typedLiteral, insertDataQuery } from '../store/SPARQLHelper.js'
+import { iri, literal, typedLiteral, integer, insertDataQuery } from '../store/SPARQLHelper.js'
 import GraphRegistry from '../store/GraphRegistry.js'
 import URIMinter from '../rdf/URIMinter.js'
+import QueryService from '../store/QueryService.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 
 /**
@@ -51,12 +52,14 @@ export class AccountError extends Error {
 
 export class Accounts {
   constructor (client, {
-    registry = new GraphRegistry(client), minter = new URIMinter(), graphId = 'accounts'
+    registry = new GraphRegistry(client), minter = new URIMinter(), graphId = 'accounts',
+    queries = new QueryService()
   } = {}) {
     if (!client) throw new AccountError('Accounts needs a SPARQLClient')
     this.client = client
     this.registry = registry
     this.minter = minter
+    this.queries = queries
     // The id is a parameter so a test can address its own graph. Personal data
     // is the one thing a test suite must not write into the live graph, and
     // "remember to clean up afterwards" is not a mechanism.
@@ -116,19 +119,10 @@ export class Accounts {
       // suspension are this project's judgements and must survive a sign-in —
       // re-asserting them from the identity would let anyone reset their own
       // suspension by logging in again.
-      await this.client.update(`
-        DELETE { GRAPH ${iri(this.graph)} {
-          ${s} ${iri(foaf + 'accountName')} ?login .
-          ${s} ${iri(rdfs + 'label')} ?label .
-          ${s} ${iri(foaf + 'depiction')} ?avatar .
-          ${s} ${iri(pu + 'lastSeen')} ?seen .
-        } }
-        WHERE { GRAPH ${iri(this.graph)} {
-          OPTIONAL { ${s} ${iri(foaf + 'accountName')} ?login }
-          OPTIONAL { ${s} ${iri(rdfs + 'label')} ?label }
-          OPTIONAL { ${s} ${iri(foaf + 'depiction')} ?avatar }
-          OPTIONAL { ${s} ${iri(pu + 'lastSeen')} ?seen }
-        } }`)
+      await this.client.update(this.queries.get('account/refresh-identity', {
+        graph: iri(this.graph),
+        account: s
+      }))
       await this.client.update(insertDataQuery(this.graph, triples))
       return { ...existing, ...identity, iri: accountIri }
     }
@@ -151,18 +145,10 @@ export class Accounts {
 
   /** One account, or null. */
   async find (accountIri) {
-    const rows = await this.client.select(`
-      SELECT ?login ?label ?trust ?tier ?suspended ?avatar ?githubId WHERE {
-        GRAPH ${iri(this.graph)} {
-          ${iri(accountIri)} ${iri(foaf + 'accountName')} ?login ;
-                             ${iri(pu + 'githubId')} ?githubId .
-          OPTIONAL { ${iri(accountIri)} ${iri(rdfs + 'label')} ?label }
-          OPTIONAL { ${iri(accountIri)} ${iri(pu + 'trustLevel')} ?trust }
-          OPTIONAL { ${iri(accountIri)} ${iri(pu + 'tier')} ?tier }
-          OPTIONAL { ${iri(accountIri)} ${iri(pu + 'suspended')} ?suspended }
-          OPTIONAL { ${iri(accountIri)} ${iri(foaf + 'depiction')} ?avatar }
-        }
-      } LIMIT 1`)
+    const rows = await this.client.select(this.queries.get('account/find', {
+      graph: iri(this.graph),
+      account: iri(accountIri)
+    }))
     const row = rows[0]
     if (!row) return null
     return {
@@ -204,11 +190,12 @@ export class Accounts {
   }
 
   async #replace (accountIri, predicate, term) {
-    const s = iri(accountIri)
-    await this.client.update(`
-      DELETE { GRAPH ${iri(this.graph)} { ${s} ${iri(predicate)} ?old } }
-      INSERT { GRAPH ${iri(this.graph)} { ${s} ${iri(predicate)} ${term} } }
-      WHERE  { OPTIONAL { GRAPH ${iri(this.graph)} { ${s} ${iri(predicate)} ?old } } }`)
+    await this.client.update(this.queries.get('account/replace-field', {
+      graph: iri(this.graph),
+      account: iri(accountIri),
+      predicate: iri(predicate),
+      value: term
+    }))
     return true
   }
 
@@ -231,9 +218,11 @@ export class Accounts {
 
   /** Everyone, for the moderation view. Small by construction for now. */
   async list (limit = 200) {
-    const rows = await this.client.select(`
-      SELECT ?s WHERE { GRAPH ${iri(this.graph)} { ?s a ${iri(foaf + 'Person')} } } LIMIT ${Number(limit)}`)
-    return Promise.all(rows.map(row => this.find(row.s)))
+    const rows = await this.client.select(this.queries.get('account/list', {
+      graph: iri(this.graph),
+      limit: integer(limit)
+    }))
+    return Promise.all(rows.map(row => this.find(row.account)))
   }
 
   /**
@@ -247,8 +236,10 @@ export class Accounts {
   async erase (accountIri) {
     const account = await this.find(accountIri)
     if (!account) return false
-    await this.client.update(`
-      DELETE WHERE { GRAPH ${iri(this.graph)} { ${iri(accountIri)} ?p ?o } }`)
+    await this.client.update(this.queries.get('account/erase', {
+      graph: iri(this.graph),
+      account: iri(accountIri)
+    }))
     for (const suffix of ['facts', 'prose']) {
       const id = `${accountIri.split('/').pop()}-${suffix}`
       await this.registry.drop('user', id).catch(() => {})
