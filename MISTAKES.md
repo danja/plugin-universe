@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-six entries is past the point where anyone reads them all, so what follows
+Forty-seven entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index.
 
@@ -53,6 +53,33 @@ by reading rather than by running. Reuse is why this project exists at all, but
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — Somebody else's outage reported as our failure
+
+**What happened.** `npm run test:live` failed with `TypeError: fetch failed` on
+the test that follows a plugin IRI through the PURL chain. purl.org was not
+answering on either port; the site, archive.org and the rest of the internet
+were fine.
+
+**Root cause of the confusion.** The test's first hop is a third party's
+server, and an unreachable third party produced the same message as a
+misconfigured redirect of our own. A person reading that output has no way to
+tell whether they broke something.
+
+**Prevention.** The fetch is wrapped, and an unreachable purl.org now fails
+with a message naming purl.org, giving the `curl` that confirms it, and saying
+plainly that the site is unaffected and nothing in the repository can change
+it. Past that point anything wrong *is* ours — a redirect to the wrong host, or
+content negotiation lost along the way — and fails as before.
+
+**The principle, which this project already had.** `docs/measurements.md`:
+recording our container's inability to load a plugin as a defect in the plugin
+would publish our limitation as somebody else's fault. This is the same
+distinction pointed the other way — somebody else's limitation reported as
+ours — and it wanted the same fix: say which, in the message, at the moment it
+happens.
 
 ---
 

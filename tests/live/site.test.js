@@ -177,9 +177,31 @@ describe('a plugin IRI dereferences', () => {
     // hosts, with content negotiation surviving all of them. This is the whole
     // reason IRIs are not minted on the serving domain, and the only way to
     // know it works is to follow it.
-    const response = await get(
-      `http://purl.org/stuff/plugin-universe/plugin/${slug}`,
-      { headers: { Accept: 'text/turtle' } })
+    //
+    // The first hop is somebody else's server, and when it is down this failed
+    // with "TypeError: fetch failed" — which reads as a defect here and is not
+    // one. The same distinction the profiler draws with `unloadable`: our
+    // inability to reach a thing must not be recorded as the thing being
+    // broken. So the outage is named, and the two causes are told apart.
+    let response
+    try {
+      response = await get(
+        `http://purl.org/stuff/plugin-universe/plugin/${slug}`,
+        { headers: { Accept: 'text/turtle' } })
+    } catch (error) {
+      throw new Error(
+        'purl.org did not answer, so the PURL chain could not be followed.\n' +
+        '  This is almost certainly their outage rather than a defect here: the\n' +
+        '  redirect is configured at purl.org and nothing in this repository or\n' +
+        '  on the server can change whether it responds.\n' +
+        '  Check with:  curl -sSI http://purl.org/stuff/plugin-universe/\n' +
+        '  The site itself is unaffected — plugin pages serve from ' + BASE + ' as\n' +
+        '  normal. What is broken while this lasts is dereferencing a plugin\n' +
+        '  IRI, which is how an RDF consumer reaches the catalogue.\n' +
+        `  Underlying error: ${error.message}`)
+    }
+    // Past here it answered, so anything wrong is ours: a redirect pointing at
+    // the wrong host, or content negotiation lost along the way.
     expect(response.status).toBe(200)
     expect(response.url).toBe(`${BASE}/plugin/${slug}`)
     expect(response.headers.get('content-type')).toMatch(/text\/turtle/)

@@ -4,11 +4,12 @@ Things only you can do: server access, credentials, legal, and the decisions
 that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 *you* need to do.
 
-- [ ] **Add a picture to a plugin.** Open any plugin page while signed in as a
-  moderator — the form is under the measurements, above "Suggest a correction".
-  It appears only for a trusted contributor or a moderator, and it did not
-  appear at all until now: the route existed and the plugin page never offered
-  it.
+## Recurring 
+
+* local test : `npm run test:live`
+
+## One-off
+
 - [ ] **Check a backup carries the images**, once there are any.
   `node bin/backup.js --scope essential` should report "N image(s)". They ride
   in `essential` and `full`, not in `measurements`. Nothing has been uploaded
@@ -31,6 +32,27 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   first place rather than given it: the boost is a 1.25× multiplier, so a much better match
   still wins. If a vendor ever complains that they paid and are second, that is why, and
   `boostFactor` is the number that would change.
+
+- [ ] **purl.org was down on 2026-09-12**, and `npm run test:live` fails on the one test that
+  follows the PURL chain. **Nothing here is broken** — 57 of 58 live tests pass, the site
+  serves normally, and purl.org answers on neither port 80 nor 443 while archive.org (same
+  operator) and everything else responds in under a second. The test now says so in as many
+  words instead of "TypeError: fetch failed".
+
+  What is actually broken while it lasts: dereferencing a plugin IRI. Anyone following
+  `http://purl.org/stuff/plugin-universe/plugin/<slug>` — which is how an RDF consumer reaches
+  the catalogue, and what the IRIs promise — gets nothing. Browsing and searching are
+  unaffected.
+
+  Check with `curl -sSI http://purl.org/stuff/plugin-universe/`. Nothing to do but wait.
+
+  **If it happens repeatedly, there is a decision behind it.** The minting base was chosen so
+  IRIs survive a change of serving domain, and that reasoning is sound — but it makes a third
+  party's uptime load-bearing for the catalogue's identifiers. `w3id.org` is the usual
+  alternative and is configured through a public GitHub repository rather than a web form,
+  which makes it easier to fix when it breaks. Moving would mean either re-minting every IRI or
+  carrying `owl:sameAs` for ever, so it is not worth doing over one outage — only over a
+  pattern. Worth noting the dates if you see it again.
 
 ## 2. The announcement, when you are ready
 
