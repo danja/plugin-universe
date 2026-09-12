@@ -62,6 +62,13 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   already. `npm run test:live` checks five plausible SPARQL paths unconditionally because of
   that incident. Everything outside this repository is yours alone to judge.
 
+  One was found and fixed on 2026-09-12 without a review: the JSON-LD block at the foot of
+  every plugin page embedded `JSON.stringify(...)` inside a `<script>`, and `JSON.stringify`
+  does not escape `<` — so any harvested or submitted value containing `</script>` would have
+  closed the block and had the rest parsed as markup. Never exploited; the only `<` in the live
+  catalogue are port names like `L <> M`. Worth telling whoever reviews, because it says what
+  kind of thing to look for: the places where escaping is deliberately off.
+
 - [ ] **Read the contact page as a stranger would.** `/about/contact` is the one place the
   address lives now, and it was assembled from three earlier copies with different framings.
   Your name, your address, your voice — worth an edit before it is advertised. Same for

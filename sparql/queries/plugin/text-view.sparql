@@ -21,6 +21,13 @@ SELECT ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?created ?licenc
        # plugin can have a harvested image and an uploaded one; which to show
        # is the caller's, and it prefers the local one.
        (GROUP_CONCAT(DISTINCT ?anyImage; separator=" ") AS ?images)
+       # The plugin's own canonical IRI, where it has one. LV2 plugins are
+       # identified by their authors, so the catalogue preserves that identifier
+       # with owl:sameAs rather than replacing it — and until now used it only
+       # to match a scan back to a catalogue entry, never showing it. It is the
+       # most useful outbound link a plugin page has: the identifier its author
+       # chose, resolving to their description of it.
+       (GROUP_CONCAT(DISTINCT ?upstream; separator=" ") AS ?sameAs)
 WHERE {
   GRAPH ?g {
     ?plugin a trn:PluginProfile ; rdfs:label ?name .
@@ -29,6 +36,7 @@ WHERE {
     OPTIONAL { ?plugin trn:caution ?caution }
     OPTIONAL { ?plugin foaf:homepage ?homepage }
     OPTIONAL { ?plugin rdfs:seeAlso ?seeAlso }
+    OPTIONAL { ?plugin owl:sameAs ?upstream }
     OPTIONAL { ?plugin dcterms:created ?created }
     OPTIONAL { ?plugin pu:licenceId ?licenceId }
     OPTIONAL { ?plugin pu:sourceAvailability ?sourceAvailability }

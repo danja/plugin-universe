@@ -352,6 +352,11 @@ export class SearchService {
       name: row.name,
       homepage: row.homepage ?? null,
       seeAlso: row.seeAlso ?? null,
+      // The plugin's own canonical IRI where its author gave it one, which for
+      // an LV2 plugin is always. Several is possible and rare; kept as a list
+      // rather than picked between, because choosing would be the catalogue
+      // deciding which of somebody's identifiers is the real one.
+      sameAs: row.sameAs ? row.sameAs.split(' ').filter(Boolean) : [],
       image: pickImage(row.images, this.origin),
       imageIsLocal: isLocalImage(pickImage(row.images, this.origin), this.origin),
       created: row.created ?? null,

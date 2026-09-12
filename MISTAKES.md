@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-five entries is past the point where anyone reads them all, so what follows
+Forty-six entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index. Entries are consolidated when several
 turn out to be one lesson, and promoted into [CLAUDE.md](CLAUDE.md) when a
@@ -81,6 +81,43 @@ moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-12 — JSON-LD embedded in a script tag it could close
+
+**What happened.** Every plugin page ends with
+`<script type="application/ld+json">` holding `JSON.stringify(pluginJsonLd(doc))`.
+`<` is not special in JSON, so `JSON.stringify` leaves it alone. A value
+containing `</script>` closed the block, and everything after it was parsed as
+markup.
+
+**How reachable.** Plugin names, descriptions, vendors, tags and categories all
+come from harvested sources, and `/submit` puts a signed-in person's typed text
+into the same fields — `kind: 'text'` length-limits a value and says nothing
+about markup. **Not exploited:** the live catalogue holds seven literals
+containing `<`, and they are port names like `L <> M`, a label `<Reserved 3>`,
+and two changelogs. None carries a closing tag. The hole was latent, not open.
+
+**Root cause.** The template does the escaping everywhere else on the site, and
+this is the one placeholder that must not be escaped — `{{{jsonLd}}}`, because
+the value is a document with its own syntax. Marking it raw was correct and
+removed the only defence, and nothing replaced it. The house rule says escaping
+is the default "because the alternative is remembering", and this is what
+remembering looks like when it fails.
+
+**Prevention.** `scriptSafeJson()` escapes `<` to `\u003c` before embedding:
+the same string to any JSON parser, and unable to close a tag, open a comment or
+start a nested `<script`. `tests/api/dereferenceable.test.js` feeds
+`</script><img src=x onerror=...>` through every field a source or a person can
+set, and asserts the block still parses as JSON and closes exactly once.
+
+**Worth generalising.** A `{{{raw}}}` placeholder is a defence deliberately
+switched off. There are several on this site and the rest are fragments this
+code built and escaped itself; this one was a serialiser's output going
+straight out. **Ask of every raw placeholder: who escaped this, and for which
+syntax?** HTML-escaping would have been the wrong answer here too — the block is
+JSON, and it needed JSON's own escape for a character HTML cares about.
 
 ---
 

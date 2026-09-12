@@ -5,7 +5,7 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // about HTML.
 import { linkable, pluginJsonLd } from './serialise.js'
 import templates, { escape } from './Templates.js'
-import { UNVERSIONED, NOASSERTION } from '../harvest/Licensing.js'
+import { UNVERSIONED, NOASSERTION, LICENCE_IDS } from '../harvest/Licensing.js'
 import { vendorSlug } from '../search/SearchService.js'
 
 /**
@@ -409,21 +409,80 @@ export function imageForm (slug, { csrfToken, error = null, done = null } = {}) 
   })
 }
 
+/**
+ * JSON, safe to embed in a `<script>` element.
+ *
+ * `JSON.stringify` escapes what JSON needs and nothing HTML needs, and `<` is
+ * not special in JSON. So a value containing `</script>` — in a plugin's name,
+ * its description, a tag, a category — closed the JSON-LD block at the foot of
+ * every plugin page, and everything after it was parsed as markup. Harvested
+ * strings reach those fields, and so does anything typed into `/submit`.
+ *
+ * Escaping `<` to `\u003c` is the standard fix and costs nothing: it is the
+ * same string to any JSON parser, and it cannot close a tag, open a comment, or
+ * start a nested `<script`.
+ */
+function scriptSafeJson (value) {
+  return JSON.stringify(value, null, 2).replace(/</g, '\\u003c')
+}
+
+/**
+ * SPDX's own page for a licence, where the identifier is really an SPDX one.
+ *
+ * Null for the unversioned tokens and for NOASSERTION: they are this
+ * catalogue's honest record of what a source said and are deliberately *not*
+ * SPDX identifiers, so there is nothing at spdx.org to point at. A link that
+ * 404s is worse than a plain word.
+ */
+function spdxUrl (licenceId) {
+  if (!licenceId || UNVERSIONED.has(licenceId) || licenceId === NOASSERTION) return null
+  if (!LICENCE_IDS.has(licenceId)) return null
+  return `https://spdx.org/licenses/${encodeURIComponent(licenceId)}.html`
+}
+
+/**
+ * A list of values, each linked, for a table row.
+ *
+ * The plugin page stated formats, roles and categories as plain text while a
+ * result row linked the same values — so the page *about* one plugin was the
+ * one place you could not get anywhere from. For a catalogue whose argument is
+ * that identifiers should resolve, its own profile page being a dead end is the
+ * wrong demonstration.
+ */
+function linkedValues (values, href) {
+  return (values ?? [])
+    .map(value => `<a href="${escape(href(value))}">${escape(value)}</a>`)
+    .join(', ')
+}
+
 export function renderPluginPage (
   doc, viewer = {}, contribution = null, measured = null, wiki = '',
   { facetValues = {}, corpus = 0 } = {}
 ) {
+  // Rows are `[label, value, linked]`. A linked row's value is a fragment this
+  // code built and escaped; every other row is escaped by the template, which
+  // is the right way round — escaping is the default and the exception is
+  // marked.
+  const licence = licenceLabel(doc.licenceId)
+  const spdx = spdxUrl(doc.licenceId)
   const rows = [
     // Left as text here: the heading above is already a link to the same page,
     // and two links to one place in one screen is noise rather than emphasis.
     ['Vendor', doc.vendor],
-    ['Formats', (doc.formats ?? []).join(', ')],
-    ['Roles', (doc.roles ?? []).join(', ')],
-    ['Categories', (doc.categories ?? []).join(', ')],
+    ['Formats', linkedValues(doc.formats, v => `/?format=${encodeURIComponent(v)}`), true],
+    ['Roles', linkedValues(doc.roles, v => `/?role=${encodeURIComponent(v)}`), true],
+    ['Categories', linkedValues(doc.categories, v => `/category/${encodeURIComponent(v)}`), true],
     ['Tags', (doc.tags ?? []).join(', ')],
     ['Price', PRICING_LABEL[doc.pricing]],
     ['Source', AVAILABILITY_LABEL[doc.sourceAvailability]],
-    ['Licence', licenceLabel(doc.licenceId)],
+    // The identifier resolves to SPDX's description of it, where it is an SPDX
+    // identifier at all.
+    ...(spdx
+      ? [['Licence', `<a href="${escape(spdx)}">${escape(licence)}</a>`, true]]
+      : [['Licence', licence]]),
+    // The author's own identifier for this plugin, preserved with owl:sameAs
+    // rather than replaced. 86 plugins have one and none of them showed it.
+    ['Also known as', linkedValues(doc.sameAs, v => v), true],
     ['Parameters', (doc.parameters ?? []).length ? `${doc.parameters.length}: ${doc.parameters.slice(0, 12).join(', ')}${doc.parameters.length > 12 ? '\u2026' : ''}` : null],
     ['Caution', doc.cautions]
   ].filter(([, value]) => value)
@@ -444,8 +503,10 @@ export function renderPluginPage (
     figure: pluginFigure(doc),
     description: templates.when(Boolean(doc.description), 'description', { description: doc.description }),
     homepage: templates.when(Boolean(doc.homepage), 'plugin-homepage', { href: doc.homepage }),
-    rows: templates.each('table-row', rows, ([label, value]) => ({ label, value })),
+    rows: rows.map(([label, value, linked]) =>
+      templates.render(linked ? 'table-row-links' : 'table-row', { label, value })).join('\n'),
     iri: doc.iri,
+    iriHref: doc.iri,
     wiki,
     measurements: renderMeasurements(measured),
     provenance: renderProvenance(doc),
@@ -461,7 +522,7 @@ export function renderPluginPage (
       : '',
     ttl: `${path}.ttl`,
     jsonld: `${path}.jsonld`,
-    jsonLd: JSON.stringify(pluginJsonLd(doc), null, 2)
+    jsonLd: scriptSafeJson(pluginJsonLd(doc))
   })
   return layout(`${doc.name} — Plugin Universe`, body, {
     description: doc.description ?? '', ...viewer, footer: false

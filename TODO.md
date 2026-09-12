@@ -207,6 +207,12 @@ them is in `docs/danja-todo.md`. Two things deliberately not done, both stated i
 * **Embedding staleness**: `--only-new` embeds plugins with no vector, but cannot see a plugin
   whose *text* changed upstream — the IRI is unchanged, so the stale vector stays. Storing
   `pu:composedTextHash` beside each vector would close it and make a nightly refresh cheap.
+* **Tooltips where they earn their place.** From the inbox. Measurement metrics already carry
+  labels and units from the vocabulary, which is the case that most wants one. Two cautions: a
+  tooltip is invisible on a touch screen and to a keyboard user unless built as a proper
+  disclosure, and anything important enough to need one is usually important enough to be on
+  the page. So `title` for the incidental, a real disclosure for the rest, and neither as a way
+  to make a crowded page hold more.
 * **`vocabs/shapes.ttl` is deliberately not loaded into the store**: SHACL shapes are how the
   store is checked, not part of what it describes.
 * **The flues repo holds four copies of every bundle** (source, build, staging, release). The
@@ -260,3 +266,9 @@ which is why it is no longer restated here.
 * **The accessibility pass**, enforced by `tests/api/accessibility.test.js` over twelve page
   types; and the tab order fixed so the results come before the panel that refines them.
 * **Three columns on a wide screen**, and **README.md rewritten around the method.**
+* **A plugin page's identifiers resolve** — formats and roles to the filtered search,
+  categories to their concept pages, the licence to SPDX where it is really an SPDX identifier,
+  the plugin's own IRI through its PURL, and **the author's canonical IRI**, preserved with
+  `owl:sameAs` on 86 plugins and shown nowhere until now. Found while testing the escaping: the
+  JSON-LD block at the foot of every plugin page could be closed by any value containing
+  `</script>` — latent, never exploited, now escaped and tested.

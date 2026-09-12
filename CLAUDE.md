@@ -206,6 +206,12 @@ ended the string and broke the build.
 - Two placeholders: `{{name}}` inserts the value **escaped**, `{{{name}}}` inserts it as-is for
   a fragment already built as HTML. Escaping is the default because the alternative is
   remembering.
+- **`{{{raw}}}` is a defence switched off deliberately, so ask who switched it back on.** For
+  every raw placeholder: who escaped this, and *for which syntax*? Most are fragments this code
+  built and escaped itself. The one that was not — `{{{jsonLd}}}`, a serialiser's output going
+  into a `<script>` — could be closed by any harvested or submitted string containing
+  `</script>`, because `JSON.stringify` does not escape `<` and has no reason to. The answer
+  there was JSON's own escape, not HTML's.
 - **No loops and no conditionals, deliberately.** A template language grows until it is a worse
   programming language, and every construct added makes the escaping question harder. A list is
   `templates.each(...)`, filling a row template and joining; an optional block is
