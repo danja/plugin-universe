@@ -11,7 +11,8 @@ import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
 import Promotions from '../src/catalogue/Promotions.js'
 import Billing from '../src/billing/Billing.js'
-import Submissions from '../src/contrib/Submissions.js'
+import Submissions, { withProfileVocabulary } from '../src/contrib/Submissions.js'
+import { loadProfileVocabulary } from '../src/rdf/ProfileVocabulary.js'
 import ImageStore from '../src/api/ImageStore.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import Wiki from '../src/wiki/Wiki.js'
@@ -54,6 +55,14 @@ console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`
 // legitimate thing to run and does not need an OAuth App.
 const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
+// The roles and signal types the submission form offers, read from
+// vocabs/trn-profile.ttl once rather than copied into JavaScript. A failure
+// here is fatal on purpose: a form offering nothing to tick in a required group
+// looks like it should work.
+const submittable = withProfileVocabulary(await loadProfileVocabulary())
+console.log(`Profile vocabulary loaded: ${submittable.role.choices.length} roles, ` +
+  `${submittable.accepts.choices.length} signal types`)
+
 let corrections = null
 let promotions = null
 let billing = null
@@ -91,7 +100,7 @@ if (auth) {
   // The same SHACL shapes a harvest is checked against. A plugin somebody
   // typed is not a different kind of plugin, and the shapes are the only thing
   // that knows a format IRI from a typo.
-  submissions = new Submissions(client, { validator: await ShapeValidator.load() })
+  submissions = new Submissions(client, { validator: await ShapeValidator.load(), submittable })
   await submissions.ensureGraph()
   console.log(`Image uploads enabled, ${(await images.list()).length} stored`)
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
@@ -119,6 +128,7 @@ try {
 }
 
 const server = createServer({
+  submittable,
   search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images, promotions, billing,
   wiki, publication, authProblem
 })

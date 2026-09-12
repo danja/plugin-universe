@@ -117,14 +117,70 @@ export const SUBMITTABLE = Object.freeze({
     // catalogue already has under another name.
     predicate: `${pu}licenceId`, label: 'Licence', kind: 'licence', required: false,
     help: 'An SPDX identifier such as GPL-3.0 or MIT, if you know it.'
+  },
+
+  // ── What the plugin does, which only its author really knows ─────────────
+  //
+  // Everything above is what a stranger can see from a download page. What
+  // follows is the profile proper, and it is why this catalogue can answer
+  // "what should I put before this?" rather than only "what is it called?".
+  //
+  // `choices` is left null here and filled from `vocabs/trn-profile.ttl` at
+  // startup — see `withProfileVocabulary`. A list of roles written out in
+  // JavaScript would be a copy of the ontology, which is the mistake the
+  // category scheme already made once.
+  role: {
+    predicate: `${trn}role`, label: 'Roles', kind: 'profileTerm', required: false,
+    multiple: true, choices: null, vocabulary: 'roles',
+    help: 'What kind of thing it is. More than one is normal — a synth is usually both an Instrument and an Audio Instrument.'
+  },
+  accepts: {
+    predicate: `${trn}accepts`, label: 'Accepts', kind: 'profileTerm', required: false,
+    multiple: true, choices: null, vocabulary: 'signals',
+    help: 'What you can feed it. This is half of what makes a chain suggestable: a plugin that accepts MIDI and produces audio goes after one that produces MIDI.'
+  },
+  produces: {
+    predicate: `${trn}produces`, label: 'Produces', kind: 'profileTerm', required: false,
+    multiple: true, choices: null, vocabulary: 'signals',
+    help: 'What comes out. The other half.'
+  },
+  requires: {
+    predicate: `${trn}requires`, label: 'Requires', kind: 'profileTerm', required: false,
+    multiple: true, choices: null, vocabulary: 'requirements',
+    help: 'Anything it needs from the host or from hardware to work properly.'
+  },
+  caution: {
+    predicate: `${trn}caution`, label: 'Caution', kind: 'text', required: false,
+    help: 'Anything that surprises people — heavy CPU at high settings, output that can jump in level, a parameter best left alone while playing.'
   }
 })
+
+/**
+ * `SUBMITTABLE` with the profile fields' choices filled from the vocabulary.
+ *
+ * The field table is static because the validator, the serialiser and the tests
+ * all need it without doing IO; the *choices* come from `vocabs/trn-profile.ttl`
+ * because a list of roles in JavaScript is a second copy of an ontology. This
+ * joins the two, once, at startup.
+ */
+export function withProfileVocabulary (vocabulary) {
+  return Object.freeze(Object.fromEntries(
+    Object.entries(SUBMITTABLE).map(([name, spec]) => [
+      name,
+      spec.vocabulary
+        ? { ...spec, choices: vocabulary[spec.vocabulary].map(term => term.value), terms: vocabulary[spec.vocabulary] }
+        : spec
+    ])
+  ))
+}
 
 /** The object term a submitted value becomes, by kind. */
 export function valueTerm (kind, value) {
   if (kind === 'url') return iri(value)
   if (kind === 'category') return iri(`${pu}category/${value}`)
-  if (kind === 'format') return iri(`${trn}${value}`)
+  // A format and a profile term are both bare local names in the trn:
+  // namespace — VST3, AudioEffect, ControlMidi — so they mint the same way.
+  if (kind === 'format' || kind === 'profileTerm') return iri(`${trn}${value}`)
   return literal(value)
 }
 
@@ -134,9 +190,16 @@ export function valueTerm (kind, value) {
  * Every message is shown to the person who typed it, so each says what to do
  * rather than what went wrong.
  */
-export function validate (fields = {}) {
+/**
+ * @param {object} fields - what was typed
+ * @param {object} [submittable] - the field table, with profile choices filled
+ *   from the vocabulary. Defaults to the bare one, which has no choices on the
+ *   profile fields — so a caller that forgets gets a refusal naming the cause
+ *   rather than an unchecked value reaching the store.
+ */
+export function validate (fields = {}, submittable = SUBMITTABLE) {
   const clean = {}
-  for (const [key, spec] of Object.entries(SUBMITTABLE)) {
+  for (const [key, spec] of Object.entries(submittable)) {
     // A field that takes several values arrives as an array from a checkbox
     // group, and as a single string from anything else. Normalised once here
     // so the rest of this function, and everything downstream, sees one shape.
@@ -154,6 +217,21 @@ export function validate (fields = {}) {
         if (spec.kind === 'format' && !PLUGIN_FORMATS.includes(value)) {
           throw new SubmissionError(
             `"${value}" is not a format this catalogue knows. Known: ${PLUGIN_FORMATS.join(', ')}.`)
+        }
+        // Checked against the *offered* list rather than a copy, so a form
+        // built from the vocabulary and a validator checking the vocabulary
+        // cannot disagree. A submission naming a term the shapes would reject
+        // is refused here, where the person can still fix it.
+        if (spec.kind === 'profileTerm') {
+          if (!spec.choices) {
+            throw new SubmissionError(
+              `${spec.label} cannot be checked: the profile vocabulary was not loaded.`)
+          }
+          if (!spec.choices.includes(value)) {
+            throw new SubmissionError(
+              `"${value}" is not a ${spec.label.toLowerCase().replace(/s$/, '')} this catalogue knows. ` +
+              `Known: ${spec.choices.join(', ')}.`)
+          }
         }
       }
       clean[key] = values
@@ -208,6 +286,9 @@ export class Submissions {
     registry = new GraphRegistry(client),
     minter = new URIMinter(),
     validator = null,
+    // The field table with profile choices filled in. Defaults to the bare one,
+    // which cannot check a profile term and says so.
+    submittable = SUBMITTABLE,
     queries = new QueryService(),
     queueGraph = GraphRegistry.graphIri('system', 'submissions')
   } = {}) {
@@ -220,6 +301,7 @@ export class Submissions {
     // not a different kind of plugin.
     this.validator = validator
     this.queries = queries
+    this.submittable = submittable
     this.queueGraph = queueGraph
   }
 
@@ -265,7 +347,7 @@ export class Submissions {
       // re-harvest preserves this; nothing else writes it again.
       `${s} ${iri(NAMESPACES.dcterms + 'created')} ${typedLiteral(now)} .`
     ]
-    for (const [key, spec] of Object.entries(SUBMITTABLE)) {
+    for (const [key, spec] of Object.entries(this.submittable)) {
       if (!fields[key]) continue
       for (const value of [fields[key]].flat()) {
         triples.push(`${s} ${iri(spec.predicate)} ${valueTerm(spec.kind, value)} .`)
@@ -292,7 +374,7 @@ export class Submissions {
         'Please come back shortly.')
     }
 
-    const clean = validate(fields)
+    const clean = validate(fields, this.submittable)
     const pluginIri = this.pluginIriFor(clean)
 
     if (await this.exists(pluginIri)) {
@@ -330,7 +412,7 @@ export class Submissions {
       `${q} ${iri(prov + 'wasAttributedTo')} ${iri(account.iri)} .`,
       `${q} ${iri(prov + 'generatedAtTime')} ${typedLiteral(now)} .`
     ]
-    for (const [key, spec] of Object.entries(SUBMITTABLE)) {
+    for (const [key, spec] of Object.entries(this.submittable)) {
       if (!clean[key]) continue
       // One node per value, not per field: a plugin built for VST3 and LV2 is
       // two proposed formats, and a single node would have kept whichever was
@@ -395,7 +477,7 @@ export class Submissions {
           submission: row.submission, plugin: row.plugin, by: row.by, at: row.at, fields: {}
         })
       }
-      const key = Object.keys(SUBMITTABLE).find(name => SUBMITTABLE[name].predicate === row.predicate)
+      const key = Object.keys(this.submittable).find(name => this.submittable[name].predicate === row.predicate)
       if (!key) continue
       const record = byIri.get(row.submission).fields
       if (SUBMITTABLE[key].multiple) (record[key] ??= []).push(row.value)
@@ -436,12 +518,12 @@ export class Submissions {
 
     const fields = {}
     for (const row of rows) {
-      const key = Object.keys(SUBMITTABLE).find(name => SUBMITTABLE[name].predicate === row.predicate)
+      const key = Object.keys(this.submittable).find(name => this.submittable[name].predicate === row.predicate)
       if (!key) continue
       if (SUBMITTABLE[key].multiple) (fields[key] ??= []).push(row.value)
       else fields[key] = row.value
     }
-    const clean = validate(fields)
+    const clean = validate(fields, this.submittable)
     const pluginIri = rows[0].plugin
 
     // Checked again here as well as at submission: time has passed, and the

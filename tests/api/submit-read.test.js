@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import { renderSubmitPage } from '../../src/api/render.js'
-import { SUBMITTABLE } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, withProfileVocabulary } from '../../src/contrib/Submissions.js'
 import { draftFrom } from '../../src/contrib/PageReader.js'
+import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 
 /**
  * "Read a page" on the submit form, and who may press it.
@@ -29,7 +30,16 @@ const draftOf = () => ({
   url: 'https://example.org/df/'
 })
 
-const page = extra => renderSubmitPage(SUBMITTABLE, { csrfToken: 't', ...extra })
+/**
+ * The field table as the server builds it: choices filled from
+ * `vocabs/trn-profile.ttl` rather than copied into JavaScript. The bare
+ * SUBMITTABLE has `choices: null` on the profile fields deliberately, and the
+ * renderer refuses to draw a multi-choice group with nothing to tick — so a
+ * test that renders the form has to fill it exactly as `bin/serve.js` does.
+ */
+const FIELDS = withProfileVocabulary(await loadProfileVocabulary())
+
+const page = extra => renderSubmitPage(FIELDS, { csrfToken: 't', ...extra })
 
 describe('who is offered the URL box', () => {
   it('shows it to a moderator', () => {

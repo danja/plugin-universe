@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import URIMinter from '../../src/rdf/URIMinter.js'
 import { readFileSync } from 'fs'
-import { validate, valueTerm, SUBMITTABLE, PLUGIN_FORMATS, SubmissionError, Submissions } from '../../src/contrib/Submissions.js'
+import { validate, valueTerm, SUBMITTABLE, PLUGIN_FORMATS, SubmissionError, Submissions, withProfileVocabulary } from '../../src/contrib/Submissions.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 import { FIELD_KINDS } from '../../src/contrib/Corrections.js'
 

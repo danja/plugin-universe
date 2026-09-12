@@ -131,6 +131,41 @@ pu:PluginShape a sh:NodeShape ;
         sh:pattern "^http://purl\\.org/stuff/transmissions/" ;
         sh:message "Roles come from the trn: role taxonomy." ;
     ] ;
+    ## What a plugin takes in, puts out, and needs from its host. The three
+    ## together are what make a chain suggestable — "accepts MIDI, produces
+    ## audio" is the fact that says this goes after that — and they are the part
+    ## of a profile only its author really knows.
+    ##
+    ## Constrained to the namespace rather than enumerated. The individuals live
+    ## in vocabs/trn-profile.ttl and the submission form reads them from there,
+    ## so an sh:in list here would be a third copy of one list; harvested data
+    ## also carries terms the vocabulary has not caught up with — AudioSidechain
+    ## and MidiCC are in the store and not in the file — and rejecting those on
+    ## ingest would lose a fact rather than fix one.
+    sh:property [
+        sh:path trn:accepts ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/transmissions/" ;
+        sh:message "A signal type comes from the trn: vocabulary." ;
+    ] ;
+    sh:property [
+        sh:path trn:produces ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/transmissions/" ;
+        sh:message "A signal type comes from the trn: vocabulary." ;
+    ] ;
+    sh:property [
+        sh:path trn:requires ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^http://purl\\.org/stuff/transmissions/" ;
+        sh:message "A host requirement comes from the trn: vocabulary." ;
+    ] ;
+    sh:property [
+        sh:path trn:caution ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "A caution is prose for a reader; an empty one says nothing." ;
+    ] ;
     sh:property [
         sh:path pu:category ;
         sh:nodeKind sh:IRI ;

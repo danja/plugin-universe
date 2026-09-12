@@ -6,7 +6,8 @@ import {
   renderCategoryPage, renderVendorPage, renderVendorsPage, renderSubmitPage,
   renderDocPage, renderAdminPage, renderContributionsPage, renderVocabularies
 } from '../../src/api/render.js'
-import { SUBMITTABLE } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, withProfileVocabulary } from '../../src/contrib/Submissions.js'
+import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 import { CORRECTABLE } from '../../src/contrib/Corrections.js'
 import { ACTIONS } from '../../src/api/AdminActions.js'
 
@@ -29,6 +30,15 @@ const DOC = {
   roles: [], tags: [], parameters: [], homepage: 'https://example.org/'
 }
 
+/**
+ * The field table as the server builds it: choices filled from
+ * `vocabs/trn-profile.ttl` rather than copied into JavaScript. The bare
+ * SUBMITTABLE has `choices: null` on the profile fields deliberately, and the
+ * renderer refuses to draw a multi-choice group with nothing to tick — so a
+ * test that renders the form has to fill it exactly as `bin/serve.js` does.
+ */
+const FIELDS = withProfileVocabulary(await loadProfileVocabulary())
+
 /** One of every page type a visitor can reach. */
 const PAGES = {
   landing: () => renderLandingPage({ corpus: 1, results: [DOC], facetValues: {} }),
@@ -40,7 +50,7 @@ const PAGES = {
     slug: 'a-vendor', name: 'A Vendor', spellings: ['A Vendor'], count: 1, results: [DOC]
   }),
   vendors: () => renderVendorsPage([{ slug: 'a-vendor', name: 'A Vendor', count: 1 }]),
-  submit: () => renderSubmitPage(SUBMITTABLE, { csrfToken: 't' }),
+  submit: () => renderSubmitPage(FIELDS, { csrfToken: 't' }),
   doc: () => renderDocPage('About', '<p>Prose.</p>', {}),
   admin: () => renderAdminPage([], { csrfToken: 't', actions: ACTIONS }),
   contributions: () => renderContributionsPage([], { correctable: CORRECTABLE }),

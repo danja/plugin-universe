@@ -5,7 +5,11 @@ import {
   renderLandingPage, renderSearchPage, renderBrowsePage, pager,
   renderSubmitPage, renderAdminPage
 } from '../../src/api/render.js'
-import { SUBMITTABLE, PLUGIN_FORMATS } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, PLUGIN_FORMATS, withProfileVocabulary } from '../../src/contrib/Submissions.js'
+import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
+
+/** Choices filled from the vocabulary, exactly as bin/serve.js does it. */
+const FIELDS = withProfileVocabulary(await loadProfileVocabulary())
 import { ACTIONS } from '../../src/api/AdminActions.js'
 
 /**
@@ -153,7 +157,7 @@ describe('one search, one URL', () => {
  * linked rather than only refused.
  */
 describe('the submit form', () => {
-  const render = extra => renderSubmitPage(SUBMITTABLE, { csrfToken: 'tok', ...extra })
+  const render = extra => renderSubmitPage(FIELDS, { csrfToken: 'tok', ...extra })
 
   it('has an input for every submittable field, and no others', () => {
     const html = render({})
@@ -176,7 +180,11 @@ describe('the submit form', () => {
     for (const format of PLUGIN_FORMATS) {
       expect(form, `no checkbox for ${format}`).toContain(`value="${format}"`)
     }
-    expect((form.match(/type="checkbox"/g) ?? []).length).toBe(PLUGIN_FORMATS.length)
+    // The format group specifically. The form now has several checkbox groups —
+    // formats, roles, accepts, produces, requires — so counting every checkbox
+    // in the form counts the profile fields too.
+    const formats = (form.match(/name="format"/g) ?? []).length
+    expect(formats).toBe(PLUGIN_FORMATS.length)
   })
 
   it('refuses to render a required group with nothing to tick', () => {

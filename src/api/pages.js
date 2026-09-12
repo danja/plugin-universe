@@ -77,6 +77,14 @@ export const PAGES = Object.freeze({
     title: 'Contact',
     description: 'How to reach the person behind Plugin Universe, and what to say.'
   },
+  '/about/profiles': {
+    file: 'docs/profiles.md',
+    // Linked from the submission form, where somebody is deciding whether the
+    // extra fields are worth their time. That question is the page's whole job,
+    // so it leads with the answer rather than with a description of the fields.
+    title: 'Plugin profiles',
+    description: 'What a plugin profile is, what it makes possible, and why it is worth a plugin author filling one in.'
+  },
   '/about/promotion': {
     file: 'docs/promotion.md',
     // The Promoted label links straight here, so it is

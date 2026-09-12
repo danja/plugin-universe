@@ -56,8 +56,15 @@ export const STATUS = Object.freeze({
  * - `format` — a plugin format name
  * - `licence` — normalised through `toKnownSpdx`, and refused if unrecognised
  * - `image` — a URL of an image this site stores, and nothing else
+ * - `profileTerm` — a role, signal type or host requirement, from the trn:
+ *   vocabulary. Offered by the submission form only: a *correction* to a
+ *   plugin's behaviour is not something the correction form asks for, because
+ *   the question "does this accept MIDI" is one for its author rather than a
+ *   passer-by.
  */
-export const FIELD_KINDS = Object.freeze(['text', 'url', 'category', 'format', 'licence', 'image'])
+export const FIELD_KINDS = Object.freeze([
+  'text', 'url', 'category', 'format', 'licence', 'image', 'profileTerm'
+])
 
 /**
  * What a correction may touch.

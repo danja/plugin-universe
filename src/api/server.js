@@ -211,6 +211,12 @@ export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
   submissions = null, images = null, pageReader = new PageReader(), promotions = null,
   billing = null,
+  // The field table with its choices filled from the profile vocabulary. The
+  // bare SUBMITTABLE has `choices: null` on the profile fields, deliberately —
+  // a list of roles in JavaScript would be a copy of the ontology — so a caller
+  // that does not supply this gets a form that refuses to render rather than
+  // one with empty checkbox groups.
+  submittable = SUBMITTABLE,
   wiki: wikiService = null, publication: mcpPublication = null, authProblem = null
 }) {
   if (!search) throw new Error('The API server needs a SearchService')
@@ -784,7 +790,7 @@ export function createServer ({
           // to a named person, or it is an open proxy.
           const mayRead = account.trustLevel === TRUST.MODERATOR
           const render = extra => sendText(response, extra.status ?? 200,
-            renderSubmitPage(SUBMITTABLE, {
+            renderSubmitPage(submittable, {
               csrfToken: auth.session.csrfToken(account.iri),
               viewer,
               facetValues,
