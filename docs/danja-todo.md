@@ -4,9 +4,6 @@ Things only you can do: server access, credentials, legal, and the decisions
 that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 *you* need to do.
 
-## Recurring 
-
-* local test : `npm run test:live`
 
 ## One-off
 
@@ -54,19 +51,42 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   carrying `owl:sameAs` for ever, so it is not worth doing over one outage — only over a
   pattern. Worth noting the dates if you see it again.
 
+- [ ] **A security review and pentest of the whole system**, including the rest of the server —
+  your idea from the inbox, and the right time is before the announcement rather than after the
+  traffic. Worth being specific about scope when you set it up: the things most worth attacking
+  here are the **Fuseki update endpoint** (bound to 127.0.0.1; publishing it by accident is the
+  worst mistake available), **`/admin`** and the promotion and moderation writes behind it, the
+  **image upload** path, the **moderator URL fetch** in `PageReader` (which makes the server
+  issue a request somebody else chose — `checkFetchable` is the defence and the TOCTOU in it is
+  documented), and **`graph:system/accounts`**, which was readable on the public internet once
+  already. `npm run test:live` checks five plausible SPARQL paths unconditionally because of
+  that incident. Everything outside this repository is yours alone to judge.
+
+- [ ] **Read the contact page as a stranger would.** `/about/contact` is the one place the
+  address lives now, and it was assembled from three earlier copies with different framings.
+  Your name, your address, your voice — worth an edit before it is advertised. Same for
+  `/about`, which nobody has re-read since the site gained measurements, vendors, promotion and
+  a wiki.
+
 - [ ] **Try the site with the keyboard alone**, before you announce. Tab from the top: the
   first stop should be "Skip to content", which was not there until now. Everything focusable
   should show a visible ring in both light and dark. If anything traps focus or hides it, that
   is worth knowing before the traffic arrives rather than after.
 
-## 2. The announcement, when you are ready
+- [ ] **`bin/publish.js`, when you get a moment.** The public SPARQL copy holds 753 plugins and
+  the site holds 754 — it lags by one accepted submission. Harmless, and it is the standing
+  habit already in this file rather than a new job; worth doing before the announcement so the
+  endpoint and the site agree if anyone checks.
 
-Worth drafting before posting anywhere, because the first thing people ask is
-"where did you get my data" and the answer is better given than extracted.
+## The announcement, when you are ready
 
+The draft is in [announcement-01.md](announcement-01.md). The points that were
+listed here are in it; what is left is your decision about where it goes and
+when. The one thing worth keeping in view while editing: the first question
+people ask is "where did you get my data", and the answer reads far better
+given than extracted — `docs/resources.md` §4 is the answer, and it is public.
 
-
-## 3. Two findings from the first pluginval sweep
+## Two findings from the first pluginval sweep
 
 `pluginval` is built into the profiler image and has been run over all 51 built
 downspout VST3s. It found two things in **your** code, which is the catalogue
@@ -84,7 +104,7 @@ doing its job on the one repository you can act on:
 
 Nothing here needs server access. The profiler runs on this machine.
 
-## 4. Decisions that are yours
+## Decisions that are yours
 
 
 * **Whether to publish a minimal attribution record.** CC BY-SA requires naming
@@ -111,7 +131,7 @@ Nothing here needs server access. The profiler runs on this machine.
   loads, because an image in a wiki page is a URL every reader's browser fetches
   from a third party. A deliberate choice, not a missing feature.
 
-## 5. Worth doing when you have a moment
+## Worth doing when you have a moment
 
 * **Tell the Open Audio Stack people the registry view exists.**
   `/registry/plugins/index.json` publishes the catalogue in their format, so
@@ -144,73 +164,54 @@ Nothing here needs server access. The profiler runs on this machine.
 * **Vocabulary change:** `node bin/ingest.js --vocabs-only`, then restart the
   app. The store holds its own copy of `vocabs/*.ttl`, and it is that copy that
   tells a plugin page what `pu:OpenTimeCold` means.
-* **Profiler run:** measure here, then `node bin/backup.js --scope measurements`
-  and carry it over — it prints the steps. Profiling on the server competes with
-  serving, and measurements carry their platform precisely so they need not be
-  made where they are served.
-* **Profiler run:** `docker build -f docker/profiler.Dockerfile -t plugin-universe-profiler .`
-  once, then `node bin/profile.js --path <dir of built plugins> --tool pluginval`.
-  Add `--dry-run` to see the verdicts without writing anything.
+* **Profiler run:** build the image once with
+  `docker build -f docker/profiler.Dockerfile -t plugin-universe-profiler .`, then
+  `node bin/profile.js --path <dir of built plugins> --tool pluginval` — `--dry-run` shows the
+  verdicts without writing. Then `node bin/backup.js --scope measurements` and carry it over;
+  it prints the steps with your paths filled in. Measure here rather than on the server:
+  profiling competes with serving, and a reading carries its platform precisely so it need not
+  be taken where it is served.
 * **`npm run test:live` is the check that matters** — the only one that sees the
   deployment rather than a copy of it.
 * **Ask me to prune this file** when it drifts. It is meant to be short.
 
 ## Confirmed done
 
-* Deployment: DNS, certificates, the nginx snippet, the PURL chain end to end.
-* Sign-in, corrections, the moderation queue, trust promotion, rate limiting.
-* The wiki, deployed and serving.
-* The GitHub sweep, ingested.
-* Plugin images, first-seen dates, the paged front page, the SKOS taxonomy.
-* `robots.txt`, the build stamp on `/health`, `bin/deploy.sh`.
-* The public SPARQL endpoint, on a separate published dataset.
-* The MCP endpoint, and `/services` describing every way in.
-* Backups: nightly on the server, pulled here nightly, restore rehearsed.
-* **nginx serves `/image/` and `/dumps/` from disk**, with the right types and
-  the security headers repeated in each location. `/dumps/` is browsable and
-  `/services` describes the three parts. The config is installed as
-  `plugin-universe.com.conf` — the suffix matters, and the runbook said
-  otherwise for a while.
-* **753 plugins, 753 vectors, 50 measured.** `npm run test:live`: 58 pass.
-* Moderator granted, and the first submitted plugin accepted, indexed and
-  searchable.
-* **Three columns on a wide screen**, on every page that has content to
-  navigate away from — search, browse, plugin pages, category pages and the
-  submit form. Site links left, content centre, formats and the twelve largest
-  categories right — each side column a fixed width in
-  rem, so widening the window widens the results and nothing else. Below 58rem
-  it stacks: the browse panel behind a toggle at the top, the site links last
-  where a footer belongs. No script; the toggle is a checkbox. Twelve of
-  twenty-eight categories is settled — `sidebarCategories` in
-  `config/preferences.js` if it ever changes.
-* **The footer is gone from the three column pages** and is still the footer
-  everywhere else, rendered from one template either way.
-* **The front page shows plugins with a picture**, and the ordering claim it
-  could not support is gone — every plugin shares one `dcterms:created`, so
-  "most recently added" was alphabetical wearing a label. Recency becomes a real
-  signal after a second ingest spreads the dates; nothing needs changing then,
-  the sort is already asked for.
-* **Measurements are live.** 50 plugins carry pluginval readings — 45 passed,
-  4 failed, 1 crashed — with their labels, units and explanations resolving, and
-  288 measurement triples in the public SPARQL copy. The delivery path
-  (`bin/backup.js --scope measurements` → rsync → `bin/restore.js --graph`) is
-  proven end to end; `bin/backup.js` prints it with your paths filled in.
-* **`pluginval`.** Built from a pinned commit into the profiler image and run
-  over the downspout VST3s. 45 pass, 1 crashes, 4 have no binary. The profiler
-  now reaches VST3, and `pu:LatencySamples` — defined since Phase 2 and produced
-  by nothing — has values.
-* SSH keys for `danny`, and password authentication disabled on the server.
-* **Credentials.** The exposed `GITHUB_TOKEN` was revoked and not replaced; an
-  unset token cannot be abused. `GITHUB_CLIENT_SECRET` was cycled too, though it
-  was never the leaked one.
-* **A personal-data exposure, closed.** An old `sparql.` block proxied to the
-  live catalogue and served `graph:system/accounts` to the internet. Removed,
-  and `npm run test:live` now checks five plausible SPARQL paths
-  unconditionally — not gated on any endpoint being deployed, because "not
-  deployed" is exactly the state in which nobody is looking.
+A list of what has already happened is not a list of what to do, so this stays
+short. Anything here that is still *operationally* true — a path that matters, a
+habit — has moved up into Standing habits or down into Known, and not wrong.
+
+* **Deployment.** DNS, certificates, nginx, the PURL chain, `bin/deploy.sh` with
+  a build stamp on `/health`, and `npm run test:live`.
+* **The catalogue.** 754 plugins, 754 vectors, 50 measured; the GitHub sweep
+  ingested; first-seen dates, images, the SKOS taxonomy.
+* **People.** Sign-in, corrections, submissions, the moderation queue, trust
+  promotion, rate limiting, the wiki. Moderator granted; the first submitted
+  plugin accepted, indexed and searchable.
+* **Ways out.** The public SPARQL endpoint on its own dataset, the dumps served
+  by nginx, the registry view, the MCP endpoint, `/services` describing all of
+  it, and `robots.txt`.
+* **Measurements.** `pluginval` built into the profiler image and run over the
+  downspout VST3s — 45 pass, 1 crashes, 4 have no binary — carried to the server
+  and live. `pu:LatencySamples`, defined since Phase 2 and produced by nothing,
+  has values.
+* **The site's shape.** Three columns on a wide screen, stacking below 58rem;
+  the footer only where there are no columns; the front page showing plugins
+  with a picture.
+* **Backups.** Nightly on the server, pulled here nightly, restore rehearsed.
+* **Security.** SSH keys and password authentication disabled. The exposed
+  `GITHUB_TOKEN` revoked and not replaced; `GITHUB_CLIENT_SECRET` cycled. **A
+  personal-data exposure closed** — an old `sparql.` block served
+  `graph:system/accounts` to the internet; `npm run test:live` now checks five
+  plausible SPARQL paths unconditionally, because "not deployed" is exactly the
+  state in which nobody is looking.
 
 ## Known, and not wrong
 
+* **The nginx config is installed as `plugin-universe.com.conf`** — the suffix
+  matters, the runbook said otherwise for a while, and a config sitting beside
+  the one in use cost three rounds of diagnosis. `nginx -T | grep -c` for
+  something the new file contains is the check that would have caught it.
 * `data/curation/` is deliberately not gitignored: a reviewed candidate file
   records decisions. `data/dumps/` and `data/backups/` are ignored — regenerated
   output.

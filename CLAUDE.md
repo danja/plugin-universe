@@ -111,6 +111,7 @@ complained, and each was found in production or by accident:
 | Added a block to `site.css` | its `a { color: … }` rule, one of five opt-ins | 17 of 35 front-page links in browser-default blue |
 | Added `sh:in` to `pu:licenceId` | the submission and correction forms, which wrote licences verbatim | the one path a person controls was the one that could still split a facet |
 | Wrote a house rule into CLAUDE.md | any test that checks it | "no inline SPARQL" reached 17 violations across 8 files before anyone counted |
+| Shipped a feature | the prose written around it | a caption reading "not copied here" on an image that is copied here; a disclosure promising a bound that changed an hour later |
 | Added `/plugin/<slug>/image`, writing `foaf:depiction` | `CORRECTABLE`, the whitelist that route writes through | every upload refused with "cannot be corrected"; 22 upload tests passed, none wrote the fact |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
@@ -158,6 +159,28 @@ Specifically, before finishing a change, check:
   to a service or a server block, read the whole of it first — `grep -A 14` is how a second
   `volumes:` key got written under one that was already there.
 - Did a new term in `vocabs/` reach the *store's* copy? `bin/ingest.js --vocabs-only`.
+
+**A sentence about the system is a claim, and nothing tests sentences.** Six
+times now a document has said something untrue: TODO.md put five inline SPARQL
+queries at a file that had seven, of seventeen across eight files; it said
+`pu:vendor` IRIs "are already minted, so identity exists" when there were none,
+which is a sentence a paid feature was about to be built on; README.md claimed a
+plugin count and a harvester that had shipped; a JSON disclosure promised a
+ranking bound that a config change falsified within the hour.
+
+- **Take a figure from the system, not from memory.** `/health`, a SPARQL count,
+  a `grep -c`. Every number in README.md was re-measured when it was rewritten,
+  and two of them were wrong on the first pass.
+- **Where the prose is a commitment, bind it with a test.**
+  `tests/search/promotion.test.js` asserts `/about/promotion` still states the
+  numbers `PROMOTION_CONFIG` applies. A published promise that drifts silently
+  is worse than none.
+- **A prose claim that would be expensive to get wrong deserves checking before
+  it is acted on**, not after — the vendor-identity sentence would have been
+  found the moment somebody ran the query, and it was in the file for days.
+- **When a feature starts working, re-read what was written around it.** A
+  feature that has never worked has no second case for its documentation to get
+  wrong; shipping it is what makes every sentence near it suspect.
 
 **A rule worth stating in this file is worth a test.** "No inline SPARQL"
 sat here from Phase 0 and reached seventeen violations; `tests/rdf/no-inline-sparql.test.js`

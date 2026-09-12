@@ -89,15 +89,22 @@ settled. Nothing user-visible.
 
 ---
 
-## Phase 1 — Harvest and search — **IN PROGRESS**
+## Phase 1 — Harvest and search — **COMPLETE** (2026-09-10)
 
-Done: the harvester interface and the downspout, LV2 and Open Audio Stack
-harvesters; the normaliser; per-source graphs with licence flags; the serialiser
-onto `lv2:port`; the ingest pipeline with IRI-collision detection and SHACL
-validation; the embedding pipeline; hybrid retrieval with an IDF-weighted
+Done: the harvester interface and the downspout, LV2, Open Audio Stack and
+GitHub harvesters; the normaliser; per-source graphs with licence flags; the
+serialiser onto `lv2:port`; the ingest pipeline with IRI-collision detection and
+SHACL validation; the embedding pipeline; hybrid retrieval with an IDF-weighted
 lexical signal; the read API with content negotiation and a server-rendered
 search UI; the SHACL shapes deferred from Phase 0; the AUFX-O and schema.org
 alignment graph.
+
+Every exit criterion below is met. The corpus is 754 plugins across 44 named
+graphs rather than the three seed repositories this phase was scoped around, and
+the risk it names — *"seed corpus too small and too uniform to prove semantic
+search"* — was answered by the Open Audio Stack and GitHub harvesters, as the
+mitigation said it would be. What remains of this phase is tracked in
+[../TODO.md](../TODO.md), not here.
 
 Corpus: **645 plugins** — 50 downspout VST3, 36 flues LV2, 559 from the Open
 Audio Stack registry — in 41,777 triples across five graphs. Every graph
@@ -255,10 +262,19 @@ CPU load, and measured facets in the search form.
 
 ---
 
-## Phase 3 — People and pages — **PLANNED** (2026-09-07)
+## Phase 3 — People and pages — **COMPLETE** (2026-09-11)
 
 **Goal.** The catalogue becomes a community resource rather than a database with
 a search box.
+
+*Built, and live.* Sign-in, corrections, submissions, the moderation queue,
+trust promotion, rate limiting, the contributions page, the wiki with revisions
+and conflict detection, and image upload. One exit criterion is not met and is
+tracked in [../TODO.md](../TODO.md): an admin cannot yet merge two duplicate
+plugin entries. Nothing in the corpus overlaps, so it has not bitten.
+
+What follows is the plan as written on 2026-09-07, kept because the decisions
+and their reasoning are the valuable part and they still govern the code.
 
 This is the first phase with **writes**. Everything up to now is a read-only
 projection of harvested data that can be rebuilt from source at any time; from
@@ -382,9 +398,21 @@ Comment threads, rankings, and the vendor submission flow landing in
 `<graph:vendor/{id}>` marked self-asserted. All three are additive and none
 blocks the exit criteria above.
 
-## Phase 4 — Pro tier and revenue
+## Phase 4 — Pro tier and revenue — **PART BUILT**
 
 **Goal.** The project pays its hosting bills.
+
+*Deliverables 3 and 4 are built and live, ahead of the money.* A moderator can
+promote a plugin from `/admin`; placements are `pu:Promotion` resources that run
+a year and lapse by their own dates, read at query time so a lapsed one stops
+applying whether or not any job ran. The re-rank is bounded, the label says
+**Promoted** and links to `/about/promotion`, which publishes the numbers that
+are actually applied — bound to the code by `tests/search/promotion.test.js`.
+
+Building the compliance first was the right order and cost little: the shape of
+the thing was decided while it was still cheap to change. What is left is
+deliverables 1, 2, 5 and 6 — and payment is the trigger `docs/resources.md` §4
+names for a real legal reading.
 
 **Deliverables**
 
@@ -395,7 +423,9 @@ blocks the exit criteria above.
 4. Compliance, built in rather than retrofitted: a visible "Ad"/"Promoted" label at each promoted
    result (not "Sponsored" — the ASA advises against it as ambiguous); a public page documenting the
    main ranking parameters and the bound on the promotion boost; promotion records as graph
-   resources, so the DSA-style ad repository is a query.
+   resources, so the DSA-style ad repository is a query. **Done.** One decision differs from what
+   this phase assumed: no rank is reserved, so a placement may reach first. The bound that does
+   the work is the relevance floor — a placement never appears in a search it does not match.
 5. Pro-tier API keys for bulk and programmatic access.
 6. Blog and reviews section.
 
@@ -416,7 +446,7 @@ blocks the exit criteria above.
 
 ---
 
-## Phase 5 — Open data
+## Phase 5 — Open data — **COMPLETE except the conditional crawler**
 
 **Goal.** Deliver the open-data promise, and make the catalogue something other systems build on.
 

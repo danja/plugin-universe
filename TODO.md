@@ -40,15 +40,10 @@ graphs, and the readings surfaced on plugin pages and as a `measured=` filter.
 
 `pluginval` is built from a pinned commit into `docker/profiler.Dockerfile` and run by
 `node bin/profile.js --path <dir> --tool pluginval`. First sweep over the 51 built downspout
-VST3s: **45 pass, 1 crashes, 4 have no binary in the bundle at all.** 57 plugins in the
-catalogue now carry a reading.
+VST3s: **45 pass, 1 crashes, 4 have no binary in the bundle at all.** 50 plugins in the
+catalogue carry a reading, and `bin/backup.js --scope measurements` carries a run from the
+machine that made it to the one that serves.
 
-* **Measurements reach the deployment.** *Done 2026-09-11:* `bin/backup.js --scope
-  measurements` carries profiler runs from the machine that made them to the one
-  that serves, registrations and all, and the first delivery is live — 50 plugins
-  with readings, 288 measurement triples in the public SPARQL copy. `/health`
-  reports `measured` and `measuredAt` so a future delivery can be checked rather
-  than assumed.
 * **CPU load** needs a host that runs audio through the plugin — `lv2bm`, or an in-house one.
   `pu:CpuLoad` is defined and nothing produces it. This is now the largest gap: pluginval
   instantiates and exercises a plugin but does not report what it cost.
@@ -64,71 +59,21 @@ catalogue now carry a reading.
   keeps only the later run's readings, so its port counts disappear when it is validated. The
   behaviour is documented in `plugin/measurements.sparql` and was right when one tool wrote
   them; with two it loses information.
-* **No facet dropdown in the search form.** 57 measured plugins out of 750-odd — up from 7, and
-  the values are now `passed` / `ok` / `failed` / `crashed`. Closer to worth a control than it
-  was; still a judgement about whether 8% coverage should shape everyone's search form.
+* **No facet dropdown for measurement verdicts.** 50 of 754 carry a reading, and the values are
+  `passed` / `ok` / `failed` / `crashed`. `?measured=` works; the judgement is whether 7%
+  coverage should shape everyone's search form.
 * **AU, LADSPA and VST2 are reachable by pluginval and not built for.** AU is macOS-only; VST2
   needs Steinberg's SDK, which is not redistributable; LADSPA and VST2 both ship as a bare
   `.so`, so the profiler declines to guess which a file is.
 
-## Phase 3b — the rest of the site
+## Phase 3b — the rest of the site — mostly built
 
-* **Image upload.** *Done 2026-09-11:* trusted contributors can add a picture to a plugin.
-  Sniffed by magic bytes rather than declared type or extension, SVG refused outright, stored
-  content-addressed under `data/images`, served same-origin with `nosniff` and an immutable
-  cache. Carried in the essential and full backups, and **served by nginx from disk** — the
-  app's `/image/` route stays as the fallback for a deployment with no proxy, and is what the
-  tests exercise.
-* **A plugin can reach the catalogue without reaching the index.** Live shows 753 documents
-  against 752 vectors: the plugin accepted from a submission is in the store and has no
-  embedding, so it is findable lexically and invisible to semantic search — which is the
-  retrieval this catalogue is built on. `takeUpNewPlugins()` is called on acceptance and
-  never throws, so a failure there is a warning in the log and a plugin that is quietly
-  half-present. **Reindex on `/admin`, or `bin/ingest.js --only-new`, fixes an instance.**
-  The gap is that nothing notices: `/health` reports both numbers and nothing compares them
-  except a live test nobody runs on a schedule. Worth making the acceptance path report an
-  embedding failure to the moderator who caused it, rather than only to the log.
-* **Submit a plugin by URL, for a moderator.** *Done 2026-09-12:* paste a page and its
-  details are drafted into the submit form for a moderator to check. `src/contrib/PageReader.js`
-  reads JSON-LD first, then `og:`, then `<title>` — and says which of the three each field came
-  from, because a page that describes itself for machines and one with only a title do not
-  deserve the same trust. It writes nothing: the ordinary Submit button still saves.
-
-  **It is not the crawler and the code is what stops it becoming one.** `docs/resources.md` §4
-  gained a findings row and standing rule 8 *before* this was built, naming the four things that
-  would turn a fetch at a person's request into a crawl: following a link, a second request, a
-  schedule, and a URL from anyone but a moderator. Each is refused in code — there is one
-  `fetchText` call in the reader and one `pageReader.read` in the route, and a test asserts both
-  counts stay at one.
-
-  The security question rule 8 raises — the server issuing a request somebody else chose — is
-  answered by `checkFetchable`: DNS-resolved rather than pattern-matched, because `localtest.me`
-  resolves to 127.0.0.1 and looks nothing like it. Loopback, the private ranges, link-local
-  (where cloud metadata lives), IPv4-mapped IPv6 and credentials in the URL are all refused, and
-  a redirect is reported rather than followed. Fuseki's update endpoint is on one of those
-  addresses. The residual TOCTOU — resolved here, resolved again by `fetch` — is written down in
-  the code rather than papered over; closing it needs a pinned connection Node's fetch does not
-  offer, and the feature is moderators-only, one request, reviewed by a person before any write.
-
-* **Licence identifiers are normalised.** *Done 2026-09-11:* the catalogue held 23 spellings
-  of 19 licences — `GPL-3.0` 317 against `GPLv3` 27 and `GPL3` 1, `MIT` 201 against
-  `https://spdx.org/licenses/MIT` 6 — so the facet listed one licence several times and a
-  filter on `GPL-3.0` missed 86 plugins under it. `toSpdx()` now reads SPDX's own URLs by
-  capturing the identifier out of them, maps the DOAP vocabulary LV2 bundles use, and knows the
-  unambiguous spellings; `vocabs/shapes.ttl` enumerates the result in `sh:in` at
-  `sh:severity sh:Warning`, bound to the code's list by `tests/harvest/Licensing.test.js`.
-
-  Two things were decided rather than merely coded. **An unversioned licence stays
-  unversioned:** 59 plugins state `http://usefulinc.com/doap/licenses/gpl`, which names the
-  GNU GPL and not a version of it, and they normalise to `GPL` — a facet entry of its own,
-  because it is a different claim, and choosing a version for them would be an assertion about
-  somebody else's licensing that nobody made. **`other` becomes `NOASSERTION`,** SPDX's token
-  for a licence that exists and was not identified, which is what GitHub's API means by it.
-
-  The stored data is fixed by `bin/renormalise-licences.js`, which is a recomputation and not a
-  re-harvest: `dcterms:license` holds what each source said and never leaves the graph, so the
-  derived `pu:licenceId` is re-derived from it in place. On Danja's list.
-
+* **Nothing notices when a plugin reaches the catalogue but not the index.** The instance that
+  prompted this is fixed — `/health` now reports 754 documents against 754 vectors — but the
+  hole is still open. `takeUpNewPlugins()` never throws, by design, so an embedding failure
+  leaves a plugin findable lexically and invisible to semantic search, with a line in the log
+  and nothing else. `/health` reports both numbers and nothing compares them. Worth reporting an
+  embedding failure to the moderator who caused it, and worth a check that the two agree.
 * **The contributor terms do not cover pictures.** §2 splits contributions two ways — facts are
   CC0, authored prose is CC BY-SA — and an uploaded image is neither. It is a copyright work,
   usually not the uploader's: a screenshot of a plugin is the plugin author's. The *statement*
@@ -145,48 +90,12 @@ catalogue now carry a reading.
   no total. Content-addressing means duplicates cost nothing, but nothing stops one trusted
   account filling the disk. A quota wants adding before that matters.
 
-* **An accepted plugin becomes searchable without a restart.** *Done 2026-09-11:*
-  `SearchService.takeUpNewPlugins()` reloads the documents, rebuilds the lexical index and
-  embeds anything without a vector, called when a submission is accepted. It never throws —
-  the plugin is already in the catalogue, and a failure leaves it for the nightly
-  `bin/ingest.js --only-new` rather than reversing an acceptance.
-* **Submitting a plugin.** *Done 2026-09-11:* `/submit` for signed-in accounts, built from
-  `SUBMITTABLE` so the form, the validator and the triples cannot drift; duplicate refusal
-  against both the catalogue and the queue; SHACL before writing; the same trust promotion
-  corrections use; and one moderation queue holding both kinds. Not yet decided: whether a
-  contributor may edit or withdraw a pending submission, and whether an accepted plugin should
-  be announced anywhere.
-* **Every SPARQL query is in a file.** *Done 2026-09-12:* the entry here said Corrections.js
-  inlined five; a scan found **seventeen across eight files** — Corrections 7, Accounts 5,
-  Wiki 4, and one in Submissions, plus six copies of the same two generic graph queries spread
-  over `BackupBuilder`, `DumpBuilder`, `Publication` and `ShapeValidator`. All are now under
-  `sparql/queries/`, the two generic ones as a single `graph/contents` and `graph/triple-count`.
-
-  What keeps them there is `tests/rdf/no-inline-sparql.test.js`, which parses every template
-  literal in `src/` and fails on any that looks like a query — the rule had been stated in
-  CLAUDE.md since Phase 0 and checked by nobody, which is the rate prose decays at. It exempts
-  `SPARQLHelper.js` alone, and requires a written reason for each exemption.
-
-  Three things fell out of it: `ShapeValidator` interpolated a graph name as `<${graph}>` with
-  no `iri()`; `sparql/queries/plugin/by-iri.sparql` had been dead since Phase 0.5 and is
-  deleted, found by the same test's orphan check; and `integer()` is now in `SPARQLHelper`,
-  because a query needing `LIMIT` was the one thing a file could not express and was why some
-  of these were assembled in JavaScript at all.
-
-* **"Most recently added" is alphabetical, and the label is false.** Checked
-  2026-09-11: `byRecency` is correct and the ordering *is* applied — but all 752
-  plugins on the deployment share one `dcterms:created`, `2026-09-10`, because
-  the dated ingest has run once. With every date equal the comparator falls
-  through to `byName` by design, so the front page lists the alphabetical head
-  of the catalogue under a heading that claims otherwise. The first hundred of
-  them have no image at all.
-
-  `IngestPipeline` carries first-seen dates across a re-harvest, so dates will
-  differentiate from the next new source onward. Until then **recency is not an
-  available option for the front page** — it is alphabetical wearing a label.
-  Either stop claiming it, or pick a glimpse that is a real signal.
-  (The local store has no dates at all, which is a separate staleness: it
-  predates the dated ingest.)
+* **The front page could claim recency again.** When this was written every plugin shared one
+  `dcterms:created`, so `byRecency` fell through to `byName` and "most recently added" was
+  alphabetical wearing a label — the claim was removed rather than the sort. **The GitHub sweep
+  has since spread the dates: 37 distinct values over two days.** Recency is a real signal now
+  and the sort already asks for it, so this is an editorial decision about what the front page
+  should show rather than work.
 
 Built on the accounts and moderation machinery Phase 3 finished, so none of this needs new
 foundations.
@@ -195,66 +104,38 @@ foundations.
   actually rate. Needs a vocabulary term, a graph decision (a user's own graph, like
   corrections), and a rate limit. Worth thinking about what it is *for* before building it:
   a popularity signal that feeds ranking is a different thing from a display number.
-* **The accessibility pass is done, and enforced.** *Done 2026-09-12:* one deliberate sweep of
-  every page type. Contrast was already fine — every token pair passes WCAG AA in both themes,
-  the worst being the Ad badge at 4.63:1 — and images already carried alt text. Everything found
-  was an **absence** rather than a mistake, which is what a person building a page does not see:
-
-  - no `<main>` landmark on any page, so "skip to content" had nothing to skip to
-  - no skip link, so reaching the results meant tabbing the account bar, masthead and category
-    sidebar on every page, every time
-  - no `:focus-visible` rule beyond the one control that happened to get noticed — the
-    browser default ring is very nearly invisible against the dark theme's `#16181a`
-  - the search box named only by a placeholder, which is a hint and disappears on typing
-
-  `tests/api/accessibility.test.js` renders all twelve page types and checks the lot: one `h1`,
-  no skipped heading levels, every `<nav>` labelled, every image with alt, every visible input
-  named, the skip link present and pointing at an id that exists, and — because these were opt-in
-  lists before — a general focus rule rather than a per-control one. An audit nothing enforces is
-  a preference; this is the difference.
 * **An admin area** for `TIER.ADMIN` only. The tier exists and `bin/grant.js` sets it; nothing
   reads it. Account list, trust and suspension, the graph registry.
 * **A Plugin Resources page and a Developers page** — categorised links for people using
   plugins and people writing them (JUCE, DPF, the LV2 and CLAP specs, validators). Curated
   first, then in the store so contributors can add through the moderation queue that exists.
   A `skos:Collection` over the existing scheme rather than a new taxonomy.
-* **The wide-screen layout** has room beside the results and nothing in it. A sidebar or a
-  hamburger; what goes there is an editorial question.
 * **A 3D navigable plugin graph** — plugins as nodes, hover for a summary, click through to the
   page. Genuinely differentiating, and the one thing on this list that breaks a standing
   decision: the site is server-rendered with no client framework, and this cannot be. Worth
   doing as a self-contained page that degrades to the ordinary search rather than as a
   dependency the rest of the site acquires.
 
-## Phase 4 — pro tier — not started
+## Phase 4 — pro tier — promotion built, payments not started
 
-* **Vendor pages exist; vendor *profiles* do not.** *Done 2026-09-12:* `/vendor/<slug>` lists
-  everything one maker has in the catalogue, `/vendors` indexes all 363, and every vendor name
-  on a result row and a plugin page links to it.
-
-  **The claim in the old version of this entry was wrong and worth recording: "`pu:vendor` IRIs
-  are already minted, so identity exists" — there are zero such triples.** `trn:vendor` is a
-  bare literal, 365 distinct strings over 645 plugins. Someone building the paid feature on that
-  sentence would have found out late.
-
-  So the pages group by a *key*: the name folded to lower-case alphanumerics. That merges
-  exactly the two genuine duplicates the catalogue holds ("SFZ Tools"/"SFZTools",
-  "olegkapitonov"/"Oleg Kapitonov") and nothing else, and both spellings' URLs resolve to the
-  one page. It is a grouping and not an identity, and the gap is precisely what a paid profile
-  needs closing first:
+* **A vendor is a string, not an identity — and a paid profile needs one.** `/vendor/<slug>`
+  groups plugins by the vendor's name folded to lower-case alphanumerics, which merges the two
+  genuine duplicates in the catalogue and nothing else. That is enough for a listing and is not
+  enough to hang a claimable, editable profile on:
 
   - **Two names, one vendor.** "danja" (50 plugins) and "Danny Ayers" (36) are the same person.
     Nothing derivable from the strings will ever say so. Only a human assertion can.
-  - **A rename orphans the page.** The key is computed from the name, so a vendor who rebrands
-    gets a new page and whatever was attached to the old one stays there.
-  - **Nothing to attach anything to.** There is no resource to hang a description, a logo, a
-    support URL or an owning account on.
+  - **A rename orphans the page**, because the key is computed from the name.
+  - **Nothing to attach anything to** — no resource for a description, a logo, a support URL or
+    an owning account.
 
-  The fix is the ordinary one and it is a harvest change, not a page change: mint
-  `pu:vendor/<slug>-<hash>` (`URIMinter` already knows the `vendor` type), give it `foaf:name`
-  plus `skos:altLabel` for every spelling met, and have plugins carry `trn:vendor` as an IRI
-  alongside the literal. Then merging two vendors is adding an altLabel, a rename is editing
-  `foaf:name`, and a claim is a triple linking an account to the vendor IRI.
+  The fix is a harvest change rather than a page change: mint `pu:vendor/<slug>-<hash>`
+  (`URIMinter` already knows the type), give it `foaf:name` plus `skos:altLabel` for every
+  spelling met, and have plugins carry `trn:vendor` as an IRI beside the literal. Then merging
+  two vendors is adding an altLabel, a rename is editing `foaf:name`, and a claim is a triple.
+
+  *(An earlier version of this entry asserted that `pu:vendor` IRIs were already minted. There
+  were none. It is in MISTAKES.md as an instance of the documentation pattern.)*
 
 * **Selling a vendor profile.** Not started, and it needs the identity above first. The shape
   that fits what is already built:
@@ -276,25 +157,6 @@ foundations.
   - Paid or free is a pricing decision, not an architectural one: claiming, editing and
     labelling are the same work either way, and giving claiming away free while charging for
     presentation is the option that keeps the catalogue accurate.
-* Promoted placement must be labelled to meet DSA Art. 26/39 and ASA guidance — and the ASA
-  advises against "sponsored" as the word.
-* **Promoted listings, without the payments.** *Done 2026-09-12:* a moderator can promote and
-  un-promote a plugin from `/admin`, placements run a year and lapse on their own, and the
-  ranking effect is live, bounded and labelled. What is missing is only the money — when Stripe
-  arrives, `pu:paidBy` is already in the vocabulary and `Promotions.promote()` already takes it.
-
-  The bound is the part worth keeping: promotion multiplies a fused score by 1.25 **only above a
-  relevance floor**, and applies after retrieval so it can never add a result to a search. A
-  placement may reach first place — `maxPromotedRank: 1`, a deliberate call on the grounds that
-  a vendor paying for placement expects to be seen and a quiet cap at third sells something
-  other than what was bought. It is permitted first place rather than given it: the multiplier
-  means a substantially better match still wins.
-
-  `floor` was measured against the 645-plugin catalogue rather than chosen. The numbers live in
-  `config/preferences.js` and are republished at `/about/promotion`, which
-  `tests/search/promotion.test.js` checks still match the code — a published commitment that
-  silently drifts is worse than none.
-
 * **Payments: Stripe.** Nothing here handles money yet, and taking it changes what the site is
   for legal purposes — the terms review in `docs/resources.md` §4 has promotion as its trigger
   for a real legal reading, and this is that trigger. Card details never touch this server;
@@ -306,8 +168,12 @@ foundations.
 Live: the dumps (`bin/dump.js`), the public SPARQL endpoint, the Open Audio Stack registry view
 at `/registry/plugins/index.json`, the MCP face, and `/services` describing all of it.
 
-* **Nothing serves the dumps.** They are written to `data/dumps`; how they are published is a
-  decision in `docs/danja-todo.md`. `/services` says plainly that none is published yet.
+* **Submit the dataset to [lod-cloud.net](https://lod-cloud.net/).** The catalogue already has
+  what the submission asks for: a public SPARQL endpoint, dereferenceable IRIs, dumps with a
+  stated licence, and a VoID description. Being in the diagram is how a Linked Data dataset is
+  found by people who work that way, and the links out — `lv2:`, `skos:`, `doap:`, `foaf:`,
+  `spdx:` — are what make it worth a node rather than an island. Needs the VoID description
+  checked against their required fields first.
 * **Contribute upstream**: the user's own plugins to the Open Audio Stack registry, and the
   `trn:` extensions to `~/github/transmission` — in particular `trn:PluginFormat`, and retiring
   `trn:min`/`trn:minimum` in favour of the `lv2:` equivalents.
@@ -331,9 +197,6 @@ them is in `docs/danja-todo.md`. Two things deliberately not done, both stated i
 
 ## Smaller things, not blocking
 
-* **Rewrite README.md around the method, not the inventory** — how language-model and Semantic
-  Web techniques work together, with the ontologies at the centre. Worth doing now that the
-  taxonomy work has landed, so it describes what is there.
 * **AUFX-O effect-type alignment is still not asserted.** The LV2 classes in
   `vocabs/categories.ttl` were verified against installed plugins; AUFX-O equivalents for
   reverb, delay and so on need someone who can open the published ontology.
@@ -375,3 +238,25 @@ Each of these is described in the worklogs under [docs/entries/](docs/entries/).
   `./deploy/nginx/check.sh`, `robots.txt`, and the HTML moved out of code into `templates/`.
 * **Smaller fixes.** `/ns` is a page for people that negotiates to JSON for machines; tags and
   categories in results link to the filtered search and the category page.
+
+### 2026-09-11 and 12
+
+The reasoning behind each of these is in the code it touched, in
+[MISTAKES.md](MISTAKES.md) where something went wrong, or on the public page that states it —
+which is why it is no longer restated here.
+
+* **Measurements on the deployment.** `bin/backup.js --scope measurements` carries a profiler
+  run from the machine that made it to the one that serves. 50 plugins, 288 triples.
+* **Submitting a plugin**, and **accepting one indexes it** without a restart.
+* **Submit by URL, for a moderator** — one fetch, drafted into the form for checking.
+  `docs/resources.md` §4 rule 8 is what bounds it, written before the code.
+* **Image upload**, sniffed by magic bytes, stored content-addressed, served by nginx.
+* **Licence identifiers normalised** — 23 spellings to 19 licences, enumerated in
+  `vocabs/shapes.ttl`, fixed in place by `bin/renormalise-licences.js`.
+* **Every SPARQL query in a file**, with `tests/rdf/no-inline-sparql.test.js` keeping it so.
+* **Vendor pages** — `/vendor/<slug>` and `/vendors`, linked from every vendor name.
+* **Promoted listings** — a moderator can place one, it lapses after a year, the ranking effect
+  is bounded and published at `/about/promotion`.
+* **The accessibility pass**, enforced by `tests/api/accessibility.test.js` over twelve page
+  types; and the tab order fixed so the results come before the panel that refines them.
+* **Three columns on a wide screen**, and **README.md rewritten around the method.**

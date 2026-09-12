@@ -3,9 +3,12 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-seven entries is past the point where anyone reads them all, so what follows
+Forty-five entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
-where the value is; this is the index.
+where the value is; this is the index. Entries are consolidated when several
+turn out to be one lesson, and promoted into [CLAUDE.md](CLAUDE.md) when a
+pattern recurs often enough to be worth checking before finishing rather than
+after.
 
 ---
 
@@ -50,6 +53,31 @@ Credential defaulting to `admin`/`admin`, against this project's own
 no-fallbacks rule. Fuseki paths and a healthcheck for a different image, adapted
 by reading rather than by running. Reuse is why this project exists at all, but
 **a thing that worked there is a hypothesis here.**
+
+**6. A sentence about the system was false, and nothing tests sentences.**
+The newest pattern, and already at six. TODO.md said one file inlined five
+SPARQL queries — there were seventeen across eight. It said `pu:vendor` IRIs
+"are already minted, so identity exists" — there were none, and the paid feature
+was going to be built on that sentence. README.md claimed 645 plugins and that
+the GitHub harvester "remains", after it had shipped. The JSON promotion
+disclosure promised a bound that stopped being true within an hour of a config
+change. An image caption said "not copied here", which was true of every image
+until the day uploads started working. `docs/todo-misc.md` said "Empty" while
+holding five items.
+
+Two things make this one distinct. **It is worst where the prose is a
+commitment** — a ranking bound, a licence claim — because there the drift is not
+untidiness but a false statement to a reader. And **the failure arrives with the
+fix**: a feature that never worked has no second case for its documentation to
+get wrong, so shipping it is the moment every sentence written around it becomes
+suspect. *Look for the text when you fix the function.*
+
+**The fix that works is the same one as pattern 1** — bind the prose to the code
+with a test. `tests/search/promotion.test.js` asserts `/about/promotion` still
+contains the numbers `PROMOTION_CONFIG` actually applies, and that the JSON
+disclosure states no rank it would have to keep in step. Where that is not
+possible, the next best thing is to take the figure from the system at the
+moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
@@ -590,28 +618,6 @@ looked like facts about plugins. `bin/profile.js` now prints stderr when a run
 produced no log at all, and `bin/ingest.js --vocabs-only` reloads the ontology
 graphs on their own.
 
-## 2026-09-09 — A search-and-replace that matched nothing, and a syntax check that could not tell
-
-**What was wrong.** `/moderation` returned
-`{"error": "renderModerationPage is not defined"}`. The route, the renderer and
-the styling were all correct; the import was not. The edit that was supposed to
-add `renderModerationPage` to the import list in `src/api/server.js` used a
-search string that did not appear in the file — the real text wrapped across
-different lines — so `.replace()` returned the file unchanged and reported
-nothing.
-
-**Why it survived a check.** `node --check src/api/server.js` passed. A missing
-import is not a syntax error: it is a `ReferenceError` raised the first time the
-line runs, which here was the first request to a route nobody had loaded yet.
-The check that was run could not, in principle, have caught this class of defect.
-
-**Prevention.** Every scripted replacement now asserts its search string was
-found (`assert old in s`) before writing. An edit that silently does nothing is
-worse than one that fails, because it reports success. Where the edit is a
-single site, use the Edit tool, which errors on a non-match by design.
-
----
-
 ## 2026-09-10 — The restore returned the right number of triples and the wrong data
 
 **What was wrong.** The first whole-dataset restore rehearsal put back 45,114
@@ -871,30 +877,37 @@ same output that was used to declare the join correct.
 
 ---
 
-## 2026-09-09 — Two edit scripts in one command, and only the second ran
+## 2026-09-06 to 09 — Three edits that reported success and did nothing
 
-**What was wrong.** A refactor was written as two Python blocks in a single
-Bash call: the first was to move three functions out of `src/api/render.js`,
-the second to fix up an import in the same file. The first aborted on a wrong
-assertion and wrote nothing. The second ran anyway, and replaced the import of
-`iri`/`literal` in a file that still used them. `render.js` was left importing
-something it did not have and not importing something it did.
+*Consolidated from three entries. They are one lesson about the tools rather
+than three about this system, and the specifics were not what carried the
+value.*
 
-**Root cause.** Two dependent edits, two independent failure domains. An
-assertion in the first script cannot stop the second, because they are
-different processes. The safeguard that made the first script safe — assert
-before writing — was exactly what let the second one run on a file in a state
-it did not expect.
+**A search-and-replace that matched nothing.** `/moderation` returned
+`renderModerationPage is not defined`. The edit adding the import used a search
+string that did not appear in the file — the real text wrapped across lines — so
+`.replace()` returned the file unchanged and said nothing.
+`node --check` passed, because a missing import is not a syntax error; it is a
+`ReferenceError` on the first request to a route nobody had loaded.
 
-**Prevention.** Dependent edits go in **one** script, so one assertion aborts
-all of them. Where they cannot, re-read and check the file between them rather
-than assuming the earlier edit landed.
+**Two dependent edits in two scripts.** The first aborted on a wrong assertion
+and wrote nothing. The second ran anyway — different process, different failure
+domain — and fixed up an import in a file the first had not changed. The
+safeguard that made the first script safe is exactly what let the second run on
+a file in a state it did not expect.
 
-**Also, the same day and the same shape as the missing import above** — the
-extraction left `renderPluginPage` calling `pluginJsonLd`, which had moved to
-another module. That one cost nothing: the tests failed immediately and named
-the line. The difference between the two is not the mistake, it is whether
-anything was watching.
+**`pkill -f "bin/ingest.js"` killed its own shell**, because `-f` matches the
+whole command line and the pattern was in it. The enclosing command died
+mid-way, discarding an edit that had not yet run.
+
+**Prevention, and it has held since.** Every scripted replacement asserts its
+search string was found before writing. Dependent edits go in **one** script, so
+one assertion aborts all of them; where they cannot, re-read between them rather
+than assume. Kill by PID.
+
+**The shape worth remembering.** All three *reported success*. An operation that
+silently does nothing is worse than one that fails, and a check that cannot in
+principle catch a class of defect is not evidence about it.
 
 ---
 
@@ -1178,16 +1191,6 @@ first bug's detector caught.
 
 **Lesson.** When a derived number does not add up, chase it. Idempotent minting
 was tested; uniqueness was not.
-
-## 2026-09-06 — pkill matched its own shell
-
-**What was wrong.** `pkill -f "bin/ingest.js"` killed the shell running it,
-because `-f` matches the full command line and the pattern appeared in it. The
-enclosing command died mid-way, silently discarding a file edit that had not yet
-run.
-
-**What replaced it.** Killing by PID. The usual alternative is a character class
-(`pgrep -f "[b]in/ingest.js"`) that cannot match the literal pattern text.
 
 ## 2026-09-06 — Hybrid retrieval bought recall@1 by selling recall@3
 
