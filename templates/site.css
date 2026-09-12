@@ -23,11 +23,13 @@
    not judged: body text, muted text and accent all clear 4.5:1 on both `--bg`
    and `--surface` in both themes, and the control border clears 3:1 on both. */
 :root { font-size: 17px; color-scheme: light dark;
-        --bg:#fbfcfd; --surface:#eef3f6; --fg:#12181d; --muted:#59656e;
-        --line:#d8e0e5; --control:#7c8b96; --accent:#0d6b8a; --on-accent:#ffffff; }
+        --bg:#ffffff; --surface:#e6ecf1; --fg:#12181d; --muted:#59656e;
+        --line:#d3dde3; --panel-edge:#c2cfd7; --control:#707f8a;
+        --accent:#0d6b8a; --on-accent:#ffffff; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg:#0f1418; --surface:#171f26; --fg:#e6ecf0; --muted:#93a2ac;
-          --line:#253039; --control:#5d6d79; --accent:#5cc6e8; --on-accent:#07121a; }
+  :root { --bg:#0f1418; --surface:#1c252d; --fg:#e6ecf0; --muted:#93a2ac;
+          --line:#2a3641; --panel-edge:#3a4854; --control:#657580;
+          --accent:#5cc6e8; --on-accent:#07121a; }
 }
 
 /* A region's label: small, spaced, quiet, with a short accent rule in front of
@@ -337,7 +339,7 @@ th { color:var(--muted); font-weight:600; font-size:.82rem; text-transform:upper
 footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.9rem; }
 footer a { color:var(--accent); }
 .prov, .wiki, .measured, .submit-fetch, .draft-note {
-  margin:1.5rem 0; padding:.9rem 1.1rem; border:1px solid var(--line);
+  margin:1.5rem 0; padding:.9rem 1.1rem; border:1px solid var(--panel-edge);
   border-radius:4px; background:var(--surface);
 }
 .prov p { margin:.25rem 0; font-size:.9rem; }
@@ -365,7 +367,7 @@ code { font-size:.88em; background:color-mix(in srgb, var(--fg) 7%, transparent)
 .prose blockquote p { margin:.2rem 0; }
 .prose table { font-size:.9rem; }
 .prose th { white-space:nowrap; }
-.prose pre { background:var(--surface); border:1px solid var(--line); padding:.7rem .9rem;
+.prose pre { background:var(--surface); border:1px solid var(--panel-edge); padding:.7rem .9rem;
              border-radius:4px; overflow-x:auto; font-size:.88rem; line-height:1.5; }
 .prose pre code { background:none; padding:0; }
 .prose h1 + p, .prose h2 + p { margin-top:.4rem; }
