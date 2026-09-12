@@ -1,0 +1,11 @@
+# Withdraw an account's vendor claim.
+#
+# Both triples, because a confirmation without a claim is a record of somebody
+# having decided nothing. DELETE WHERE rather than a DELETE/INSERT: there is no
+# replacement value, and an account with no claim is the ordinary state.
+DELETE WHERE {
+  GRAPH ${graph} {
+    ${account} pu:claimsVendor ?vendor ;
+               pu:claimConfirmedBy ?by .
+  }
+}

@@ -47,7 +47,7 @@ import buildRegistry from './registry.js'
 import { handleMcp, MCP_PATH } from '../mcp/server.js'
 import wikiRoutes from '../wiki/routes.js'
 import { renderWikiBlock } from '../wiki/render.js'
-import { TRUST, TIER } from '../auth/Accounts.js'
+import { TRUST, TIER, AccountError } from '../auth/Accounts.js'
 
 /**
  * The public read API.
@@ -588,6 +588,13 @@ export function createServer ({
             return { live, expiring: live.filter(row => row.daysRemaining <= PROMOTION_CONFIG.expiringWithinDays) }
           }
 
+          // Only where there is a paid tier for a claim to entitle.
+          const claimState = async () => {
+            if (!billing) return null
+            const all = await auth.accounts.list()
+            return { count: all.filter(a => a?.claimsVendor).length }
+          }
+
           let message = null
           if (request.method === 'POST') {
             let form
@@ -598,6 +605,48 @@ export function createServer ({
             }
             if (!auth.session.verifyCsrf(form.get('csrf'), moderator.iri)) {
               return send(response, 403, { error: 'That page has expired. Reload and try again.' })
+            }
+
+            // Confirm or withdraw a vendor claim. What turns a Pro
+            // subscription from "promote anything" into "promote your own",
+            // and deliberately a moderator's decision — see claimVendor.
+            if (form.get('claim') || form.get('unclaim')) {
+              const login = String(form.get('login') ?? '').trim()
+              const target = (await auth.accounts.list()).find(a => a?.login === login)
+              if (!target) {
+                message = `No account with the login "${login}".`
+              } else {
+                try {
+                  if (form.get('unclaim')) {
+                    await auth.accounts.releaseVendor(target.iri, moderator)
+                    message = `${login} no longer speaks for any vendor.`
+                  } else {
+                    const key = vendorKey(String(form.get('vendor') ?? ''))
+                    const vendor = search.vendor(key)
+                    if (!vendor) {
+                      message = `No vendor in the catalogue folds to "${key}".`
+                    } else {
+                      await auth.accounts.claimVendor(target.iri, vendor.key ?? key, moderator)
+                      message = `${login} now speaks for ${vendor.name} — ` +
+                        `${vendor.count} plugin${vendor.count === 1 ? '' : 's'}, promotable on a Pro subscription.`
+                    }
+                  }
+                } catch (error) {
+                  if (!(error instanceof AccountError)) throw error
+                  message = error.message
+                }
+              }
+              return sendText(response, 200, renderAdminPage(await corrections.pending(), {
+                csrfToken: auth.session.csrfToken(moderator.iri),
+                message,
+                viewer,
+                submissions: submissions ? await submissions.pending() : [],
+                actions: ACTIONS,
+                facetValues: await search.facets(),
+                corpus: search.documents.size,
+                promotions: await promotionState(),
+                claims: await claimState()
+              }), HTML)
             }
 
             // Promote or end a placement. Separate from the action table
@@ -665,7 +714,8 @@ export function createServer ({
                 actions: ACTIONS,
                 facetValues: await search.facets(),
                 corpus: search.documents.size,
-                promotions: await promotionState()
+                promotions: await promotionState(),
+                claims: await claimState()
               }), HTML)
             }
 
@@ -707,7 +757,8 @@ export function createServer ({
             actions: ACTIONS,
             facetValues: await search.facets(),
             corpus: search.documents.size,
-            promotions: await promotionState()
+            promotions: await promotionState(),
+            claims: await claimState()
           }), HTML)
         }
 

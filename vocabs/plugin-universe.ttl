@@ -93,6 +93,12 @@ pu:lastSeen a owl:DatatypeProperty ; rdfs:range xsd:dateTime .
 pu:stripeCustomer a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "The payment processor's customer id, and the whole of what this system knows about somebody's payment details. Opaque and useless without the processor, which is the point: no card, no name, no billing address is stored here, and the one thing that is stored is a handle rather than a fact about a person. Personal data nonetheless — it links an account to a payment relationship — so it lives in the accounts graph, which is flagged personal-data and never reaches a dump." .
 
+pu:claimsVendor a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "A vendor name, folded to lower-case alphanumerics, that this account has been confirmed as speaking for. The folded form rather than an IRI because vendors have no IRIs yet: trn:vendor is a bare literal and there is nothing else to key on — see the note in TODO.md. Set only by a moderator, never by the account holder, because the entitlement it unlocks is the right to promote somebody's plugins for free and a self-asserted claim would be a way to promote anybody's." .
+
+pu:claimConfirmedBy a owl:ObjectProperty ;
+    rdfs:comment "The moderator who confirmed a vendor claim. A claim that cannot be traced to somebody who decided it is not an audit trail." .
+
 pu:tierEndsAt a owl:DatatypeProperty ; rdfs:range xsd:dateTime ;
     rdfs:comment "When a paid tier lapses. The tier itself is pu:tier; this is what makes it an entitlement rather than a permanent grant. Read at the moment the tier is used, exactly as a promotion's pu:endsAt is, so an entitlement whose subscription stopped being paid for expires on its own — whether or not any webhook arrived to say so. A paid status that persists because a cancellation message went missing is the failure this avoids, and it is the expensive direction to fail in." .
 

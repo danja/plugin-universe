@@ -398,6 +398,16 @@ Comment threads, rankings, and the vendor submission flow landing in
 `<graph:vendor/{id}>` marked self-asserted. All three are additive and none
 blocks the exit criteria above.
 
+*Since written:* the vendor submission flow has acquired a second reason to
+exist. `/submit` captures seven fields, which is right for a stranger adding
+somebody else's plugin and far short of what an author knows — `trn:role`,
+`accepts`, `produces`, `requires`, `caution` and the CC mappings are all in the
+vocabulary and reachable through no form. A vendor-facing profile form and an
+explanatory page at `/about/profiles` are in [../TODO.md](../TODO.md), with the
+reasoning about what belongs in a form and what does not: ports and parameters
+are a repeating five-field structure that a vendor already has in their bundle,
+so "point us at your `profile.ttl`" is a better offer than thirty inputs.
+
 ## Phase 4 — Pro tier and revenue — **PART BUILT**
 
 **Goal.** The project pays its hosting bills.

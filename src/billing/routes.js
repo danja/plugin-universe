@@ -5,6 +5,8 @@ import { readBody, readForm, BodyError } from '../api/body.js'
 import { BILLING_CONFIG, lookupKeyFor } from '../../config/preferences.js'
 import { BillingError } from './Billing.js'
 import { PromotionError } from '../catalogue/Promotions.js'
+import { TIER } from '../auth/Accounts.js'
+import { vendorKey } from '../search/SearchService.js'
 
 /**
  * The two routes money needs, and nothing else.
@@ -41,6 +43,19 @@ export async function billingPrices (billing) {
     shown[sold.grants === 'tier' ? 'pro' : 'single'] = { text: money(price), label: sold.label }
   }
   return shown
+}
+
+/** A placement granted without a trip to Stripe. */
+function respondPromoted (response, doc, result) {
+  send(response, 200, {
+    promoted: doc.name,
+    until: result.endsAt,
+    included: true,
+    note: result.created
+      ? 'Included in your Pro subscription. It lapses when the subscription does.'
+      : 'Already promoted.'
+  })
+  return true
 }
 
 /** Stripe's own header. Case-insensitive on the wire; Node lower-cases it. */
@@ -121,6 +136,40 @@ export default async function billingRoutes (request, response, {
         error: `${doc.name} is already promoted until ${String(live.endsAt).slice(0, 10)}.`
       })
       return true
+    }
+
+    // A Pro subscriber promotes their own plugins without paying per plugin.
+    // Three conditions, and all three are load-bearing:
+    //
+    //  - the tier is Pro *and currently effective*, so a lapsed subscription
+    //    grants nothing (`account.tier` is already the effective one);
+    //  - a moderator has confirmed which vendor this account speaks for;
+    //  - and this plugin is that vendor's.
+    //
+    // Without the third, €99 would buy the right to promote anybody's work,
+    // which is both the obvious abuse and the one hardest to notice — a
+    // promoted result looks the same however it was authorised.
+    const entitled = viewer.account.tier === TIER.PRO &&
+      viewer.account.claimsVendor &&
+      doc.vendor && vendorKey(doc.vendor) === viewer.account.claimsVendor
+
+    if (entitled) {
+      try {
+        const result = await promotions.grantIncluded({
+          account: viewer.account,
+          pluginIri,
+          // A Pro placement lapses with the subscription rather than running a
+          // fixed year. Cancel after two months and it stops at the period end,
+          // not ten months later — the same rule that governs the tier itself.
+          endsAt: viewer.account.tierEndsAt
+        })
+        await search.loadPromotions()
+        return respondPromoted(response, doc, result)
+      } catch (error) {
+        if (!(error instanceof PromotionError)) throw error
+        send(response, 400, { error: error.message })
+        return true
+      }
     }
 
     try {

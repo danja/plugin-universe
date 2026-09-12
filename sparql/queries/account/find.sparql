@@ -3,7 +3,7 @@
 # The login and the GitHub id are required: a row without them is not an
 # account, and matching them rather than making them OPTIONAL is what makes
 # "no rows" mean "no such account" instead of "an empty row".
-SELECT ?login ?label ?trust ?tier ?suspended ?avatar ?githubId ?customer ?tierEndsAt
+SELECT ?login ?label ?trust ?tier ?suspended ?avatar ?githubId ?customer ?tierEndsAt ?claimsVendor
 WHERE {
   GRAPH ${graph} {
     ${account} foaf:accountName ?login ;
@@ -17,6 +17,9 @@ WHERE {
     # are always read together — see effectiveTier() in src/auth/Accounts.js.
     OPTIONAL { ${account} pu:stripeCustomer ?customer }
     OPTIONAL { ${account} pu:tierEndsAt ?tierEndsAt }
+    # The vendor this account speaks for, confirmed by a moderator. What turns
+    # a Pro subscription from "promote anything" into "promote your own".
+    OPTIONAL { ${account} pu:claimsVendor ?claimsVendor }
   }
 }
 LIMIT 1

@@ -74,6 +74,49 @@ machine that made it to the one that serves.
   leaves a plugin findable lexically and invisible to semantic search, with a line in the log
   and nothing else. `/health` reports both numbers and nothing compares them. Worth reporting an
   embedding failure to the moderator who caused it, and worth a check that the two agree.
+* **A vendor-facing form for a full plugin profile, and a page explaining why it is worth
+  filling in.** `/submit` exists and captures seven fields — name, homepage, vendor,
+  description, formats, category, licence — which is the right amount to ask of a stranger
+  adding somebody else's plugin. It is nowhere near what the *author* of a plugin knows, and
+  the vocabulary has carried the rest since Phase 0: the fifty hand-written downspout profiles
+  use `trn:role` (50), `trn:produces` (50), `trn:accepts` (47), `trn:requires` (26),
+  `trn:ccMapping` (21), `trn:caution` (15) and `trn:recommendedBefore` (14). None of that can
+  be supplied through the site today.
+
+  **Grow the one form rather than add a second.** Two forms writing the same predicates would
+  be two lists to keep in step with `SUBMITTABLE`, the shapes and the serialiser — the failure
+  this project has shipped more than any other. The natural shape is one form with a second
+  section that a vendor opens and a passer-by ignores, built from the same field table so the
+  validator, the triples and the markup still cannot drift.
+
+  Worth deciding rather than assuming:
+
+  - **Ports and parameters probably do not belong in a form at all.** `lv2:port` with symbol,
+    range, default, unit and scale points is a repeating structure of five-plus fields, and a
+    form for it would be miserable to fill in and worse to validate. A vendor with an LV2
+    plugin *already has* this in their bundle, and `PageReader` already fetches one URL at a
+    moderator's request. "Point us at your bundle or your `profile.ttl`" is a better offer than
+    thirty inputs, and it reuses machinery that exists.
+  - **Routing and CC mappings reference other plugins and other parameters.** `trn:companion`
+    and `trn:targetParameter` need something to point *at*, so they want a picker rather than a
+    text box, and they are the fields most likely to be left blank. Probably a later pass.
+  - **Every field needs a reason on the page.** A vendor asked for `trn:accepts` without being
+    told what it changes will skip it. The answer — it is what makes "what should I put before
+    this?" answerable — is the sort of thing that belongs beside the field, not in a manual.
+
+  **The explanatory page is half the work and is the half that decides whether the form is
+  used.** `/about/profiles`: what a plugin profile is, what each part is for, that the facts go
+  to the public domain under the contributor terms while the prose does not, and — the honest
+  selling point — that a profile is what makes a plugin findable by *description* rather than
+  by name, which is the thing this catalogue does that a list of names cannot. The normative
+  spec already exists as `~/github/transmission/docs/plugin-profiles.md` and should be summarised
+  here rather than duplicated; a second copy of a spec is a second copy to keep true.
+
+  **It pairs with the vendor claim.** A vendor filling in their own plugins is the same person
+  who wants `pu:claimsVendor` confirmed, and `foaf:homepage` is already required by the form —
+  which is what makes the domain check possible: the catalogue holds that URL and did not get
+  it from the claimant.
+
 * **The contributor terms do not cover pictures.** §2 splits contributions two ways — facts are
   CC0, authored prose is CC BY-SA — and an uploaded image is neither. It is a copyright work,
   usually not the uploader's: a screenshot of a plugin is the plugin author's. The *statement*
@@ -140,6 +183,10 @@ foundations.
 * **Selling a vendor profile.** Not started, and it needs the identity above first. The shape
   that fits what is already built:
 
+  - **The profile form is the other half of this**, and the two should be built together. A
+    vendor who has filled in their own plugins is the same person who wants a claim confirmed,
+    and the form already requires `foaf:homepage` — which is the URL the domain check below
+    reads. See the profile-form entry under Phase 3b.
   - **Claiming before editing.** An account proves it speaks for a vendor — the cheapest
     credible check is a link or file at a domain the vendor's plugins already point at through
     `foaf:homepage`, since the catalogue holds that URL and did not get it from the claimant.
@@ -167,17 +214,28 @@ foundations.
   Pro, which promotes as many of a vendor's plugins as they like. Both are found by Stripe
   lookup key rather than a price id, so changing either is a dashboard action.
 
-  **Still to do, and the second is the interesting one.**
+  **The Pro tier is built too.** `/billing/subscribe` and `/billing/portal`, the account page at
+  `/account`, and the entitlement: a Pro subscriber promotes their own plugins without paying
+  per plugin.
 
-  - The **pro tier subscription** itself (`TIER.PRO` exists and nothing sets it) and the
-    **Customer Portal** for self-service cancellation. Same shape as what is built.
-  - **A placement granted by a subscription must end when the subscription does.** A one-time
-    placement ends 365 days after it is bought, which is correct because it was bought outright.
-    A Pro placement cannot work that way: cancel after two months and the placements would run
-    for another ten. The fix that suits the existing design is to set `pu:endsAt` to the
-    subscription's current period end and extend it on each successful renewal — then
-    cancellation needs no special handling at all, because the placements lapse on their own
-    dates, which is how everything else here already expires.
+  Two things settled in the building that are worth keeping.
+
+  - **A paid tier is an entitlement with an expiry, checked when it is read.** `effectiveTier()`
+    grants nothing to a tier whose `pu:tierEndsAt` has passed, and a tier with *no* expiry
+    counts as no tier. So a renewal extends, and silence lapses. The alternative — grant on
+    purchase, revoke on a cancellation message — fails in the expensive direction: a lost
+    delivery leaves somebody paid-up for ever with nothing to notice. A placement included in a
+    subscription takes the tier's own end date, so cancellation needs no handling at all.
+  - **"Your plugins" needed something to stand on.** `trn:vendor` is a bare string with no link
+    to an account, so without a check the entitlement would mean "promote anything". A
+    **moderator confirms** which vendor an account speaks for (`pu:claimsVendor`, the folded
+    key), and the route requires all three of: Pro, currently effective, and this plugin is that
+    vendor's. Confirming is on `/admin`.
+
+  **Still to do.** The claim is confirmed by hand with no evidence trail beyond the moderator's
+  judgement. The check worth adding is the one in the vendor-profile design: a file or link at a
+  domain the vendor's plugins already point at through `foaf:homepage` — a URL the catalogue
+  holds and did not get from the claimant.
 
   **Two things are not the code's to settle.** Italian tax registration is on Danja's list and
   gates going live — Stripe's own onboarding is what will stop an unregistered account taking

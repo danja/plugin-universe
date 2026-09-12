@@ -200,6 +200,58 @@ export class Promotions {
     return { promotion: node, created: true, endsAt: endsAt.toISOString() }
   }
 
+  /**
+   * A placement included in a subscription rather than bought outright.
+   *
+   * The difference from `grantPaid` is the expiry, and it is the whole point.
+   * A €10 placement is bought and runs 365 days whatever happens to the buyer's
+   * account. A Pro placement is *rented* alongside the tier, so its `endsAt` is
+   * the tier's — cancel in month two and it stops at the period end rather than
+   * ten months later.
+   *
+   * That also means it needs no cancellation handling of its own. When the
+   * subscription lapses the tier's expiry passes, and these placements expire
+   * on the same date by construction, because it is the same date.
+   *
+   * No payment reference, because there was no payment for *this* placement.
+   * `pu:paidBy` still names the account, so the ad repository can say on whose
+   * behalf it ran, which is what the disclosure rules actually ask for.
+   */
+  async grantIncluded ({ account, pluginIri, endsAt }, now = new Date()) {
+    if (!account?.iri) throw new PromotionError('An included placement needs the account.')
+    if (!pluginIri) throw new PromotionError('Which plugin?')
+    if (!endsAt) {
+      // Would otherwise be a placement with no end, granted by a subscription
+      // that has one. The tier is meant to carry the date; its absence is a bug
+      // upstream rather than something to paper over with a default.
+      throw new PromotionError('An included placement needs the subscription\'s end date.')
+    }
+    const until = new Date(endsAt)
+    if (until.getTime() <= now.getTime()) {
+      throw new PromotionError('That subscription has already lapsed.')
+    }
+
+    const existing = await this.forPlugin(pluginIri, now)
+    if (existing) {
+      return { promotion: existing.promotion, created: false, endsAt: existing.endsAt }
+    }
+
+    await this.ensureGraph()
+    const node = this.minter.mint('promotion', `${pluginIri.split('/').pop()}-${now.getTime()}`,
+      [pluginIri, account.iri, until.toISOString()])
+    const s = iri(node)
+
+    await this.client.update(insertDataQuery(this.graph, [
+      `${s} ${iri(rdf + 'type')} ${iri(pu + 'Promotion')} .`,
+      `${s} ${iri(pu + 'promotes')} ${iri(pluginIri)} .`,
+      `${s} ${iri(pu + 'startedAt')} ${typedLiteral(now)} .`,
+      `${s} ${iri(pu + 'endsAt')} ${typedLiteral(until)} .`,
+      `${s} ${iri(prov + 'wasAttributedTo')} ${iri(account.iri)} .`,
+      `${s} ${iri(pu + 'paidBy')} ${iri(account.iri)} .`
+    ]))
+    return { promotion: node, created: true, endsAt: until.toISOString() }
+  }
+
   /** The placement bought by one payment, if that payment has been fulfilled. */
   async forPayment (paymentReference) {
     const rows = await this.client.select(this.queries.get('promotion/for-payment', {

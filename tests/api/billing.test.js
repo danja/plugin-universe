@@ -400,3 +400,76 @@ describe('the subscription lifecycle is extension, not permanence', () => {
     expect(readFileSync('src/billing/Billing.js', 'utf8')).toContain('billingPortal')
   })
 })
+
+/**
+ * What €99 a year actually entitles somebody to.
+ *
+ * "Promote as many of your plugins as you like" has a word in it the catalogue
+ * could not previously evaluate: **your**. `trn:vendor` is a bare string with no
+ * link to any account, so without a confirmed claim the entitlement would read
+ * as "promote anything" — and a promoted result looks identical however it was
+ * authorised, so that abuse would be invisible rather than merely possible.
+ */
+describe('the Pro entitlement is bounded by ownership', () => {
+  const source = readFileSync('src/billing/routes.js', 'utf8')
+  const entitlement = source.slice(source.indexOf('const entitled ='), source.indexOf('if (entitled)'))
+
+  it('requires all three of tier, claim and match', () => {
+    expect(entitlement).toContain('TIER.PRO')
+    expect(entitlement).toContain('claimsVendor')
+    expect(entitlement).toContain('vendorKey(doc.vendor)')
+  })
+
+  it('compares by the folded key, so two spellings of a vendor are one', () => {
+    // The same key /vendor/<slug> groups on. Comparing raw strings would let
+    // "SFZ Tools" and "SFZTools" be different vendors for this purpose and the
+    // same one everywhere else.
+    expect(entitlement).not.toMatch(/doc\.vendor\s*===/)
+    expect(entitlement).toContain('vendorKey(')
+  })
+
+  it('reads the effective tier, so a lapsed subscription entitles nothing', () => {
+    // account.tier is already effectiveTier's answer — the expiry is applied
+    // when the account is read, not here, so there is one place it can be got
+    // wrong rather than two.
+    expect(entitlement).toContain('viewer.account.tier ===')
+    expect(entitlement).not.toContain('paidTier')
+  })
+
+  it('falls through to paying when any condition fails', () => {
+    // Not an error. Somebody who is not Pro, or whose claim does not cover this
+    // plugin, can still buy a single placement for €10 — which is the ordinary
+    // path and must not be blocked by a failed entitlement check.
+    const after = source.slice(source.indexOf('if (entitled)'))
+    expect(after).toContain("lookupKeyFor('promotion')")
+  })
+})
+
+describe('an included placement expires with the subscription', () => {
+  const source = readFileSync('src/catalogue/Promotions.js', 'utf8')
+  const included = source.slice(source.indexOf('async grantIncluded'), source.indexOf('/** The placement bought by one payment'))
+
+  it('takes its end date from the tier rather than adding a year', () => {
+    // The difference from a bought placement, and the reason cancellation needs
+    // no handling: the dates are the same date.
+    expect(included).not.toContain('termEnd(')
+    expect(included).toContain('endsAt')
+  })
+
+  it('refuses to grant one with no end date', () => {
+    // Would be a placement that never lapses, granted by a subscription that
+    // does. The tier is meant to carry the date; its absence is a bug upstream.
+    expect(included).toMatch(/needs the subscription/)
+  })
+
+  it('refuses to grant one against a subscription that has already lapsed', () => {
+    expect(included).toMatch(/already lapsed/)
+  })
+
+  it('records who it was on behalf of, with no payment reference', () => {
+    // There was no payment for this placement — the subscription paid. paidBy
+    // still names the account, which is what the disclosure rules ask for.
+    expect(included).toContain("pu + 'paidBy'")
+    expect(included).not.toContain('paymentReference')
+  })
+})

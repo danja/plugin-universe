@@ -747,7 +747,7 @@ export function renderContributionsPage (rows, { viewer = {}, correctable = {}, 
  */
 export function renderAdminPage (pending, {
   csrfToken, message, viewer = {}, submissions = [], actions = {},
-  facetValues = {}, corpus = 0, promotions = null
+  facetValues = {}, corpus = 0, promotions = null, claims = null
 }) {
   const total = pending.length + submissions.length
   const body = templates.render('admin', {
@@ -772,7 +772,17 @@ export function renderAdminPage (pending, {
     submissions: submissionItems(submissions, csrfToken),
     // Absent entirely when promotions are not configured, rather than an empty
     // panel: a control for something the instance cannot do is a puzzle.
-    promotions: promotions ? promotionPanel(promotions, csrfToken) : ''
+    promotions: promotions ? promotionPanel(promotions, csrfToken) : '',
+    // Only where there is a paid tier to entitle. A claim grants nothing on an
+    // instance that sells nothing, and a control for that is a puzzle.
+    claims: claims
+      ? templates.render('claim-panel', {
+        csrf: csrfToken,
+        summary: claims.count === 0
+          ? 'No accounts have a confirmed vendor.'
+          : `${claims.count} account${claims.count === 1 ? '' : 's'} with a confirmed vendor.`
+      })
+      : ''
   })
   return layout('Administration — Plugin Universe', body, {
     description: 'Moderation queue and catalogue operations.',

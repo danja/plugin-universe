@@ -197,6 +197,9 @@ export class Accounts {
       // The payment processor's handle, and the whole of what is known here
       // about anybody's payment details.
       stripeCustomer: row.customer ?? null,
+      // The vendor key a moderator has confirmed this account speaks for, or
+      // null. Never self-asserted: see grantTier's sibling, claimVendor.
+      claimsVendor: row.claimsVendor ?? null,
       // SPARQL returns literals as strings; "false" is truthy.
       suspended: row.suspended === 'true'
     }
@@ -250,6 +253,43 @@ export class Accounts {
     if (stripeCustomer) {
       await this.#replace(accountIri, pu + 'stripeCustomer', literal(stripeCustomer))
     }
+    return true
+  }
+
+  /**
+   * Confirm that an account speaks for a vendor.
+   *
+   * **A moderator's decision, never the account holder's.** What it unlocks is
+   * the right to promote that vendor's plugins without paying per plugin, so a
+   * self-asserted claim would be a way to promote anybody's work — which is
+   * both the obvious abuse and the one that would be hardest to notice, since
+   * a promoted result looks the same however it was authorised.
+   *
+   * The value is the folded vendor key, the same one `/vendor/<slug>` groups
+   * on, so a vendor whose name is spelled two ways is one claim.
+   */
+  async claimVendor (accountIri, vendorKey, moderator) {
+    if (!moderator || moderator.trustLevel !== TRUST.MODERATOR) {
+      throw new AccountError('Only a moderator can confirm a vendor claim.')
+    }
+    if (!/^[a-z0-9]+$/.test(String(vendorKey ?? ''))) {
+      throw new AccountError(
+        `"${vendorKey}" is not a vendor key. It is the vendor's name folded to lower-case letters and digits.`)
+    }
+    await this.#replace(accountIri, pu + 'claimsVendor', literal(vendorKey))
+    await this.#replace(accountIri, pu + 'claimConfirmedBy', iri(moderator.iri))
+    return true
+  }
+
+  /** Withdraw a vendor claim. */
+  async releaseVendor (accountIri, moderator) {
+    if (!moderator || moderator.trustLevel !== TRUST.MODERATOR) {
+      throw new AccountError('Only a moderator can withdraw a vendor claim.')
+    }
+    await this.client.update(this.queries.get('account/release-vendor', {
+      graph: iri(this.graph),
+      account: iri(accountIri)
+    }))
     return true
   }
 
