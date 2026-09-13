@@ -6,8 +6,9 @@
 <form method="post" action="/admin" class="inline-form">
   <input type="hidden" name="csrf" value="{{csrf}}">
   <label class="field">
-    <span class="field-label">Plugin slug</span>
-    <input type="text" name="slug" placeholder="wet-reverb-693085a0">
+    <span class="field-label">Plugin</span>
+    <span class="field-help">The address of its page, or just the slug from the end of it.</span>
+    <input type="text" name="slug" placeholder="https://plugin-universe.com/plugin/shifty-74ec851b">
   </label>
   <label class="field">
     <span class="field-label">URL of the plugin's .ttl</span>

@@ -49,6 +49,16 @@ export const PAGES = Object.freeze({
     title: 'Services',
     description: 'Every way the Plugin Universe catalogue can be read: web, JSON, RDF, SPARQL, a package registry and MCP.'
   },
+  '/leggere-prima': {
+    file: 'docs/leggere-prima.md',
+    // The Italian of /read-me-first. `lang` exists because of this page: the
+    // layout hardcoded `lang="en"`, and a screen reader handed Italian prose in
+    // an English document reads it with English phonetics — legible on screen
+    // and close to unintelligible aloud.
+    lang: 'it',
+    title: 'Da leggere prima',
+    description: 'Che cos\'è Plugin Universe, a che punto è e a cosa serve.'
+  },
   '/read-me-first': {
     file: 'docs/read-me-first.md',
     // Orientation for somebody who has just arrived and does not yet know what

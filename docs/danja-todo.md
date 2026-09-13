@@ -84,7 +84,11 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   page says what it actually does, including that a person does the fetching and that nothing
   is overwritten. Worth trying on one of your own flues plugins: paste the slug and the raw
   URL of its `.ttl` — the one `manifest.ttl` points at, not the manifest — and see what comes
-  back. A GitHub `raw.githubusercontent.com` URL is the easy way to get one.
+  back. Two things that were not obvious: the **plugin** field takes the whole
+  address of its page (`https://plugin-universe.com/plugin/shifty-74ec851b`) —
+  you do not have to trim it to the slug — and the **.ttl** field wants a raw
+  URL, so on GitHub use the `raw.githubusercontent.com` form rather than the
+  page you read the file on.
 
   Worth doing on a real plugin of yours rather than reading it cold — you are the only person
   who can say whether the vocabulary's own labels ("Control MIDI", "Host Transport") mean

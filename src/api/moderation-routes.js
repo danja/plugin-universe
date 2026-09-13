@@ -193,8 +193,14 @@ async function readBundle (form, { search, bundleReader, corrections }, moderato
     .map(([what, n]) => `${what} (${n} already held)`)
 
   if (triples.length === 0) {
-    return `Read ${outcome.url} — it describes ${record.name ?? 'that plugin'} and ` +
-      `${summarise(added)}. Nothing written.`
+    // Say what it already had, not just that there was nothing to add. The
+    // first real use of this was a plugin harvested from the very bundle the
+    // URL pointed at, and "nothing the catalogue does not already have" reads
+    // like a failure when it is the correct answer.
+    const held = skipped.length ? skipped.join(', ') : 'nothing at all'
+    return `Read ${outcome.url}. It describes ${record.name ?? 'that plugin'}, and ` +
+      `${doc.name} already holds ${held} — so nothing was written. ` +
+      'That is the additive rule working: a read never replaces a fact the catalogue has.'
   }
 
   // One update, not one per port: a blank node label is scoped to a request,

@@ -41,6 +41,9 @@ function accountBar (account, signInEnabled) {
 
 export function layout (title, body, {
   description = '', account = null, signInEnabled = false,
+  // The document's language, for anything that reads it aloud. English unless
+  // a page says otherwise — `/leggere-prima` is the first that does.
+  lang = 'en',
   // A page laid out in columns carries the site links in one of them, so it
   // asks for the footer to be left off. One template renders them either way —
   // two copies of a list of links is two lists to keep correct, and this one
@@ -49,6 +52,7 @@ export function layout (title, body, {
 } = {}) {
   return templates.render('layout', {
     title,
+    lang,
     description: templates.when(Boolean(description), 'meta-description', { description }),
     // The <style> element is part of the value, not part of the template.
     //

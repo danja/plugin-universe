@@ -19,7 +19,7 @@ import { ImageError } from './ImageStore.js'
  * catalogue's* routes.
  */
 
-const PATHS = new Set(['/health', '/robots.txt', '/registry/plugins/index.json', '/ns'])
+const PATHS = new Set(['/health', '/robots.txt', '/favicon.png', '/favicon.ico', '/registry/plugins/index.json', '/ns'])
 const VOCAB_PATH = /^\/ns\/([a-z0-9-]+)\.ttl$/
 const IMAGE_PATH = /^\/image\/([0-9a-f]{64}\.(?:png|jpg|gif|webp))$/
 
@@ -27,7 +27,10 @@ export async function metaRoutes (context) {
   const { path } = context
 
   if (path === '/health') return health(context)
-  if (path === '/robots.txt') return staticFile(context)
+  // Anything on the static whitelist, rather than one `if` per file. The
+  // whitelist and the router were two lists for exactly as long as there was
+  // one file on it, and the second file arrived declared but unserved.
+  if (context.staticFiles?.[path]) return staticFile(context)
   if (path === '/registry/plugins/index.json') return registry(context)
   if (path === '/ns') return vocabularyIndex(context)
 
@@ -73,8 +76,19 @@ function health ({ response, search, config, auth, authProblem, build }) {
 
 async function staticFile ({ response, path, projectRoot, staticFiles }) {
   const served = staticFiles[path]
-  const body = await fs.promises.readFile(pathJoin(projectRoot, served.file), 'utf8')
-  sendText(response, 200, body, served.type)
+  // Read as bytes, not as text. This said `'utf8'` while the only static file
+  // was robots.txt, and the first binary one — a favicon — would have been
+  // mangled into replacement characters by the decode, served with the right
+  // content type, and shown as a broken icon with nothing in any log.
+  const body = await fs.promises.readFile(pathJoin(projectRoot, served.file))
+  response.writeHead(200, {
+    'Content-Type': served.type,
+    'Content-Length': body.length,
+    'X-Content-Type-Options': 'nosniff',
+    ...(served.cache ? { 'Cache-Control': served.cache } : {}),
+    'Access-Control-Allow-Origin': '*'
+  })
+  response.end(body)
   return true
 }
 

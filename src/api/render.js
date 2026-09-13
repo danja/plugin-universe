@@ -126,9 +126,9 @@ export function renderVocabularies (vocabularies, viewer = {}) {
   })
 }
 
-export function renderDocPage ({ title, description, html }, viewer = {}) {
+export function renderDocPage ({ title, description, html, lang = 'en' }, viewer = {}) {
   return layout(`${title} — Plugin Universe`, templates.render('doc-page', { html }),
-    { description, ...viewer })
+    { description, lang, ...viewer })
 }
 
 /** A list of sibling category links, or nothing. */

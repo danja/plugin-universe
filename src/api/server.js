@@ -129,7 +129,24 @@ export const BUILD = Object.freeze({
  * only symptom was three routes returning 500 in production.
  */
 export const STATIC_FILES = Object.freeze({
-  '/robots.txt': { file: 'robots.txt', type: 'text/plain; charset=utf-8' }
+  '/robots.txt': { file: 'robots.txt', type: 'text/plain; charset=utf-8' },
+  // The site mark. A placeholder: it is the hyperdata.it favicon, which is the
+  // owner's own design, standing in until this project has one of its own.
+  //
+  // Both forms, because browsers ask for them differently. `<link rel="icon">`
+  // in the layout points at the PNG; a browser that has not read the markup yet
+  // — or a feed reader, or a bookmarking tool — asks for `/favicon.ico` at the
+  // root by convention, and answering 404 to that is a needless miss.
+  '/favicon.png': {
+    file: 'favicon.png',
+    type: 'image/png',
+    cache: 'public, max-age=604800'
+  },
+  '/favicon.ico': {
+    file: 'favicon.ico',
+    type: 'image/x-icon',
+    cache: 'public, max-age=604800'
+  }
 })
 
 export function createServer ({

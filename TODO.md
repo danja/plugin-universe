@@ -152,6 +152,9 @@ foundations.
   request — Cloudflare and the like — so a naive checker would report them broken and a checker
   that worked around the block would be doing the thing `docs/sources.md` §4 rule 3 forbids.
   Any link-checking this page gets has to treat a 403 as "unknown", not as "dead".
+* **A logo, and a favicon of this project's own.** What is served now is the hyperdata.it mark
+  as a placeholder. Replacing it is two files at the repository root and nothing else — the
+  route, the `<link>` and the cache headers are already there.
 * **A 3D navigable plugin graph** — plugins as nodes, hover for a summary, click through to the
   page. Genuinely differentiating, and the one thing on this list that breaks a standing
   decision: the site is server-rendered with no client framework, and this cannot be. Worth
@@ -379,6 +382,15 @@ which is why it is no longer restated here.
   subscription, portal and Stripe's webhook — so no payment could ever have completed. In
   MISTAKES.md; the guard is now one list and `tests/store/server-starts.test.js` POSTs to all
   ten write routes against a running server.
+* **A favicon, borrowed.** `/favicon.png` and `/favicon.ico` are served from the repository
+  root through `STATIC_FILES`, linked from every page by `<link rel="icon">`. The image is the
+  **hyperdata.it mark, the owner's own design, standing in** until this project has one. Serving
+  it needed `staticFile` to stop reading with `'utf8'` — it had been text-only since robots.txt
+  was the only static file, and the first binary one would have been silently mangled by the
+  decode and shown as a broken icon.
+* **`/leggere-prima`** — `docs/read-me-first.md` in Italian, cross-linked with the English. The
+  layout learned a `lang` attribute for it: it was hardcoded `lang="en"`, and a screen reader
+  given Italian prose in an English document reads it with English phonetics.
 * **The navigation, from the inbox.** The footer is five links in a chosen order — About,
   Services, Promotions, Plugin profiles, Contact — Vendors is the first group in the right-hand
   column, and **`/about` is now the index** for everything else the site says about itself.

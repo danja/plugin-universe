@@ -262,7 +262,11 @@ describe('the routes the site links to', () => {
     // declaration. It had been a route with no link since the MCP face was
     // built, and rightly so: an agent reaches it at mcp.plugin-universe.com,
     // and /services gives that absolute URL rather than a relative link.
-    '/mcp': 'the agent endpoint, on its own subdomain; /services gives its absolute URL'
+    '/mcp': 'the agent endpoint, on its own subdomain; /services gives its absolute URL',
+    // The PNG is linked from <link rel="icon"> in the layout and so needs no
+    // exemption. This one is the convention a browser follows before it has
+    // read any markup, which is a request nothing on the site can link to.
+    '/favicon.ico': 'browsers ask for it at the root by convention, before reading any markup'
   })
 
   it('gives every fixed route something that links to it', () => {
