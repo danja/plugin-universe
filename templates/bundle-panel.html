@@ -1,0 +1,19 @@
+<h3>Read a bundle</h3>
+<p class="meta">An LV2 plugin's own <code>.ttl</code> holds its ports, its signal
+  types and what it needs from a host — in the vocabulary this catalogue already
+  uses, so it maps in untranslated. <a href="/about/profiles">Plugin profiles</a>
+  offers this to authors: send the URL, and it is read from here.</p>
+<form method="post" action="/admin" class="inline-form">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <label class="field">
+    <span class="field-label">Plugin slug</span>
+    <input type="text" name="slug" placeholder="wet-reverb-693085a0">
+  </label>
+  <label class="field">
+    <span class="field-label">URL of the plugin's .ttl</span>
+    <input type="text" name="bundleUrl" placeholder="https://example.org/bundle.lv2/plugin.ttl">
+  </label>
+  <button type="submit" name="readbundle" value="1">Read it</button>
+  <p class="field-help">One fetch, of one file. Additive: it writes only what this
+    plugin does not already have, and says what it left alone. Attributed to you.</p>
+</form>

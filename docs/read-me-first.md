@@ -12,7 +12,11 @@ to the producer and developers communities to enrich the material.
 
 Anyone signed in can add plugins and suggest corrections to existing entries.
 
+I am currently working on tools to profile plugins by running them and taking measurements.
+
 *Speaking of riches*, the intention here is not to make money but to provide a service that 
 until now was lacking. The plan is to allow plugin vendors to promote their products (push them up the search results) for a
 small fee, which will be used to fund hosting and maintenance of the site. 
+
+More details in [About](https://plugin-universe.com/about). [Contact](https://plugin-universe.com/about/contact).
 

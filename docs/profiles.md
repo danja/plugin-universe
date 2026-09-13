@@ -72,8 +72,19 @@ get right.
 If your plugin is **LV2**, you have already written this. It is in your
 bundle's own Turtle, in exactly the vocabulary this catalogue uses — `lv2:port`,
 `lv2:symbol`, `units:unit` — which is why an LV2 bundle maps in here
-untranslated. Send us the URL of your bundle or your repository instead and it
-is read from there.
+untranslated.
+
+So send the URL instead of filling anything in. Point us at the `.ttl` that
+describes the plugin — the one your `manifest.ttl` names with `rdfs:seeAlso`,
+not the manifest itself — and it is read from there: the ports with their
+ranges, defaults, units and scale points, what the plugin accepts and produces,
+and whether it needs the host's transport. [Send it](/about/contact), or through
+the [feedback form](/feedback) if you are signed in.
+
+Two things worth saying plainly. It is **read once, by a person** — nothing here
+crawls, and the fetch happens because a moderator asked for it. And it is
+**added, never substituted**: anything the catalogue already holds about your
+plugin stays as it is, and you are told what was left alone.
 
 **What goes before and after.** `trn:recommendedBefore` and its companions
 point at *other plugins*, so they need a way to pick one rather than a box to

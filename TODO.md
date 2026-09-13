@@ -89,12 +89,22 @@ machine that made it to the one that serves.
 
   What was deliberately left out, and is still out:
 
-  - **Ports and parameters are not in the form and should not be.** `lv2:port` with symbol,
-    range, default, unit and scale points is a repeating structure of five-plus fields, and a
-    form for it would be miserable to fill in and worse to validate. A vendor with an LV2
-    plugin *already has* this in their bundle in this vocabulary. `/about/profiles` makes the
-    offer — "send us your bundle URL" — and **nothing yet acts on it.** `PageReader` fetches
-    one URL at a moderator's request and `Lv2Bundle` reads a bundle; joining them is the work.
+  - **Ports and parameters are not in the form and should not be** — they arrive by URL
+    instead. *2026-09-13:* `/admin` has a *Read a bundle* panel: a moderator pastes a plugin
+    slug and the URL of an LV2 plugin's `.ttl`, and the ports, their ranges, units and scale
+    points, the signal types and any host requirement are read and written, attributed, into
+    that moderator's CC0 graph. One fetch, through `PageReader`'s defences, following no
+    redirect — `docs/sources.md` §4 rule 8, the same bound as the submission form's URL box.
+    Additive only: it writes what the plugin has not got and reports what it left alone.
+
+    **The thing that would have made it useless.** A bundle is two files. `manifest.ttl` says
+    `a lv2:Plugin` and points at the real description with `rdfs:seeAlso`; that file carries
+    the ports and types the plugin by *subclass* — `lv2:AudioPlugin` — never as the bare class.
+    `readBundleDataset` looks for `lv2:Plugin`, which is right when the harvester has read a
+    whole bundle from disk and finds nothing at all in the file that has the data. Following
+    the `seeAlso` would be a second fetch, which rule 8 forbids, so `typeAsPlugins` supplies
+    the missing assertion locally: a subject with `lv2:port` is a plugin. Found by running it
+    against a real bundle rather than a fixture; `tests/fixtures/lv2/` now has that shape.
   - **Routing and CC mappings reference other plugins and other parameters.** `trn:companion`
     and `trn:targetParameter` need something to point *at*, so they want a picker rather than a
     text box. Still a later pass, and now the only part of the fifty hand-written downspout

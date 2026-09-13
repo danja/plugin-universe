@@ -79,9 +79,12 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   `/submit` now asks for roles, what a plugin accepts and produces, what it requires of the host
   and any caution worth stating — the fields the fifty downspout profiles already carry — and
   that page is what has to persuade a stranger those fields are worth their ten minutes. It
-  makes one promise I have not built yet: *"send us the URL of your bundle or your repository"*
-  for ports and parameters. Nothing acts on that today. If you would rather not advertise it
-  until it works, say so and I will cut the sentence; it is in `docs/profiles.md`.
+  That page used to promise something that did not exist — *"send us the URL of your bundle"*
+  for ports and parameters. **It exists now:** `/admin` has a *Read a bundle* panel, and the
+  page says what it actually does, including that a person does the fetching and that nothing
+  is overwritten. Worth trying on one of your own flues plugins: paste the slug and the raw
+  URL of its `.ttl` — the one `manifest.ttl` points at, not the manifest — and see what comes
+  back. A GitHub `raw.githubusercontent.com` URL is the easy way to get one.
 
   Worth doing on a real plugin of yours rather than reading it cold — you are the only person
   who can say whether the vocabulary's own labels ("Control MIDI", "Host Transport") mean

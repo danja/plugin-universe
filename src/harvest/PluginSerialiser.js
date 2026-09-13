@@ -36,6 +36,57 @@ function scalarTerm (value) {
 }
 
 /**
+ * A plugin's ports, as triples.
+ *
+ * Extracted from `serialisePlugin` when `/admin`'s bundle reader needed to
+ * write ports onto a plugin that already exists — enriching an entry rather
+ * than creating one. Same code, one caller more.
+ *
+ * **The blank-node labels come from the shared counter on purpose.** A port has
+ * no identity outside its plugin, so it is a blank node; a label is scoped to
+ * one request, which is why `IngestPipeline` batches by group and writes an
+ * oversized group whole. A caller writing these separately must write all of
+ * them in one update, or it will cut a port in half.
+ *
+ * @param {string} subject - the plugin's IRI, already formatted by `iri()`
+ * @param {object[]} parameters
+ */
+export function portTriples (subject, parameters) {
+  const triples = []
+  for (const parameter of parameters ?? []) {
+    const node = blank('p')
+    triples.push(`${subject} ${iri(lv2 + 'port')} ${node} .`)
+    triples.push(`${node} ${iri(rdf + 'type')} ${iri(lv2 + 'ControlPort')} .`)
+    triples.push(`${node} ${iri(rdf + 'type')} ${iri(parameter.direction === 'output' ? lv2 + 'OutputPort' : lv2 + 'InputPort')} .`)
+    triples.push(`${node} ${iri(lv2 + 'symbol')} ${literal(parameter.symbol)} .`)
+    triples.push(`${node} ${iri(lv2 + 'name')} ${literal(parameter.name)} .`)
+
+    const emit = (predicate, term) => {
+      if (term !== null) triples.push(`${node} ${iri(predicate)} ${term} .`)
+    }
+    emit(rdfs + 'comment', parameter.comment ? literal(parameter.comment) : null)
+    emit(lv2 + 'default', scalarTerm(parameter.default))
+    emit(lv2 + 'minimum', scalarTerm(parameter.minimum))
+    emit(lv2 + 'maximum', scalarTerm(parameter.maximum))
+    if (parameter.integer) emit(lv2 + 'portProperty', iri(lv2 + 'integer'))
+    if (parameter.unitIri) emit(NAMESPACES.units + 'unit', iri(parameter.unitIri))
+    // The label is kept even when the unit could not be typed: losing it would
+    // be worse than failing to map it.
+    emit(pu + 'unitLabel', parameter.unitLabel ? literal(parameter.unitLabel) : null)
+
+    for (const point of parameter.scalePoints ?? []) {
+      const pointNode = blank('sp')
+      triples.push(`${node} ${iri(lv2 + 'scalePoint')} ${pointNode} .`)
+      triples.push(`${pointNode} ${iri(rdfs + 'label')} ${literal(point.label ?? '')} .`)
+      if (point.value !== null && point.value !== undefined) {
+        triples.push(`${pointNode} ${iri(rdf + 'value')} ${typedLiteral(point.value)} .`)
+      }
+    }
+  }
+  return triples
+}
+
+/**
  * @param {object} plugin - a normalised plugin record
  * @param {string} pluginIri - the minted catalogue IRI
  * @param {object} [options]
@@ -115,36 +166,7 @@ export function serialisePlugin (plugin, pluginIri, { created = null } = {}) {
   for (const tag of plugin.tags ?? []) add(pu + 'tag', literal(tag))
   for (const artefact of plugin.artefacts ?? []) add(pu + 'containsArtefact', literal(artefact))
 
-  for (const parameter of plugin.parameters) {
-    const node = blank('p')
-    triples.push(`${s} ${iri(lv2 + 'port')} ${node} .`)
-    triples.push(`${node} ${iri(rdf + 'type')} ${iri(lv2 + 'ControlPort')} .`)
-    triples.push(`${node} ${iri(rdf + 'type')} ${iri(parameter.direction === 'output' ? lv2 + 'OutputPort' : lv2 + 'InputPort')} .`)
-    triples.push(`${node} ${iri(lv2 + 'symbol')} ${literal(parameter.symbol)} .`)
-    triples.push(`${node} ${iri(lv2 + 'name')} ${literal(parameter.name)} .`)
-
-    const emit = (predicate, term) => {
-      if (term !== null) triples.push(`${node} ${iri(predicate)} ${term} .`)
-    }
-    emit(rdfs + 'comment', parameter.comment ? literal(parameter.comment) : null)
-    emit(lv2 + 'default', scalarTerm(parameter.default))
-    emit(lv2 + 'minimum', scalarTerm(parameter.minimum))
-    emit(lv2 + 'maximum', scalarTerm(parameter.maximum))
-    if (parameter.integer) emit(lv2 + 'portProperty', iri(lv2 + 'integer'))
-    if (parameter.unitIri) emit(NAMESPACES.units + 'unit', iri(parameter.unitIri))
-    // The label is kept even when the unit could not be typed: losing it would
-    // be worse than failing to map it.
-    emit(pu + 'unitLabel', parameter.unitLabel ? literal(parameter.unitLabel) : null)
-
-    for (const point of parameter.scalePoints) {
-      const pointNode = blank('sp')
-      triples.push(`${node} ${iri(lv2 + 'scalePoint')} ${pointNode} .`)
-      triples.push(`${pointNode} ${iri(rdfs + 'label')} ${literal(point.label ?? '')} .`)
-      if (point.value !== null && point.value !== undefined) {
-        triples.push(`${pointNode} ${iri(rdf + 'value')} ${typedLiteral(point.value)} .`)
-      }
-    }
-  }
+  triples.push(...portTriples(s, plugin.parameters))
 
   for (const mapping of plugin.ccMappings) {
     const node = blank('cc')

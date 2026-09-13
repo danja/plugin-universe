@@ -1,0 +1,54 @@
+# One LV2 plugin's own description, in the shape a real bundle has it.
+#
+# The point of this fixture is the shape rather than the content: the type here
+# is lv2:AudioPlugin, NOT the bare lv2:Plugin, because that is how every real
+# bundle is written — `a lv2:Plugin` lives in manifest.ttl and this file is what
+# rdfs:seeAlso points at. A reader that only looks for lv2:Plugin finds nothing
+# in this file, which is exactly the bug BundleReader.typeAsPlugins exists for.
+@prefix atom: <http://lv2plug.in/ns/ext/atom#> .
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix time: <http://lv2plug.in/ns/ext/time#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+
+<https://example.org/plugins/fixture>
+    a lv2:AudioPlugin , lv2:DelayPlugin ;
+    doap:name "Fixture Delay" ;
+    rdfs:comment "A delay, for testing the bundle reader." ;
+    doap:maintainer [
+        foaf:name "A Maintainer" ;
+        foaf:homepage <https://example.org/>
+    ] ;
+    lv2:port [
+        a lv2:InputPort , lv2:ControlPort ;
+        lv2:index 0 ;
+        lv2:symbol "feedback" ;
+        lv2:name "Feedback" ;
+        lv2:default 0.4 ;
+        lv2:minimum 0.0 ;
+        lv2:maximum 1.0 ;
+        units:unit units:coef
+    ] , [
+        a lv2:InputPort , lv2:ControlPort ;
+        lv2:index 1 ;
+        lv2:symbol "mode" ;
+        lv2:name "Mode" ;
+        lv2:default 0 ;
+        lv2:minimum 0 ;
+        lv2:maximum 1 ;
+        lv2:portProperty lv2:integer ;
+        lv2:scalePoint [ rdfs:label "Clean" ; <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> 0 ] ,
+                       [ rdfs:label "Tape"  ; <http://www.w3.org/1999/02/22-rdf-syntax-ns#value> 1 ]
+    ] , [
+        a lv2:AudioPort , lv2:InputPort ;
+        lv2:index 2 ; lv2:symbol "in" ; lv2:name "In"
+    ] , [
+        a lv2:AudioPort , lv2:OutputPort ;
+        lv2:index 3 ; lv2:symbol "out" ; lv2:name "Out"
+    ] , [
+        a atom:AtomPort , lv2:InputPort ;
+        atom:supports time:Position ;
+        lv2:index 4 ; lv2:symbol "control" ; lv2:name "Control"
+    ] .

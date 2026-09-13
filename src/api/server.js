@@ -135,7 +135,7 @@ export const STATIC_FILES = Object.freeze({
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
   submissions = null, images = null, pageReader = new PageReader(), promotions = null,
-  feedback = null,
+  feedback = null, bundleReader = null,
   billing = null,
   // The field table with its choices filled from the profile vocabulary. The
   // bare SUBMITTABLE has `choices: null` on the profile fields, deliberately —
@@ -261,7 +261,7 @@ export function createServer ({
       // A contributor's own list, and the moderator's console above it.
       if (await moderationRoutes({
         request, response, path, viewer, auth, search, config,
-        corrections, submissions, promotions, billing, feedback
+        corrections, submissions, promotions, billing, feedback, bundleReader
       })) return
 
       // Submitting a plugin, correcting a fact about one, adding a picture of

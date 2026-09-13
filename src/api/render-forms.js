@@ -292,7 +292,8 @@ export function renderFeedbackPage ({
 
 export function renderAdminPage (pending, {
   csrfToken, message, viewer = {}, submissions = [], actions = {},
-  facetValues = {}, corpus = 0, promotions = null, claims = null, feedback = null
+  facetValues = {}, corpus = 0, promotions = null, claims = null, feedback = null,
+  bundles = false
 }) {
   const total = pending.length + submissions.length
   const body = templates.render('admin', {
@@ -320,6 +321,9 @@ export function renderAdminPage (pending, {
     // consequence either way — and a message is only ever read. Mixing them
     // would put a control that applies something next to one that does not.
     feedback: feedback ? feedbackPanel(feedback, csrfToken) : '',
+    // Absent when the instance cannot fetch, like every other panel here: a
+    // control for something that will always answer "not enabled" is a puzzle.
+    bundle: bundles ? templates.render('bundle-panel', { csrf: csrfToken }) : '',
     // Absent entirely when promotions are not configured, rather than an empty
     // panel: a control for something the instance cannot do is a puzzle.
     promotions: promotions ? promotionPanel(promotions, csrfToken) : '',

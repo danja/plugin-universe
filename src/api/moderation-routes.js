@@ -11,6 +11,9 @@ import { PROMOTION_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import { TRUST, AccountError } from '../auth/Accounts.js'
 import { vendorKey } from '../search/SearchService.js'
+import { BundleReadError, additions, summarise } from '../contrib/BundleReader.js'
+import { portTriples } from '../harvest/PluginSerialiser.js'
+import { iri, insertDataQuery } from '../store/SPARQLHelper.js'
 
 /**
  * The queue, and the console above it.
@@ -108,6 +111,7 @@ async function adminConsole (context) {
  */
 async function actOn (form, context, moderator) {
   if (form.get('markread')) return markRead(form, context, moderator)
+  if (form.get('readbundle')) return readBundle(form, context, moderator)
   if (form.get('claim') || form.get('unclaim')) return vendorClaim(form, context, moderator)
   if (form.get('promote') || form.get('unpromote')) return placement(form, context, moderator)
   if (form.get('action')) return maintenance(form, context)
@@ -130,6 +134,81 @@ async function markRead (form, { feedback }, moderator) {
     if (!(error instanceof FeedbackError)) throw error
     return error.message
   }
+}
+
+/**
+ * Read an LV2 bundle's Turtle and fill in what the catalogue is missing.
+ *
+ * `/about/profiles` tells a plugin author that ports and parameters need not be
+ * typed into a form — "send us the URL of your bundle and it is read from
+ * there". This is the end of that sentence that does the reading. One fetch, of
+ * one file, at a moderator's request: `docs/sources.md` §4 rule 8, the same
+ * bound as the submission form's URL box.
+ *
+ * **Additive only.** It writes what the plugin does not already have and counts
+ * what it skipped. A bundle is a better source than a scrape for technical
+ * facts, but a URL somebody emailed in is not discovery, and overwriting a
+ * harvested or measured fact on the strength of one is not a trade worth making
+ * silently.
+ *
+ * The triples land in the moderator's own CC0 contributor graph, attributed
+ * like any other contribution — so undoing a bad read is dropping one graph,
+ * and the harvested statement underneath was never touched.
+ */
+async function readBundle (form, { search, bundleReader, corrections }, moderator) {
+  if (!bundleReader) return 'Reading a bundle is not enabled on this instance.'
+  const slug = String(form.get('slug') ?? '').trim().replace(/^.*\/plugin\//, '')
+  const pluginIri = `${NAMESPACES.pu}plugin/${slug}`
+  const doc = search.documents.get(pluginIri)
+  if (!doc) {
+    return `No plugin with the slug "${slug}". It is the last part of the plugin page's address.`
+  }
+
+  let outcome
+  try {
+    outcome = await bundleReader.read(String(form.get('bundleUrl') ?? '').trim())
+  } catch (error) {
+    if (!(error instanceof BundleReadError)) throw error
+    return error.message
+  }
+
+  // A file can describe several plugins — an LV2 bundle often does. Which one
+  // this slug means is a judgement, so the rule is the narrow one: exactly one,
+  // or say what was found and change nothing.
+  if (outcome.plugins.length > 1) {
+    const names = outcome.plugins.map(one => one.name ?? one.sourceIri).join(', ')
+    return `That file describes ${outcome.plugins.length} plugins (${names}). ` +
+      'Send the URL of the one .ttl that describes this plugin alone.'
+  }
+
+  const record = outcome.plugins[0]
+  const added = additions(record, doc)
+  const triples = [
+    ...portTriples(iri(pluginIri), added.parameters),
+    ...added.accepts.map(one => `${iri(pluginIri)} ${iri(NAMESPACES.trn + 'accepts')} ${iri(one)} .`),
+    ...added.produces.map(one => `${iri(pluginIri)} ${iri(NAMESPACES.trn + 'produces')} ${iri(one)} .`),
+    ...added.requires.map(one => `${iri(pluginIri)} ${iri(NAMESPACES.trn + 'requires')} ${iri(one)} .`)
+  ]
+  const skipped = Object.entries(added.skipped).filter(([, n]) => n > 0)
+    .map(([what, n]) => `${what} (${n} already held)`)
+
+  if (triples.length === 0) {
+    return `Read ${outcome.url} — it describes ${record.name ?? 'that plugin'} and ` +
+      `${summarise(added)}. Nothing written.`
+  }
+
+  // One update, not one per port: a blank node label is scoped to a request,
+  // so splitting these would cut a port in half.
+  // The same two graphs every contribution goes through — `Corrections` owns
+  // the registry, so the licence flag on a moderator's facts graph is decided
+  // in one place rather than two.
+  const graphs = await corrections.ensureContributorGraphs(moderator)
+  await search.client.update(insertDataQuery(graphs.facts, triples))
+  await search.takeUpNewPlugins()
+
+  return `Read ${outcome.url} into ${doc.name}: ${summarise(added)}.` +
+    (skipped.length ? ` Left alone: ${skipped.join(', ')}.` : '') +
+    ' Attributed to you, in your public-domain graph.'
 }
 
 /**
@@ -262,7 +341,8 @@ async function review (form, { search, auth, corrections, submissions }, moderat
  * One function cannot do that.
  */
 async function adminPage ({
-  viewer, auth, search, corrections, submissions, promotions, billing, feedback
+  viewer, auth, search, corrections, submissions, promotions, billing, feedback,
+  bundleReader
 }, moderator, message) {
   const promotionState = async () => {
     if (!promotions) return null
@@ -306,7 +386,8 @@ async function adminPage ({
     corpus: search.documents.size,
     promotions: await promotionState(),
     claims: await claimState(),
-    feedback: await feedbackState()
+    feedback: await feedbackState(),
+    bundles: Boolean(bundleReader)
   })
 }
 

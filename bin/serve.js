@@ -10,6 +10,7 @@ import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
 import Feedback from '../src/contrib/Feedback.js'
+import BundleReader from '../src/contrib/BundleReader.js'
 import Promotions from '../src/catalogue/Promotions.js'
 import Billing from '../src/billing/Billing.js'
 import Submissions, { withProfileVocabulary } from '../src/contrib/Submissions.js'
@@ -140,6 +141,9 @@ const server = createServer({
   submittable,
   search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images, promotions, billing,
   feedback,
+  // Reading an LV2 bundle's Turtle at a moderator's request. Needs no
+  // configuration: the fetch defences are PageReader's and come with it.
+  bundleReader: new BundleReader(),
   wiki, publication, authProblem
 })
 server.listen(port, () => {
