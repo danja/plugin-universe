@@ -35,8 +35,13 @@ GET /health
 ```
 
 Facets are `format`, `category`, `role`, `vendor`, `source`, `pricing`,
-`licence` and `measured`. They filter and never re-rank. They work on
-`/plugins` as well as `/search`.
+`licence`, `measured`, `accepts` and `produces`. They filter and never re-rank.
+They work on `/plugins` as well as `/search`.
+
+`accepts` and `produces` are the signal types from the plugin profile — `Audio`,
+`Midi`, `ControlMidi` and the rest, as `/facets` lists them. They are what makes
+a chain answerable rather than just a catalogue: given something that produces
+MIDI, `/search?accepts=Midi` is the set of plugins that can follow it.
 
 **`/search` and `/plugins` answer in two languages.** JSON is the default —
 that is what these paths have always been, and a caller sending no `Accept`

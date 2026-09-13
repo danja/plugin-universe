@@ -25,8 +25,13 @@ stateless, no account, nothing to write.
 **`search_plugins`** — find plugins by what they *do*. Retrieval is hybrid: a
 semantic match over each plugin's description, parameters and category labels,
 fused with a lexical match on names and vendors. "Warm analogue bus compressor"
-works better than a product name. Facets — format, category, pricing, source —
-narrow the result set and never re-rank it.
+works better than a product name. Facets — format, category, pricing, source,
+accepts, produces — narrow the result set and never re-rank it.
+
+`accepts` and `produces` are the ones worth knowing about. They are signal
+types from the plugin profile, and they answer the question an agent building a
+signal chain actually has: take the `produces` of a plugin from `get_plugin`,
+pass it as `accepts`, and the result is the set of plugins that can follow it.
 
 **`get_plugin`** — the full record for one plugin: description, vendor, formats,
 parameters, licence, **where each fact came from and under what terms**, and any

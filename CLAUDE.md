@@ -23,10 +23,25 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
   `Lv2Bundle` (bundle reading, shared by the disk and API paths), `HttpSource` (polite
   fetching), `Normaliser` (where vocabulary defects are fixed), `PluginSerialiser`,
   `IngestPipeline`
-- `src/search/` — `SearchService` (hybrid retrieval), `LexicalIndex` (IDF-weighted lexical signal)
-- `src/api/` — `server.js` (routing, read-only JSON + HTML, content negotiation), `render.js`
-  (page assembly), `Templates.js` (the template loader), `serialise.js` (Turtle and JSON-LD),
-  `pages.js` (the prose whitelist), `body.js`
+- `src/search/` — `SearchService` (hybrid retrieval), `LexicalIndex` (IDF-weighted lexical
+  signal), `ranking.js` (fusion, the promotion re-rank, the sort orders), `facets.js`
+  (`FACET_PATTERNS`: facet name to graph pattern), `documents.js` (image and vendor fields)
+- `src/api/` — **one file per group of routes, and one per kind of page.** `server.js` is now
+  only the scaffolding: the method guard, the viewer, and the list of route modules it tries in
+  order. Each module answers `(context) => boolean` — true meaning it wrote the response — which
+  is the contract `src/wiki/routes.js` and `src/billing/routes.js` established.
+  - Routes: `catalogue-routes.js` (landing, search, browse, facets, vendors, categories, a
+    plugin IRI in four representations), `account-routes.js` (the three OAuth steps and
+    `/account`), `moderation-routes.js` (`/contributions` and the `/admin` console),
+    `meta-routes.js` (`/health`, `robots.txt`, the registry view, `/ns`, stored images), plus
+    `src/contrib/routes.js` (submit, correct, upload) and the wiki's and billing's own.
+  - Pages: `render.js` (the listings and the prose pages — **and the barrel that re-exports the
+    whole rendering surface**, so `import … from './render.js'` still works everywhere),
+    `render-plugin.js` (one plugin in full), `render-forms.js` (what a person fills in),
+    `page-shell.js` (layout, account bar, sidebar, pager, result row — no page of its own).
+  - The rest: `Templates.js` (the template loader), `serialise.js` (Turtle and JSON-LD),
+    `requests.js` (`FACET_NAMES`, negotiation, paging — pure functions over a request),
+    `pages.js` (the prose whitelist), `respond.js`, `body.js`
 - `templates/` — every page's HTML, plus `site.css`. Nothing else contains markup.
 - `src/wiki/` — `Wiki.js` (revisions), `markdown.js` (untrusted Markdown), `render.js`
 - `src/mcp/` — `server.js` (stateless Streamable HTTP), `tools.js` (the catalogue as tools)
@@ -113,6 +128,7 @@ complained, and each was found in production or by accident:
 | Wrote a house rule into CLAUDE.md | any test that checks it | "no inline SPARQL" reached 17 violations across 8 files before anyone counted |
 | Shipped a feature | the prose written around it | a caption reading "not copied here" on an image that is copied here; a disclosure promising a bound that changed an hour later |
 | Added `/plugin/<slug>/image`, writing `foaf:depiction` | `CORRECTABLE`, the whitelist that route writes through | every upload refused with "cannot be corrected"; 22 upload tests passed, none wrote the fact |
+| Harvested `trn:accepts`/`produces`/`requires` from Phase 0 | `plugin/text-view.sparql`, the one query every document is built from | 181 plugins declaring what they accept, on no page, in no result, reachable by no facet — and a form and a prose page recommending the fields before anything read one back |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
@@ -127,6 +143,16 @@ Specifically, before finishing a change, check:
   the write — which is the half that was broken, for as long as the route
   existed. The same check would have caught the relative IRI that RDF resolved
   into `http://server/...`.
+- **And which query reads it back?** `grep -rn 'trn:whatever' sparql/queries/`
+  takes a second and is the whole check. A predicate the harvesters write and no
+  query selects is invisible, and invisibility is not a state anything reports:
+  `trn:accepts`, `trn:produces` and `trn:requires` were written into 181, 189
+  and 57 plugins and selected by nothing, so the submission form gained those
+  fields and `/about/profiles` recommended them before one could be read back.
+  Adding a field to a form is not adding it to the system — the write path
+  (serialiser, shapes, vocabulary) is where a new term is *written*, and the
+  query, the document, the page, `FACET_NAMES` and the MCP schema are where it
+  is *used*, which is one step further than the write-path checklist reaches.
 - Does a SHACL shape enumerate what this code enumerates? And does **every**
   path that writes that property go through the normalisation — a harvester, a
   submission form and a correction form are three, and only the first went
@@ -254,6 +280,21 @@ change, and a long one rarely does.
   would have said nothing about the code.
 - The test suites are the safety net for this, so a refactor that needs its tests rewritten to
   pass is not a refactor. Move code, keep behaviour, and the existing tests should still hold.
+  **Keep the old module as the front door.** `render.js` re-exports the whole rendering surface
+  and `SearchService.js` re-exports the ranking, facet and document helpers, so not one of the
+  fifty-odd files importing from them had to change. A split that edits its callers is a
+  rewrite wearing a refactor's clothes.
+- **What does change is the guards that name a file.** Six tests read `src/api/server.js` by
+  path, and five went red the moment code left it — which is the good outcome, and only because
+  they assert on content rather than on a slice. Watch for `indexOf` returning -1: `slice(-1)`
+  is the *last character*, not the empty string, so a marker that has moved leaves a guard
+  asserting about a newline. A positive assertion catches it; `.not.toContain` passes for ever.
+  The guards that survived untouched — `linked-routes`, `templates`, `no-inline-sparql` — all
+  walk `src/` instead of naming a file, and the ones that broke now do too.
+- **A new way to declare a route is a new way for `linked-routes.test.js` to go blind.** It
+  knows five: a `case` label, a `PAGES`/`STATIC_FILES` key, `path === '/x'`, a member of a
+  `new Set([…])`, and a `const …_PATH =` constant. Adding a sixth means teaching it in the same
+  change, or working routes get reported as broken and broken ones stop being reported.
 
 ## Working rules
 - API keys are sacred. They must not be shared.
@@ -275,6 +316,14 @@ change, and a long one rarely does.
   HSTS, nosniff and Referrer-Policy or it silently serves without them — valid configuration,
   wrong behaviour. Likewise a `types` block replaces the mime map for that location.
 - Use the Read tool to read files, not `sed`/`cat`/`head`/`tail` via Bash. Bash tool calls require per-call user approval; Read does not.
+- **Before creating a file, list the directory it is going into.** `src/auth/routes.js` was
+  chosen as the name for a new route module and overwrote the `AuthRoutes` class that had been
+  there since sign-in was built — a name picked by reasoning about what the module *was*,
+  without asking what was already there. Recovered from `git show HEAD:<path>`, because it was
+  committed and because a test imported it; a module with neither would have gone quietly.
+- **Run the program after any change to imports, wiring or startup.** `npm test` does not.
+  `tests/store/server-starts.test.js` now spawns `bin/serve.js` and asks it for a page, which
+  is the only check that has ever caught a failure of this class — and it has caught two.
 - Log mistakes in MISTAKES.md (what happened, root cause, prevention).
 - Periodically review TODO.md and revise as necessary, and `docs/danja-todo.md` with it: TODO.md
   is what the project needs, danja-todo.md is what the user needs to do. An item that lands in

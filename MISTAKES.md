@@ -37,9 +37,15 @@ round trip, not on the operation returning.**
 **3. Data harvested but never shown, therefore never verified.**
 `foaf:homepage` was collected for 642 plugins, stored with the wrong node type,
 and displayed nowhere. Provenance sat in the graph, invisible. Every embedding
-contained `[object Object]`. All three had been in every ingest since the code
-was written, and all three were found within minutes of putting the values in
-front of a person. **Nothing checks a field that nothing reads.**
+contained `[object Object]`. `trn:accepts`, `trn:produces` and `trn:requires`
+were written by every harvester since Phase 0 into 181, 189 and 57 plugins, and
+the query that builds every document selected none of them — so the submission
+form gained those fields, and a page was written recommending them, before
+anything could read one back. All four had been in every ingest since the code
+was written, and all four were found within minutes of putting the values in
+front of a person. **Nothing checks a field that nothing reads** — and the
+check that costs a second is to ask, of a term in `vocabs/`, which query in
+`sparql/queries/` selects it.
 
 **4. Assumed a shape instead of looking at the data.**
 That a parameter default is a number — the corpus has floats, booleans and a
@@ -81,6 +87,162 @@ moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-13 — Wrote a new module over an existing one
+
+**What happened.** Breaking `src/api/server.js` up, I created a route module for
+signing in and the account page and called it `src/auth/routes.js`. That file
+already existed. It is the `AuthRoutes` class — the OAuth machinery that mints
+the state cookie, exchanges the code and turns a cookie into an account, i.e.
+the thing every one of those routes *calls*. 216 lines, tracked, and gone.
+
+It surfaced in seconds, because `tests/auth/routes.test.js` failed to load on
+the next run. The content came back out of `git show HEAD:src/auth/routes.js`
+and the file was restored byte for byte before anything else was done. Nothing
+was lost. It would have been a different morning had the file been uncommitted.
+
+**Root cause.** I chose a path by reasoning about what the module *was* — "these
+are the auth routes, so `src/auth/routes.js`" — and never asked whether anything
+was there. The reasoning was sound and the name was taken by something whose
+claim to it was better than mine. `ls src/auth/` would have settled it, and I
+had run `ls src/api/ src/contrib/ src/catalogue/` half an hour earlier for
+exactly this purpose and simply not included the directory I was about to write
+into.
+
+**Prevention.** **Before creating a file, look at the directory.** Not the
+repository, not from memory — the directory the file is going into, at the
+moment of writing it. This is cheap enough that there is no argument for
+skipping it, and the failure mode is silent destruction of somebody's work.
+
+Two things made the recovery easy and are worth keeping: the work was committed,
+and a test imported the file, so the damage announced itself on the next run
+rather than at deploy. A module with no test importing it would have been
+destroyed quietly.
+
+The new module is `src/api/account-routes.js`, which is also the better name:
+`src/auth/` is the machinery, `src/api/` is the HTTP layer over it.
+
+---
+
+## 2026-09-13 — 867 tests passed and the application would not start
+
+**What happened.** `src/api/server.js` went from 1247 lines to 298 by moving its
+routes into modules. Pruning the imports that were left over, I removed
+`renderLandingPage`, `renderSearchPage` and `renderBrowsePage` — which were
+still called, by the block at the top of `createServer` that renders one of each
+page *before the server listens*, so that a deployment missing `templates/`
+refuses to start rather than 500ing on every page a person can see.
+
+`node --check` passed. All 867 core tests passed. `node bin/serve.js` died with
+`renderLandingPage is not defined`.
+
+**Root cause.** Two, and the second is the one that matters.
+
+The immediate one: my unused-import detector stripped `export { … }` lines
+before looking for uses, so the five re-exported request helpers showed as
+unused — and having decided that list needed judgement rather than trust, I
+applied judgement to the rest of it too and got one wrong.
+
+The real one: **nothing in any suite starts the application.** Fifty-one test
+files exercise renderers, routes, validators and stores, and not one of them
+runs `bin/serve.js`. That is the same hole the `const submittable` temporal dead
+zone fell through a day earlier — declared at line 126, used at line 95, passed
+`node --check`, passed every test, killed the process. Twice now the units have
+all worked and the wiring has not, and the wiring is the file no test ran.
+
+**What was done.** `tests/store/server-starts.test.js` spawns `bin/serve.js` on
+its own port, waits for `/health`, and asks for one route from each route module
+plus a plugin IRI in all four representations. It is in the store suite because
+that is honest: the app needs Fuseki and a vector index to start at all, and a
+fake of either would test something other than the thing that broke. Reverting
+the import made it fail with the startup log attached, which is how a guard
+should be proven rather than assumed.
+
+**Prevention.** **A test suite that never starts the program is not testing the
+program.** Every project reaches a size where the wiring is its own component;
+this one reached it about three files ago. The check is cheap — spawn it, poll
+`/health`, ask for a page — and it is the only test here that would have caught
+either failure.
+
+And: **an unused-import check is a tool, not a verdict.** Re-exports, side-effect
+imports and types are all uses it cannot see. Run the program afterwards.
+
+---
+
+## 2026-09-12 — Harvested what a plugin does, and never read it back out
+
+**What happened.** `trn:accepts`, `trn:produces` and `trn:requires` have been
+written by every harvester since Phase 0. 181 plugins in the catalogue declare
+what they take in, 189 what they put out, 57 what they need from a host — and
+`sparql/queries/plugin/text-view.sparql`, which is the one query that builds
+the document behind every page, every facet and every API response, did not
+select any of them. The facts were in the store, on no page, in no result, and
+reachable by no query but a hand-written one.
+
+Nothing failed. There was no symptom to notice, because a fact nobody reads
+looks exactly like a fact nobody has.
+
+I then spent an increment adding those three fields to the submission form, and
+wrote a page telling vendors that `accepts` and `produces` "are the ones most
+worth your time" — which was a promise about a field that went into a store and
+stopped. The prose was written against the vocabulary rather than against the
+system, and the vocabulary was right.
+
+**Root cause.** Two of them, and the second is the one worth keeping.
+
+The first is pattern 3 again, for the fourth time: data harvested but never
+shown, therefore never verified. The write path was tested — `PluginSerialiser`
+emits the triples, `tests/rdf/shapes.test.js` proves the shapes fire on them.
+Nothing tested the read path, because there was no read path to test.
+
+The second: **adding a field to a form is not adding a field to the system.**
+The form, the shapes, the serialiser and the vocabulary all agreed. The query
+that reads it back was not on the list of things a new field touches, because
+it is not where a new field is *written* — it is where it is *used*, which is
+one step further than the checklist reaches. Same for `/facets`, the facet
+filter and the MCP tool.
+
+**What was done.** The three predicates joined the text view, the document, the
+plugin page, `FACET_NAMES` and the MCP tool's schema. Accepts and produces link
+to the opposite side of the join, so "what goes before this?" is a click.
+
+Two things beyond the fix, because the fix alone would not stop the next one:
+
+- `#filterConditions` was a chain of `if`s, one per facet, which is the same
+  two-lists shape one layer under `FACET_NAMES`: a facet could be named, read
+  off the request, and silently filtered by nothing. It is now `FACET_PATTERNS`,
+  a table, and `tests/search/facet-coverage.test.js` asserts its keys *are*
+  `FACET_NAMES`.
+- Putting the values on a page immediately showed two — `trn:AudioSidechain`
+  and `trn:MidiCC` — that plugins carried and `vocabs/trn-profile.ttl` did not
+  define, so the submission form could not offer them and they had no label. The
+  shapes admit any `trn:` IRI deliberately, so nothing had complained. Both are
+  now defined, and `tests/store/profile-vocabulary.test.js` asserts every signal
+  type the catalogue uses is a signal type the vocabulary describes.
+
+**Prevention.** The existing rule is "does a feature that persists something
+have a test that reads it back?" — written after image upload, and aimed at the
+*write*. This is its other half: **a predicate the harvesters write and no query
+selects is invisible, and invisibility is not a failure state anything reports.**
+The cheap check is to ask, of any term in `vocabs/`, which query reads it — and
+`grep` the query directory for it, which takes a second and would have found
+these three at any point in the last three months.
+
+A second thing learned by accident: **putting data in front of a person is
+itself a test.** Two undefined vocabulary terms surfaced within a minute of the
+values first reaching a page, after sitting unexamined through every harvest —
+and so did a third defect of the same family. Every `trn:` term on a plugin page
+was rendered as its local name: `ControlMidi`, `MidiGenerator`, `HostTransport`.
+`rdfs:label` has said "Control MIDI", "MIDI Generator" and "Host Transport"
+since Phase 0, the submission form had been reading those labels since the day
+before, and the page had never asked — so the form and the page described the
+same triple in two different spellings. `trn:role` had been on 713 plugin pages
+that way for the life of the project. Fixed by passing the *same filled field
+table the form is built from* to the renderer, rather than by reading the
+vocabulary twice: two readers of one file can still be handed different files,
+and one table cannot disagree with itself.
 
 ---
 

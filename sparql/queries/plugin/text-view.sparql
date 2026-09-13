@@ -14,6 +14,14 @@ SELECT ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?created ?licenc
        (GROUP_CONCAT(DISTINCT ?portName; separator=", ") AS ?parameters)
        (GROUP_CONCAT(DISTINCT ?altLabel; separator=", ") AS ?categoryAltLabels)
        (GROUP_CONCAT(DISTINCT ?caution; separator=" ") AS ?cautions)
+       # What a plugin takes in, puts out, and needs from its host. Written by
+       # every harvester since Phase 0 and by the submission form since the
+       # profile fields were added — and read by nothing until now, so 181
+       # plugins declared what they accept and 189 what they produce with no
+       # page showing it and no query reaching it.
+       (GROUP_CONCAT(DISTINCT ?acceptsLabel; separator=", ") AS ?accepts)
+       (GROUP_CONCAT(DISTINCT ?producesLabel; separator=", ") AS ?produces)
+       (GROUP_CONCAT(DISTINCT ?requiresLabel; separator=", ") AS ?requires)
        # Depictions are looked for in every graph, not only the one that
        # declares the plugin. An image uploaded here lands in the contributor's
        # own graph, and scoped to the plugin's graph it was invisible — the
@@ -43,6 +51,9 @@ WHERE {
     OPTIONAL { ?plugin pu:pricing ?pricing }
     OPTIONAL { ?plugin trn:role ?role      BIND(REPLACE(STR(?role), "^.*/", "") AS ?roleLabel) }
     OPTIONAL { ?plugin trn:format ?format  BIND(REPLACE(STR(?format), "^.*/", "") AS ?formatLabel) }
+    OPTIONAL { ?plugin trn:accepts ?acc    BIND(REPLACE(STR(?acc), "^.*/", "") AS ?acceptsLabel) }
+    OPTIONAL { ?plugin trn:produces ?pro   BIND(REPLACE(STR(?pro), "^.*/", "") AS ?producesLabel) }
+    OPTIONAL { ?plugin trn:requires ?req   BIND(REPLACE(STR(?req), "^.*/", "") AS ?requiresLabel) }
     OPTIONAL { ?plugin pu:category ?cat    BIND(REPLACE(STR(?cat), "^.*/", "") AS ?categoryLabel) }
     OPTIONAL { ?plugin pu:tag ?tag }
     OPTIONAL { ?plugin lv2:port ?port . ?port lv2:name ?portName }

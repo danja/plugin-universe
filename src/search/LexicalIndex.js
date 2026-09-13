@@ -54,6 +54,24 @@ export class LexicalIndex {
         ...(doc.categoryAltLabels ?? []).flatMap(tokenise),
         ...(doc.tags ?? []).flatMap(tokenise),
         ...(doc.parameters ?? []).flatMap(tokenise)
+        // `accepts` and `produces` are deliberately *not* here, having been
+        // tried and measured: recall@1 and recall@3 were 80% and 93% with them
+        // and 80% and 93% without, unchanged on every one of the fifteen
+        // fixture queries.
+        //
+        // The tokeniser says why. It splits on non-alphanumerics and does not
+        // break camel case, so `AudioSidechain` becomes "audiosidechain" and
+        // matches nobody's query for "sidechain". What these fields would
+        // actually contribute is "audio" and "midi" on 189 documents — the two
+        // highest-frequency, lowest-information tokens in the corpus. The
+        // question they answer is "what can follow this?", and that is a
+        // filter, answered precisely by `?accepts=` and `?produces=` rather
+        // than approximately by a word match.
+        //
+        // They are not in the composed text the embeddings are built from
+        // either, for the separate reason the category synonyms are not: a new
+        // field there invalidates every stored vector, and 645 re-embeddings is
+        // a real cost to set against a measured gain. There is none to set.
       ])
     }
   }

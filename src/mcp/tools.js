@@ -92,12 +92,18 @@ export function registerTools (server, { search, publication = null }) {
       category: z.string().describe('Category slug, e.g. reverb, compressor, synth. Use list_categories to see them.').optional(),
       pricing: z.string().describe('Free, Donationware, Freemium or Paid.').optional(),
       source: z.string().describe('OpenSource, SourceAvailable or Proprietary.').optional(),
+      // The chain facets. An agent asked "what should I put after this?" has no
+      // other way to ask it: the answer is a join between what one plugin
+      // produces and what another accepts, and it is the question this
+      // catalogue can answer that a list of plugin names cannot.
+      accepts: z.string().describe('Signal type the plugin takes in: Audio, Midi, ControlMidi. To find what can follow a plugin, pass what that plugin produces.').optional(),
+      produces: z.string().describe('Signal type the plugin puts out: Audio, Midi, ControlMidi. To find what can feed a plugin, pass what that plugin accepts.').optional(),
       limit: z.number().int().min(1).max(RETRIEVAL_CONFIG.maxPageSize).optional()
     }
   }, async ({ query, limit, ...facets }) => {
     const chosen = Object.fromEntries(Object.entries(facets).filter(([, value]) => value))
     if (!query && Object.keys(chosen).length === 0) {
-      return failure('Give a query, or at least one of format, category, pricing or source.')
+      return failure('Give a query, or at least one of format, category, pricing, source, accepts or produces.')
     }
     const size = limit ?? 10
     const outcome = query
@@ -133,6 +139,11 @@ export function registerTools (server, { search, publication = null }) {
       ...summarise(doc),
       tags: doc.tags ?? [],
       roles: doc.roles ?? [],
+      // What it takes, gives and needs. Pass `produces` back into
+      // search_plugins as `accepts` to find what can follow this plugin.
+      accepts: doc.accepts ?? [],
+      produces: doc.produces ?? [],
+      requires: doc.requires ?? [],
       parameters: doc.parameters ?? [],
       cautions: doc.cautions ?? null,
       firstSeen: doc.created ?? null,

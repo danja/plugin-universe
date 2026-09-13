@@ -77,15 +77,33 @@ const SERVER = routeSources()
  *  - a key of STATIC_FILES, likewise
  *  - `path === '/x'`, which is how a feature's own route module dispatches
  *    when it has two or three fixed paths and no switch of its own
+ *  - a member of a `new Set([…])` of paths, which is how a route module
+ *    decides whether a request is its business before doing any work
  *
- * That fourth was missing until the billing routes were added, and adding it
+ * The fourth was missing until the billing routes were added, and adding it
  * brought `/auth/login`, `/auth/callback` and `/auth/logout` under the guard
  * for the first time as a side effect — they had been declared that way since
  * sign-in was built and this test had never been able to see them.
+ *
+ * The fifth was missing until `server.js` was broken up and the account and
+ * moderation routes each gained a `PATHS` set. This reported `/admin` as a
+ * link to nothing within a minute of the move, which is the guard working:
+ * **a new way to declare a route is a new way for this to go blind**, so
+ * adding one means teaching it here in the same change.
  */
 const STATIC_ROUTES = new Set([
   ...[...SERVER.matchAll(/case '(\/[^']*)':/g)].map(match => match[1]),
   ...[...SERVER.matchAll(/path === '(\/[^']*)'/g)].map(match => match[1]),
+  // Every quoted path inside a `new Set([…])`. Deliberately not anchored to a
+  // particular variable name: a route table called something else is still a
+  // route table, and the cost of reading one too many is nil next to the cost
+  // of missing one.
+  ...[...SERVER.matchAll(/new Set\(\[([^\]]*)\]\)/g)]
+    .flatMap(match => [...match[1].matchAll(/'(\/[^']*)'/g)].map(inner => inner[1])),
+  // `const SUBMIT_PATH = '/submit'`, dispatched as `path === SUBMIT_PATH`. The
+  // `path === '/x'` form above only sees the literal, so naming the constant —
+  // which is the better code — took `/submit` out of this guard's sight.
+  ...[...SERVER.matchAll(/^(?:export )?const [A-Z_]*PATH = '(\/[^']*)'\s*$/gm)].map(match => match[1]),
   ...Object.keys(PAGES),
   ...Object.keys(STATIC_FILES)
 ])
@@ -95,10 +113,13 @@ const STATIC_ROUTES = new Set([
  * them, so this cannot drift from the dispatcher the way a second copy would.
  */
 const DYNAMIC_ROUTES = [
-  // `path.match(/…/)` in a router, and the exported `…_PATH` constants that a
-  // feature's own route module uses instead.
+  // `path.match(/…/)` in a router, and the `…_PATH` constants that a feature's
+  // own route module uses instead. `export` is optional: a module that keeps
+  // its own path pattern private is still declaring a route, and requiring the
+  // keyword hid `/plugin/<slug>/correct` and `/plugin/<slug>/image` the moment
+  // they moved into `src/contrib/routes.js`.
   ...[...SERVER.matchAll(/path\.match\((\/.*\/)\)\s*$/gm)].map(match => match[1]),
-  ...[...SERVER.matchAll(/^export const [A-Z_]*PATH = (\/.*\/)\s*$/gm)].map(match => match[1])
+  ...[...SERVER.matchAll(/^(?:export )?const [A-Z_]*PATH = (\/.*\/)\s*$/gm)].map(match => match[1])
 ].map(source => new RegExp(source.slice(1, -1)))
 
 /**
@@ -236,7 +257,12 @@ describe('the routes the site links to', () => {
     '/auth/callback': 'GitHub redirects to it',
     '/auth/login': 'reached from the sign-in link, which is built in the account bar',
     '/registry/plugins/index.json': 'a package manager reads it',
-    '/ns': 'linked as Vocabularies, and negotiated to JSON for machines'
+    '/ns': 'linked as Vocabularies, and negotiated to JSON for machines',
+    // Came into view when this guard learned to read a `const …_PATH = '/x'`
+    // declaration. It had been a route with no link since the MCP face was
+    // built, and rightly so: an agent reaches it at mcp.plugin-universe.com,
+    // and /services gives that absolute URL rather than a relative link.
+    '/mcp': 'the agent endpoint, on its own subdomain; /services gives its absolute URL'
   })
 
   it('gives every fixed route something that links to it', () => {

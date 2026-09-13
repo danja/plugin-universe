@@ -14,6 +14,27 @@ import { IMAGE_CONFIG } from '../../config/preferences.js'
  * file is already in memory.
  */
 
+
+/**
+ * Every route module's source, concatenated.
+ *
+ * These guards named `src/api/server.js` until the routes were split across
+ * `src/contrib/routes.js` and the rest, and they went red on the move. Walking
+ * the directory is what the guards that survived it do.
+ */
+function routeSource () {
+  const files = []
+  const walk = dir => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${entry.name}`
+      if (entry.isDirectory()) walk(full)
+      else if (entry.name.endsWith('.js')) files.push(full)
+    }
+  }
+  walk('src')
+  return files.map(file => fs.readFileSync(file, 'utf8')).join('\n')
+}
+
 const PNG = Buffer.concat([
   Buffer.from('89504e470d0a1a0a', 'hex'),
   Buffer.from('0000000d49484452', 'hex'),
@@ -225,20 +246,31 @@ describe('reading an upload', () => {
  * moderation queue that could only be opened by typing its URL.
  */
 describe('reaching the upload form', () => {
-  const source = () => fs.readFileSync('src/api/server.js', 'utf8')
+  /**
+   * The GET branch that renders a plugin page for a reader.
+   *
+   * This sliced from `const match = path.match(/^\\/plugin\\/…` until that route
+   * moved into `src/api/catalogue-routes.js` and became a named constant. Note
+   * what `indexOf` returning -1 does to `slice`: it takes the **last
+   * character**, so the guard was left asserting about a single newline rather
+   * than about nothing. A positive assertion catches that; a `.not.toContain`
+   * would have passed and gone on passing. Hence the emptiness check below.
+   */
+  const pluginPageBranch = () => {
+    const server = routeSource()
+    const at = server.indexOf('async function pluginPage')
+    expect(at, 'the plugin page route was not found in src/ at all').toBeGreaterThan(-1)
+    return server.slice(at)
+  }
 
   it('is offered on a plugin page, not only inside the POST that handles it', () => {
-    const server = source()
-    // The GET branch that renders a plugin page for a reader.
-    const view = server.slice(server.indexOf("const match = path.match(/^\\/plugin\\/([A-Za-z0-9-]+?)"))
-    expect(view, 'the plugin page never sets mayUploadImage, so the form never appears')
+    expect(pluginPageBranch(), 'the plugin page never sets mayUploadImage, so the form never appears')
       .toContain('mayUploadImage')
   })
 
   it('is offered on the strength of trust, not of being signed in', () => {
-    const server = source()
-    const view = server.slice(server.indexOf("const match = path.match(/^\\/plugin\\/([A-Za-z0-9-]+?)"))
-    const clause = view.slice(view.indexOf('mayUploadImage'), view.indexOf('mayUploadImage') + 300)
+    const view = pluginPageBranch()
+    const clause = view.slice(view.indexOf('mayUploadImage'), view.indexOf('mayUploadImage') + 500)
     expect(clause).toContain('TRUSTED')
     expect(clause).toContain('MODERATOR')
   })
@@ -294,7 +326,10 @@ describe('a stored image becomes a fact about a plugin', () => {
     // The two ends of the bug. The route names a predicate; CORRECTABLE decides
     // what may be named. They are bound here so that renaming either fails.
     const { CORRECTABLE } = await import('../../src/contrib/Corrections.js')
-    const server = fs.readFileSync('src/api/server.js', 'utf8')
+    // Read from wherever the upload route lives. It was `src/api/server.js`
+    // until that file was broken up; a guard that names a file goes blind when
+    // the code moves, which is the failure this whole test file is about.
+    const server = routeSource()
     const sent = server.match(/predicate: `\$\{NAMESPACES\.foaf\}(\w+)`/)
     expect(sent, 'the upload route no longer names a foaf predicate').toBeTruthy()
     const { NAMESPACES } = await import('../../src/rdf/NamespaceManager.js')

@@ -111,10 +111,17 @@ describe('the plugin page', () => {
  */
 describe('the landing page glimpse', () => {
   it('asks the search service for plugins with an image', async () => {
+    // Read from wherever the landing route lives: it was `case '/':` in
+    // `src/api/server.js` until that file was split, and a slice between two
+    // markers that no longer exist asserts about an empty string rather than
+    // about the code. Hence the bounds check before the assertion.
     const { default: fs } = await import('fs')
-    const server = fs.readFileSync('src/api/server.js', 'utf8')
-    const root = server.slice(server.indexOf("case '/':"), server.indexOf("case '/health':"))
-    expect(root).toContain('hasImage: true')
+    const source = fs.readFileSync('src/api/catalogue-routes.js', 'utf8')
+    const from = source.indexOf('async function landing')
+    const to = source.indexOf('async function searchRoute')
+    expect(from, 'the landing route was not found').toBeGreaterThan(-1)
+    expect(to).toBeGreaterThan(from)
+    expect(source.slice(from, to)).toContain('hasImage: true')
   })
 
   it('makes no claim about ordering, because the dates cannot support one', async () => {

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
-import { SUBMITTABLE, withProfileVocabulary, validate, valueTerm, SubmissionError } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, withProfileVocabulary, validate, valueTerm, profileLabels, SubmissionError } from '../../src/contrib/Submissions.js'
 import { FIELD_KINDS } from '../../src/contrib/Corrections.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
-import { renderSubmitPage } from '../../src/api/render.js'
+import { renderSubmitPage, renderPluginPage } from '../../src/api/render.js'
 import { PAGES } from '../../src/api/pages.js'
 
 /**
@@ -154,5 +154,79 @@ describe('the page that explains why any of it is worth doing', () => {
     const page = readFileSync('docs/profiles.md', 'utf8')
     expect(page).toMatch(/CC0/)
     expect(page).toMatch(/CC BY-SA/)
+  })
+})
+
+/**
+ * The other end of the same binding: a term a vendor *ticked* on the form, read
+ * back on the plugin page.
+ *
+ * `trn:ControlMidi` has carried `rdfs:label "Control MIDI"` since Phase 0 and
+ * the plugin page had never asked, so it rendered the local name — the form
+ * said "Control MIDI" and the page said "ControlMidi" about the same triple.
+ * The labels here therefore come from the *filled field table the form is built
+ * from* rather than from a second read of the vocabulary: two readers of one
+ * file can still be given different files, and one table cannot disagree with
+ * itself.
+ */
+describe('a term is spelled the same way on the form and on the page', () => {
+  const labels = profileLabels(FIELDS)
+
+  it('knows every profile term the form can offer', () => {
+    // Profile fields only. `format` is a plain choice list with no ontology
+    // behind it, and "VST3" is already how a person writes VST3 — a label for
+    // it would be a label for its own sake.
+    const offered = Object.values(FIELDS)
+      .filter(spec => spec.kind === 'profileTerm')
+      .flatMap(spec => spec.choices)
+    expect(offered.length).toBeGreaterThan(15)
+    for (const value of offered) {
+      expect(labels.has(value), `${value} can be ticked and has no label`).toBe(true)
+    }
+  })
+
+  it('takes the label from the ontology rather than the local name', () => {
+    // The two that made the defect visible. Deriving these from the local name
+    // gives "ControlMidi" and "MidiGenerator"; only rdfs:label gives the
+    // capitalisation a reader expects of an acronym.
+    expect(labels.get('ControlMidi')).toBe('Control MIDI')
+    expect(labels.get('MidiGenerator')).toBe('MIDI Generator')
+    expect(labels.get('HostTransport')).toBe('Host Transport')
+  })
+
+  it('shows the label and keeps the local name in the link', () => {
+    // Both halves, because getting one right is what makes the other's failure
+    // silent: a page showing "Control MIDI" and linking to `?produces=Control
+    // MIDI` would read correctly and resolve to nothing.
+    const page = renderPluginPage({
+      iri: `${NAMESPACES.pu}plugin/x-00000000`,
+      name: 'X',
+      roles: ['MidiGenerator'],
+      accepts: [],
+      produces: ['ControlMidi'],
+      requires: ['HostTransport'],
+      formats: [], categories: [], tags: [], parameters: [], sameAs: [], cautions: null
+    }, {}, null, null, '', { labels })
+
+    expect(page).toContain('>Control MIDI</a>')
+    expect(page).toContain('/?accepts=ControlMidi')
+    expect(page).toContain('>MIDI Generator</a>')
+    expect(page).toContain('/?role=MidiGenerator')
+    // Not a link, so plain text — but still the label.
+    expect(page).toContain('Host Transport')
+    expect(page).not.toContain('>ControlMidi<')
+  })
+
+  it('falls back to the local name for a term the vocabulary does not describe', () => {
+    // The same policy as an unlabelled measurement metric: the fact is the
+    // point, and a missing label is a gap in vocabs/ to report rather than a
+    // value to hide. This is what the page did for *every* term until now.
+    const page = renderPluginPage({
+      iri: `${NAMESPACES.pu}plugin/x-00000000`,
+      name: 'X',
+      roles: [], accepts: [], produces: ['NotInTheVocabulary'], requires: [],
+      formats: [], categories: [], tags: [], parameters: [], sameAs: [], cautions: null
+    }, {}, null, null, '', { labels })
+    expect(page).toContain('>NotInTheVocabulary</a>')
   })
 })

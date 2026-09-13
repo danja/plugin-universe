@@ -38,6 +38,16 @@ trn:HarmonyMidi   a owl:NamedIndividual ; rdfs:label "Harmony MIDI" .
 trn:MultiPartMidi a owl:NamedIndividual ; rdfs:label "Multi-part MIDI" .
 trn:ControlMidi   a owl:NamedIndividual ; rdfs:label "Control MIDI" ;
     rdfs:comment "MIDI CCs and scene notes used to reshape other generators rather than to produce musical content directly." .
+## These two were in the catalogue before they were in this file: hand-written
+## downspout profiles used them, the shapes admit any trn: IRI so ingest kept
+## them, and nothing compared the two. The consequence was invisible until the
+## signal types reached a page — a plugin could declare a sidechain input that
+## no submission form could offer and no label could name.
+## tests/store/profile-vocabulary.test.js now binds the file to the data.
+trn:AudioSidechain a owl:NamedIndividual ; rdfs:label "Audio Sidechain" ;
+    rdfs:comment "A second audio input used to control processing of the first — the key input of a compressor or gate — rather than to be heard." .
+trn:MidiCC        a owl:NamedIndividual ; rdfs:label "MIDI CC" ;
+    rdfs:comment "MIDI continuous controller messages alone, without note data. Narrower than Control MIDI, which also covers scene notes." .
 
 ## Host requirement instances
 trn:HostTransport a owl:NamedIndividual ; rdfs:label "Host Transport" ;

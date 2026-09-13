@@ -174,6 +174,32 @@ export function withProfileVocabulary (vocabulary) {
   ))
 }
 
+/**
+ * What each profile term is called, for the pages that display one.
+ *
+ * Built from the same filled field table the form is built from, rather than
+ * from a second read of the vocabulary — so a vendor who ticks "Control MIDI"
+ * on `/submit` sees "Control MIDI" on the plugin page afterwards, and the two
+ * cannot come to disagree. `trn:ControlMidi` rendered as "ControlMidi" was the
+ * defect: `rdfs:label` had said "Control MIDI" since Phase 0 and the page had
+ * never asked.
+ *
+ * The *token* stays the local name everywhere it is a key — the `?role=` in a
+ * URL, the value in JSON, what the lexical index tokenises. Only the text a
+ * person reads changes, which is why this is a lookup at render time and not a
+ * different value on the document.
+ *
+ * @param {object} submittable - a field table from `withProfileVocabulary`
+ * @returns {Map<string, string>} local name to label
+ */
+export function profileLabels (submittable) {
+  const labels = new Map()
+  for (const spec of Object.values(submittable)) {
+    for (const term of spec.terms ?? []) labels.set(term.value, term.label)
+  }
+  return labels
+}
+
 /** The object term a submitted value becomes, by kind. */
 export function valueTerm (kind, value) {
   if (kind === 'url') return iri(value)

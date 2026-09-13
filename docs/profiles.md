@@ -36,11 +36,19 @@ than a guess.
 usually both an *Instrument* and an *Audio Instrument*, and a utility that also
 shapes MIDI is both.
 
-**Accepts and produces.** What goes in and what comes out — audio, MIDI, or one
-of the more specific MIDI kinds where that is meaningful. *Control MIDI* means
-CCs and scene notes used to reshape another generator rather than to play
-notes. These two fields are what make a chain suggestable, and they are the
-ones most worth your time.
+**Accepts and produces.** What goes in and what comes out — audio, an audio
+sidechain, MIDI, or one of the more specific MIDI kinds where that is
+meaningful. *Control MIDI* means CCs and scene notes used to reshape another
+generator rather than to play notes.
+
+These two are the ones most worth your time, and here is what they buy. They
+appear on your plugin's page as links, each pointing at the *other* side of the
+join: what your plugin accepts links to everything that produces it, so a
+reader lands on "what can I put before this?" already answered. They are also
+filters — `/?accepts=Midi` is the list of plugins that can follow a MIDI
+generator — and the agent-facing API exposes them for the same purpose, which
+is how a tool asked to assemble a chain does it. None of that is possible from
+a name and a description.
 
 **Requires.** Anything it needs from the host or from hardware. *Host
 Transport* means it needs tempo and beat position; a plugin that free-runs does

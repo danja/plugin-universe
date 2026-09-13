@@ -138,10 +138,16 @@ pu:PluginShape a sh:NodeShape ;
     ##
     ## Constrained to the namespace rather than enumerated. The individuals live
     ## in vocabs/trn-profile.ttl and the submission form reads them from there,
-    ## so an sh:in list here would be a third copy of one list; harvested data
-    ## also carries terms the vocabulary has not caught up with — AudioSidechain
-    ## and MidiCC are in the store and not in the file — and rejecting those on
-    ## ingest would lose a fact rather than fix one.
+    ## so an sh:in list here would be a third copy of one list.
+    ##
+    ## It is also the looser constraint on purpose. Harvested data has twice
+    ## carried a term the vocabulary had not caught up with — AudioSidechain and
+    ## MidiCC, both now defined — and refusing those at ingest would have lost a
+    ## fact rather than fixed one. The gap is closed by
+    ## tests/store/profile-vocabulary.test.js, which fails when the catalogue
+    ## uses a signal type this file does not define: a report rather than a
+    ## refusal, which is the right severity for somebody else's vocabulary
+    ## moving faster than ours.
     sh:property [
         sh:path trn:accepts ;
         sh:nodeKind sh:IRI ;

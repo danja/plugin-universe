@@ -75,6 +75,18 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   `/about`, which nobody has re-read since the site gained measurements, vendors, promotion and
   a wiki.
 
+- [ ] **Read `/about/profiles` as a plugin author would**, and fill one in for one of your own.
+  `/submit` now asks for roles, what a plugin accepts and produces, what it requires of the host
+  and any caution worth stating — the fields the fifty downspout profiles already carry — and
+  that page is what has to persuade a stranger those fields are worth their ten minutes. It
+  makes one promise I have not built yet: *"send us the URL of your bundle or your repository"*
+  for ports and parameters. Nothing acts on that today. If you would rather not advertise it
+  until it works, say so and I will cut the sentence; it is in `docs/profiles.md`.
+
+  Worth doing on a real plugin of yours rather than reading it cold — you are the only person
+  who can say whether the vocabulary's own labels ("Control MIDI", "Host Transport") mean
+  anything to someone who has not read the ontology.
+
 - [ ] **Try the site with the keyboard alone**, before you announce. Tab from the top: the
   first stop should be "Skip to content", which was not there until now. Everything focusable
   should show a visible ring in both light and dark. If anything traps focus or hides it, that

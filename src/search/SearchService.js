@@ -1,5 +1,5 @@
-import { RETRIEVAL_CONFIG, PROMOTION_CONFIG } from '../../config/preferences.js'
-import { iri, literal } from '../store/SPARQLHelper.js'
+import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
+import { iri } from '../store/SPARQLHelper.js'
 import QueryService from '../store/QueryService.js'
 import GraphRegistry from '../store/GraphRegistry.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
@@ -34,210 +34,15 @@ export class SearchError extends Error {
     this.name = 'SearchError'
   }
 }
-
-/**
- * Combine the two scoring signals into one.
- *
- * Kept as a free function so the retrieval regression suite can measure the
- * fusion policy directly, on the same code the service runs, without standing
- * up a store.
- */
-export function fuse (lexical, vector) {
-  return lexical * RETRIEVAL_CONFIG.lexicalWeight + vector * RETRIEVAL_CONFIG.vectorWeight
-}
-
-/**
- * Paid placement, applied to an already-ranked list.
- *
- * A re-rank after retrieval, never a filter and never an insertion —
- * `docs/architecture.md` §7: *a promoted result may be boosted but never
- * inserted where it does not match the query*. Everything here exists to keep
- * that sentence true, and each guard is separately load-bearing:
- *
- *  1. **It only boosts what retrieval already returned.** The list in is the
- *     list out, reordered. Nothing is added, so nothing can appear in a search
- *     it did not match.
- *  2. **A multiplier, not an addition.** Anything times 1.25 is still nothing,
- *     so the boost cannot manufacture relevance out of a zero score.
- *  3. **A floor.** Scoring above zero is a low bar — one weak token in a
- *     description clears it. `floor` is the "moderate match" bar the boost
- *     needs to be worth applying at all, and below it a promoted plugin ranks
- *     exactly as it would unpromoted.
- *  4. **A rank cap**, `maxPromotedRank`, which is currently 1 — a placement may
- *     reach first place. It is the weakest of the four and always was: what
- *     keeps a search trustworthy is that a paid result cannot appear where it
- *     does not belong, not which position it takes among results that do.
- *  5. **A count cap.** At most `maxPromotedPerPage` placements in one page, and
- *     at most `maxPromotedPerVendor` of them from any one vendor. The second
- *     exists because a Pro subscription allows promoting every plugin a vendor
- *     owns, and the largest vendors here have thirty to fifty — without it one
- *     subscription would hold both slots on every search it matched.
- *
- * Reaching first place is *permitted*, not bought outright: the boost is a
- * multiplier, so a substantially better match still wins. A placement scoring
- * 0.6 against a 1.4 match goes to 0.75 and stays second.
- *
- * Every result the boost touched is flagged `promoted`, which is what the label
- * on the page and the field in the JSON are rendered from. A boost that were
- * ever applied without that flag would be an undisclosed ad.
- *
- * @param {object[]} ranked - results sorted best-first, each with `score`
- * @param {Map<string, object>} promoted - live placements by plugin IRI
- * @returns {object[]} the same results, reordered, some flagged
- */
-export function applyPromotion (ranked, promoted, config = PROMOTION_CONFIG) {
-  if (!promoted || promoted.size === 0) return ranked
-
-  let placed = 0
-  // How many slots each vendor has taken. Keyed by the same folded vendor key
-  // the vendor pages group on, so two spellings of one name are one vendor.
-  const byVendor = new Map()
-  const boosted = ranked.map((result, earnedRank) => {
-    const placement = promoted.get(result.iri)
-    // `earnedRank` is where retrieval put it, before any money. Kept on every
-    // result because guard 4 needs to tell a place that was bought from a place
-    // that was won.
-    if (!placement) return { ...result, earnedRank }
-    // Guard 3: below the floor a placement buys nothing at all.
-    if (result.score < config.floor) return { ...result, earnedRank }
-    // Guard 5, in two parts: how much of the page is paid for, and how much of
-    // that any one payer may hold.
-    if (placed >= config.maxPromotedPerPage) return { ...result, earnedRank }
-    // A result with no vendor is nobody's, so it is capped by the page limit
-    // alone rather than sharing an "unknown vendor" allowance with others.
-    const vendor = result.vendorSlug ?? null
-    if (vendor !== null && (byVendor.get(vendor) ?? 0) >= config.maxPromotedPerVendor) {
-      return { ...result, earnedRank }
-    }
-    if (vendor !== null) byVendor.set(vendor, (byVendor.get(vendor) ?? 0) + 1)
-    placed += 1
-    return {
-      ...result,
-      earnedRank,
-      score: result.score * config.boostFactor,
-      promoted: true,
-      promotedUntil: placement.endsAt ?? null,
-      signals: { ...result.signals, unpromotedScore: result.score }
-    }
-  })
-
-  boosted.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-
-  // Guard 4, applied last because it is about position rather than score.
-  //
-  // At the current setting of 1 this loop does not run: no position is reserved
-  // and a placement may reach first. The code stays because the cap is a
-  // published number that may be raised, and because the rule it encodes is the
-  // subtle one — the reserved places are protected from being *bought*, not
-  // barred to promoted plugins. A plugin that was already the best answer keeps
-  // first place whatever the cap: demoting it for having paid would make
-  // promotion harmful to the thing being promoted, which is a strange thing to
-  // have sold. So a result is moved down only out of a place better than the
-  // one it earned, and whoever earned it comes up.
-  const cap = Math.max(1, config.maxPromotedRank)
-  for (let i = 0; i < Math.min(cap - 1, boosted.length); i++) {
-    const here = boosted[i]
-    if (!here.promoted || here.earnedRank <= i) continue
-    const swapWith = boosted.findIndex((result, j) => j > i && !result.promoted)
-    if (swapWith === -1) break
-    const [displaced] = boosted.splice(swapWith, 1)
-    boosted.splice(i, 0, displaced)
-  }
-  return boosted
-}
-
-/** Alphabetical, the default order for a browse. */
-export function byName (a, b) {
-  return a.name.localeCompare(b.name)
-}
-
-/**
- * Most recently added first, ties broken by name.
- *
- * A plugin with no `dcterms:created` sorts **last**. An absent date means the
- * plugin was harvested before the catalogue recorded dates, which is the
- * opposite of new; treating it as `now` — or as the epoch and reversing —
- * would put the entire pre-existing corpus at the top of a list titled
- * "recently added". Dates are xsd:dateTime strings, which sort correctly as
- * strings, so no parsing is needed to compare two of them.
- */
-export function byRecency (a, b) {
-  if (a.created && b.created) return b.created.localeCompare(a.created) || byName(a, b)
-  if (a.created) return -1
-  if (b.created) return 1
-  return byName(a, b)
-}
-
-/**
- * Which depiction to show, of however many a plugin has.
- *
- * A plugin can carry a harvested image and an uploaded one. The uploaded one
- * wins: somebody went to the trouble because the harvested one was missing,
- * wrong or gone, and it is served from this origin — so it cannot 404 on a
- * third party's reorganisation, and a reader's browser fetches nothing from
- * anywhere else to see it.
- */
-export function pickImage (images, origin = '') {
-  if (!images) return null
-  const candidates = String(images).split(' ').filter(Boolean)
-  if (candidates.length === 0) return null
-  const local = candidates.find(url => isLocalImage(url, origin))
-  return local ?? candidates[0]
-}
-
-/**
- * Is this depiction one the catalogue itself stores?
- *
- * Decided here, where the origin is known, and carried on the document — the
- * renderer has no origin and would have to be given one to work it out again.
- * It changes what a reader is told: an image served from here *is* copied here,
- * and the caption saying it was not is then simply false.
- */
-export function isLocalImage (url, origin = '') {
-  return Boolean(origin) && typeof url === 'string' && url.startsWith(`${origin}/image/`)
-}
-
-/**
- * A vendor's name as it appears in a URL: lower case, hyphen-separated.
- *
- * Readable, because a person reads it — `/vendor/chowdhury-dsp` says who it is
- * and `/vendor/chowdhurydsp` makes them guess.
- */
-export function vendorSlug (name) {
-  return String(name ?? '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-/**
- * The key two spellings of one vendor have in common.
- *
- * Stricter than the slug: punctuation and spacing are dropped rather than
- * turned into hyphens, so "SFZ Tools" and "SFZTools" land on `sfztools` and are
- * recognised as one vendor. Slugging alone keeps them apart, which is why there
- * are two functions — the URL wants the separators and the grouping does not.
- *
- * Of 365 vendor strings in the catalogue this merges exactly two pairs, both of
- * them genuine: "SFZ Tools"/"SFZTools" and "olegkapitonov"/"Oleg Kapitonov".
- *
- * **It is a grouping, not an identity**, and the difference is the whole of why
- * a paid vendor profile is not simply this with an edit button. "danja" and
- * "Danny Ayers" are one person and 86 plugins, and nothing derivable from the
- * strings will ever say so; a vendor who renames gets a new key and loses
- * whatever was attached to the old one. A profile somebody pays for needs a
- * minted IRI that names point at, rather than a key computed from a name — see
- * the note in TODO.md.
- */
-export function vendorKey (name) {
-  return String(name ?? '')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
-}
+// The scoring, facet and document-shape policies, split out when this file
+// passed 780 lines. Re-exported because they were part of this module's
+// surface before the split and are imported from here by the routes, the
+// retrieval regression suite and a dozen other tests.
+import { FACET_PATTERNS } from './facets.js'
+import { fuse, applyPromotion, byName, byRecency } from './ranking.js'
+import { pickImage, isLocalImage, vendorSlug, vendorKey } from './documents.js'
+export { FACET_PATTERNS, fuse, applyPromotion, byName, byRecency }
+export { pickImage, isLocalImage, vendorSlug, vendorKey }
 
 export class SearchService {
   /**
@@ -382,6 +187,14 @@ export class SearchService {
       vendor: row.vendor ?? null,
       description: row.description ?? null,
       roles: row.roles ? row.roles.split(', ').filter(Boolean) : [],
+      // The behavioural half of a profile: what goes in, what comes out, and
+      // what the host has to provide. These are what make "what should I put
+      // before this?" answerable, which is the question a list of names cannot
+      // answer at all — and they were being harvested into the store and read
+      // by nothing.
+      accepts: row.accepts ? row.accepts.split(', ').filter(Boolean) : [],
+      produces: row.produces ? row.produces.split(', ').filter(Boolean) : [],
+      requires: row.requires ? row.requires.split(', ').filter(Boolean) : [],
       categories: row.categories ? row.categories.split(', ').filter(Boolean) : [],
       // Synonyms for the plugin's categories. Searched, not displayed: they
       // exist so that a person typing "echo" finds a delay.
@@ -453,30 +266,18 @@ export class SearchService {
    * Build the SPARQL conditions for a facet filter.
    * @returns {string|null} null when no facets were requested
    */
-  #filterConditions ({ format, role, category, vendor, source, pricing, licence, measured }) {
+  #filterConditions (facets) {
     const conditions = []
-    // Properties of the plugin, in the graph the plugin came from. `?g` is
-    // bound by the query, so reusing it here is what keeps a facet from
-    // matching across two sources by accident.
-    const own = pattern => conditions.push(`GRAPH ?g { ${pattern} }`)
-    if (format) own(`?plugin ${iri(NAMESPACES.trn + 'format')} ${iri(NAMESPACES.trn + format)}`)
-    if (role) own(`?plugin ${iri(NAMESPACES.trn + 'role')} ${iri(NAMESPACES.trn + role)}`)
-    if (category) own(`?plugin ${iri(NAMESPACES.pu + 'category')} ${iri(`${NAMESPACES.pu}category/${category}`)}`)
-    if (vendor) own(`?plugin ${iri(NAMESPACES.trn + 'vendor')} ${literal(vendor)}`)
-    // The availability facets. Values are local names of pu: individuals —
-    // OpenSource, Free — so a URL reads as a question rather than an IRI.
-    if (source) own(`?plugin ${iri(NAMESPACES.pu + 'sourceAvailability')} ${iri(NAMESPACES.pu + source)}`)
-    if (pricing) own(`?plugin ${iri(NAMESPACES.pu + 'pricing')} ${iri(NAMESPACES.pu + pricing)}`)
-    if (licence) own(`?plugin ${iri(NAMESPACES.pu + 'licenceId')} ${literal(licence)}`)
-    // A verdict from the profiler, which lives in its own run graph and not in
-    // the plugin's. A plugin measured twice matches if any run says so; which
-    // reading is shown on the page is a separate question, and that one is the
-    // newest.
-    if (measured) {
-      conditions.push(
-        `GRAPH ?measurements { ?measurement ${iri(NAMESPACES.pu + 'subject')} ?plugin ; ` +
-        `${iri(NAMESPACES.pu + 'metric')} ${iri(NAMESPACES.pu + 'ValidationResult')} ; ` +
-        `${iri(NAMESPACES.pu + 'value')} ${literal(measured)} }`)
+    for (const [name, value] of Object.entries(facets)) {
+      if (!value) continue
+      // A facet named in FACET_NAMES with no entry here would have been read
+      // off the request and then quietly ignored — which is precisely what
+      // `/plugins` did with `?category=` for as long as the list was copied.
+      // `tests/search/facet-coverage.test.js` binds the two, so this throw is
+      // the belt to that test's braces rather than the only guard.
+      const build = FACET_PATTERNS[name]
+      if (!build) throw new SearchError(`No filter is defined for the ${name} facet`)
+      conditions.push(build(value))
     }
     return conditions.length ? conditions.join('\n  ') : null
   }

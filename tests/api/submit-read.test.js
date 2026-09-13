@@ -102,13 +102,34 @@ describe('what a draft looks like on the page', () => {
 })
 
 describe('the gate is a control, not a hidden button', () => {
-  const server = fs.readFileSync('src/api/server.js', 'utf8')
+  /**
+   * The route source, wherever it lives.
+   *
+   * This named `src/api/server.js` until the submission routes moved to
+   * `src/contrib/routes.js`, at which point all three of these went red — the
+   * good outcome, and only because they assert on *content* rather than on a
+   * slice that would have quietly matched nothing. Walking `src/` is what the
+   * guards that survived the move do, so these do it too.
+   */
+  const server = (() => {
+    const files = []
+    const walk = dir => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = `${dir}/${entry.name}`
+        if (entry.isDirectory()) walk(full)
+        else if (entry.name.endsWith('.js')) files.push(full)
+      }
+    }
+    walk('src')
+    return files.map(file => fs.readFileSync(file, 'utf8')).join('\n')
+  })()
 
   it('refuses a read that arrives without the form having been drawn', () => {
     // Hiding the form is a decision about a page. Somebody can still POST
     // read=1, so the route checks trust itself.
     const branch = server.slice(server.indexOf("if (form.get('read'))"))
-    const body = branch.slice(0, branch.indexOf('\n          }\n'))
+    const body = branch.slice(0, branch.indexOf('\n  }\n'))
+    expect(body, 'the read branch was not found at all').not.toBe('')
     expect(body).toContain('mayRead')
     expect(body).toMatch(/403/)
   })

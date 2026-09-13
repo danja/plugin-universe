@@ -74,48 +74,31 @@ machine that made it to the one that serves.
   leaves a plugin findable lexically and invisible to semantic search, with a line in the log
   and nothing else. `/health` reports both numbers and nothing compares them. Worth reporting an
   embedding failure to the moderator who caused it, and worth a check that the two agree.
-* **A vendor-facing form for a full plugin profile, and a page explaining why it is worth
-  filling in.** `/submit` exists and captures seven fields — name, homepage, vendor,
-  description, formats, category, licence — which is the right amount to ask of a stranger
-  adding somebody else's plugin. It is nowhere near what the *author* of a plugin knows, and
-  the vocabulary has carried the rest since Phase 0: the fifty hand-written downspout profiles
-  use `trn:role` (50), `trn:produces` (50), `trn:accepts` (47), `trn:requires` (26),
-  `trn:ccMapping` (21), `trn:caution` (15) and `trn:recommendedBefore` (14). None of that can
-  be supplied through the site today.
+* **The profile form is built; two of its fields are not.** *2026-09-12:* `/submit` grew from
+  seven fields to twelve — `trn:role`, `trn:accepts`, `trn:produces`, `trn:requires` and
+  `trn:caution` alongside the original name, homepage, vendor, description, formats, category
+  and licence — and `/about/profiles` explains what each is for and why it is worth the
+  trouble. One form, not two, so `SUBMITTABLE`, the shapes and the serialiser still cannot
+  drift apart.
 
-  **Grow the one form rather than add a second.** Two forms writing the same predicates would
-  be two lists to keep in step with `SUBMITTABLE`, the shapes and the serialiser — the failure
-  this project has shipped more than any other. The natural shape is one form with a second
-  section that a vendor opens and a passer-by ignores, built from the same field table so the
-  validator, the triples and the markup still cannot drift.
+  The choices are read from `vocabs/trn-profile.ttl` at startup by
+  `src/rdf/ProfileVocabulary.js` — 11 roles, 8 signal types, 2 host requirements — rather than
+  copied into JavaScript, the same arrangement `CategoryScheme` has. A term added to the
+  vocabulary appears in the form with no code change, and the form cannot offer something
+  `vocabs/shapes.ttl` would then refuse.
 
-  Worth deciding rather than assuming:
+  What was deliberately left out, and is still out:
 
-  - **Ports and parameters probably do not belong in a form at all.** `lv2:port` with symbol,
+  - **Ports and parameters are not in the form and should not be.** `lv2:port` with symbol,
     range, default, unit and scale points is a repeating structure of five-plus fields, and a
     form for it would be miserable to fill in and worse to validate. A vendor with an LV2
-    plugin *already has* this in their bundle, and `PageReader` already fetches one URL at a
-    moderator's request. "Point us at your bundle or your `profile.ttl`" is a better offer than
-    thirty inputs, and it reuses machinery that exists.
+    plugin *already has* this in their bundle in this vocabulary. `/about/profiles` makes the
+    offer — "send us your bundle URL" — and **nothing yet acts on it.** `PageReader` fetches
+    one URL at a moderator's request and `Lv2Bundle` reads a bundle; joining them is the work.
   - **Routing and CC mappings reference other plugins and other parameters.** `trn:companion`
     and `trn:targetParameter` need something to point *at*, so they want a picker rather than a
-    text box, and they are the fields most likely to be left blank. Probably a later pass.
-  - **Every field needs a reason on the page.** A vendor asked for `trn:accepts` without being
-    told what it changes will skip it. The answer — it is what makes "what should I put before
-    this?" answerable — is the sort of thing that belongs beside the field, not in a manual.
-
-  **The explanatory page is half the work and is the half that decides whether the form is
-  used.** `/about/profiles`: what a plugin profile is, what each part is for, that the facts go
-  to the public domain under the contributor terms while the prose does not, and — the honest
-  selling point — that a profile is what makes a plugin findable by *description* rather than
-  by name, which is the thing this catalogue does that a list of names cannot. The normative
-  spec already exists as `~/github/transmission/docs/plugin-profiles.md` and should be summarised
-  here rather than duplicated; a second copy of a spec is a second copy to keep true.
-
-  **It pairs with the vendor claim.** A vendor filling in their own plugins is the same person
-  who wants `pu:claimsVendor` confirmed, and `foaf:homepage` is already required by the form —
-  which is what makes the domain check possible: the catalogue holds that URL and did not get
-  it from the claimant.
+    text box. Still a later pass, and now the only part of the fifty hand-written downspout
+    profiles that cannot be supplied through the site.
 
 * **The contributor terms do not cover pictures.** §2 splits contributions two ways — facts are
   CC0, authored prose is CC BY-SA — and an uploaded image is neither. It is a copyright work,
@@ -183,10 +166,10 @@ foundations.
 * **Selling a vendor profile.** Not started, and it needs the identity above first. The shape
   that fits what is already built:
 
-  - **The profile form is the other half of this**, and the two should be built together. A
+  - **The profile form is the other half of this, and it is now built** (see Phase 3b). A
     vendor who has filled in their own plugins is the same person who wants a claim confirmed,
-    and the form already requires `foaf:homepage` — which is the URL the domain check below
-    reads. See the profile-form entry under Phase 3b.
+    and the form requires `foaf:homepage` — which is the URL the domain check below reads, and
+    which the catalogue therefore holds without having got it from the claimant.
   - **Claiming before editing.** An account proves it speaks for a vendor — the cheapest
     credible check is a link or file at a domain the vendor's plugins already point at through
     `foaf:homepage`, since the catalogue holds that URL and did not get it from the claimant.
@@ -286,6 +269,10 @@ them is in `docs/danja-todo.md`. Two things deliberately not done, both stated i
 * **Embedding staleness**: `--only-new` embeds plugins with no vector, but cannot see a plugin
   whose *text* changed upstream — the IRI is unchanged, so the stale vector stays. Storing
   `pu:composedTextHash` beside each vector would close it and make a nightly refresh cheap.
+* **No `accepts` or `produces` dropdown on the search form.** `facetControls` renders four of
+  the ten facets deliberately — a form with ten selects is a wall — so these are reachable by
+  URL and from a plugin page but not browsable. Whether they earn a place on the form is an
+  editorial question and the answer probably depends on whether anyone uses the links.
 * **Tooltips where they earn their place.** From the inbox. Measurement metrics already carry
   labels and units from the vocabulary, which is the case that most wants one. Two cautions: a
   tooltip is invisible on a touch screen and to a keyboard user unless built as a proper
@@ -345,6 +332,30 @@ which is why it is no longer restated here.
 * **The accessibility pass**, enforced by `tests/api/accessibility.test.js` over twelve page
   types; and the tab order fixed so the results come before the panel that refines them.
 * **Three columns on a wide screen**, and **README.md rewritten around the method.**
+* **Plugin profiles can be submitted** — five behavioural fields on `/submit`, their choices
+  read from `vocabs/trn-profile.ttl` rather than copied into code, and `/about/profiles`
+  explaining what a profile buys the person filling it in.
+* **And can now be read back.** `trn:accepts`, `trn:produces` and `trn:requires` had been
+  harvested since Phase 0 into 181, 189 and 57 plugins and selected by no query, so they were
+  on no page and in no result. They are on the plugin page, in the JSON, in `/facets`, in the
+  MCP tool, and `?accepts=` / `?produces=` filter — which makes "what can follow this?" a link
+  rather than a question the catalogue silently held the answer to. In MISTAKES.md; the
+  facet-to-filter binding is now a table rather than a chain of `if`s.
+* **`server.js`, `render.js` and `SearchService.js` broken up.** 1247, 1189 and 744 lines became
+  298, 238 and 545, with the route groups and page kinds in modules of their own — the layout is
+  in [CLAUDE.md](CLAUDE.md). No caller changed: `render.js` re-exports the whole rendering
+  surface and `SearchService.js` the ranking, facet and document helpers, so the split is an
+  arrangement of the code rather than a change to how anything uses it. Behaviour is unchanged
+  but for one thing that could not survive being looked at: the `/admin` page was rendered by
+  four nearly identical blocks and one of them had lost the vendor-claims panel.
+* **`bin/serve.js` is now under test.** `tests/store/server-starts.test.js` starts it and asks
+  for a page. Two failures have now got past 867 passing tests and a `node --check` by being
+  wiring rather than logic; both are in MISTAKES.md.
+* **`trn:` terms are written for a reader** — "Control MIDI" and "MIDI Generator" rather than
+  `ControlMidi` and `MidiGenerator`, from `rdfs:label`, on every role and signal on a plugin
+  page. The label is the link text and the local name is still the link target, so the URL
+  keeps resolving. The lookup comes from the same filled field table `/submit` is built from,
+  so the form and the page cannot come to spell a term differently.
 * **A plugin page's identifiers resolve** — formats and roles to the filtered search,
   categories to their concept pages, the licence to SPDX where it is really an SPDX identifier,
   the plugin's own IRI through its PURL, and **the author's canonical IRI**, preserved with

@@ -1,0 +1,418 @@
+import { TRUST } from '../auth/Accounts.js'
+import { CONTRIBUTION_CONFIG, IMAGE_CONFIG, PROMOTION_CONFIG } from '../../config/preferences.js'
+import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import templates from './Templates.js'
+import { layout, sidebar } from './page-shell.js'
+
+/**
+ * The pages a person fills in, and the console above them.
+ *
+ * Submitting a plugin, suggesting a correction, adding a picture, the account
+ * page, a contributor's own list, and the moderator's queue. They change when
+ * a *workflow* changes — a new field, a new privilege, a new decision — where
+ * the catalogue pages change when the data does. Two reasons to change, two
+ * files, which is the same cut that took the serialisations out of `render.js`
+ * when it first grew too large.
+ */
+
+/**
+ * One plugin, with the same two columns the search pages carry.
+ *
+ * The navigation is a sixth argument rather than a fifth positional one
+ * because five was already too many; it is the only thing here that is about
+ * the site rather than about the plugin.
+ */
+/**
+ * The upload form, for somebody allowed to use it.
+ *
+ * Only shown to a trusted contributor or a moderator. An uploaded picture is
+ * public the moment it is served and cannot be un-seen, so unlike a correction
+ * or a submission there is no useful "queued" state — the choice is to trust
+ * the uploader or not, and trust is something this site already measures.
+ */
+export function imageForm (slug, { csrfToken, error = null, done = null } = {}) {
+  return templates.render('image-form', {
+    slug,
+    csrf: csrfToken ?? '',
+    maxKb: String(Math.round(IMAGE_CONFIG.maxBytes / 1024)),
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    done: templates.when(Boolean(done), 'notice', { text: done })
+  })
+}
+
+/**
+ * The moderation queue.
+ *
+ * Deliberately plain: a moderator wants to see what was proposed, by whom, and
+ * why, and then decide. Each decision is its own form with its own token, so a
+ * stale page cannot accept something the moderator has not looked at.
+ */
+/**
+ * What one person has proposed, and what became of it.
+ *
+ * Their own contributions only, and only to them. A pending correction sits in
+ * the personal-data graph with the contributor's own words about why they think
+ * something is wrong — theirs to see, not a public record. The part that
+ * becomes public on acceptance is the fact itself, attributed to them on the
+ * plugin page.
+ *
+ * Without this page a contributor suggests something and it vanishes: no
+ * acknowledgement, no queue position, no way to know a moderator declined it.
+ * That is the state the correction form shipped in.
+ */
+/**
+ * The form for proposing a plugin the catalogue does not have.
+ *
+ * Built from `SUBMITTABLE` rather than written out, so the form, the validator
+ * and the triples it becomes cannot drift apart — the help text beside each
+ * input is the same string the error message quotes when the field is missing.
+ *
+ * Whatever was typed comes back on an error. A form that empties itself when it
+ * refuses is a form people fill in once.
+ */
+export function renderSubmitPage (submittable, {
+  csrfToken, error = null, submitted = null, values = {}, viewer = {},
+  facetValues = {}, corpus = 0, mayRead = false, draft = null, pageUrl = ''
+}) {
+  /** One field: a row of checkboxes where it takes several values, a box where it does not. */
+  const field = ([name, spec]) => {
+    if (spec.multiple) {
+      // A required group with nothing to tick is a form nobody can complete,
+      // and it looks like it should work — so it is an error here rather than
+      // an empty row on the page.
+      if (!spec.choices?.length) {
+        throw new Error(`${name} takes several values but declares no choices to offer.`)
+      }
+      const chosen = new Set([values[name] ?? []].flat())
+      return templates.render('submit-checkboxes', {
+        label: spec.label,
+        help: spec.help,
+        boxes: templates.each('submit-checkbox', spec.choices, value => ({
+          name,
+          value,
+          checked: chosen.has(value) ? ' checked' : ''
+        }))
+      })
+    }
+    return templates.render('submit-field', {
+      name,
+      label: spec.label,
+      help: spec.help,
+      // A URL field gets the keyboard and the validation a browser already has.
+      type: spec.kind === 'url' ? 'url' : 'text',
+      value: values[name] ?? '',
+      maxLength: String(CONTRIBUTION_CONFIG.maxValueLength),
+      required: spec.required ? '' : ' (optional)',
+      requiredAttr: spec.required ? ' required' : ''
+    })
+  }
+
+  const body = templates.render('submit', {
+    heading: templates.render('page-heading', { title: 'Submit a plugin' }),
+    csrf: csrfToken ?? '',
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    done: templates.when(Boolean(submitted), 'submit-done', {
+      text: submitted?.text ?? '',
+      href: submitted?.href ?? '/',
+      linkText: submitted?.linkText ?? ''
+    }),
+    fields: Object.entries(submittable).map(field).join('\n  '),
+    // Moderators only. `docs/resources.md` §4 rule 8: an open form is an open
+    // proxy, and "a person asked for it" stops being true the moment anyone
+    // can ask. The route checks it too — this only decides whether to draw it.
+    fetch: templates.when(Boolean(mayRead), 'submit-fetch', {
+      csrf: csrfToken ?? '',
+      value: pageUrl,
+      maxLength: String(CONTRIBUTION_CONFIG.maxValueLength)
+    }),
+    // Where each drafted field came from, shown rather than summarised: a page
+    // that named itself in JSON-LD and one that had a <title> and nothing else
+    // do not deserve the same trust, and only the moderator can weigh that.
+    draft: templates.when(Boolean(draft), 'submit-draft', {
+      url: draft?.url ?? '',
+      sources: draft && Object.keys(draft.sources ?? {}).length
+        ? `<ul class="draft-sources">${templates.each('submit-draft-source',
+            Object.entries(draft.sources), ([key, from]) => ({
+              label: submittable[key]?.label ?? key, from
+            }))}</ul>`
+        : '',
+      notes: draft?.notes?.length
+        ? `<ul class="draft-notes">${templates.each('submit-draft-note',
+            draft.notes, text => ({ text }))}</ul>`
+        : ''
+    }),
+    // The same two columns the search pages carry. Somebody who has just
+    // submitted a plugin, or been told theirs is already here, wants a way
+    // back into the catalogue rather than a dead end.
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {})
+  })
+  return layout('Submit a plugin — Plugin Universe', body, {
+    description: 'Propose a plugin for the Plugin Universe catalogue.',
+    ...viewer,
+    footer: false
+  })
+}
+
+/**
+ * A person's own account: what they are on, and how to change it.
+ *
+ * Three states and one of them is easy to forget — **lapsed**. Somebody whose
+ * subscription ended needs to be told so plainly, because the alternative is a
+ * page that looks like the free plan and leaves them wondering what happened to
+ * the placements they were paying for.
+ *
+ * Prices are passed in rather than written here. They live in Stripe, and a
+ * figure typed into a template is a second place for a price to be wrong — the
+ * failure this whole integration is arranged to avoid.
+ */
+export function renderAccountPage ({
+  account, csrfToken, plan, prices, corpus = 0, notice = null,
+  viewer = {}, facetValues = {}
+}) {
+  const day = value => String(value ?? '').slice(0, 10)
+  const proLabel = prices.pro?.label ?? 'Pro'
+
+  const planBlock = () => {
+    if (plan.state === 'paid') {
+      return templates.render('account-plan-paid', {
+        proLabel,
+        remaining: plan.daysRemaining === 1 ? '1 day left' : `${plan.daysRemaining} days left`,
+        renews: plan.cancelling ? 'ends' : 'renews',
+        until: day(plan.endsAt),
+        csrf: csrfToken
+      })
+    }
+    if (plan.state === 'lapsed') {
+      return templates.render('account-plan-lapsed', { proLabel, until: day(plan.endsAt), csrf: csrfToken })
+    }
+    return templates.render('account-plan-free', {
+      singlePrice: prices.single?.text ?? '—',
+      proPrice: prices.pro?.text ?? '—',
+      proLabel,
+      csrf: csrfToken
+    })
+  }
+
+  const body = templates.render('account', {
+    heading: templates.render('page-heading', { title: 'Your account' }),
+    login: account.login,
+    standing: account.trustLevel === TRUST.MODERATOR
+      ? 'You are a moderator.'
+      : account.trustLevel === TRUST.TRUSTED
+        ? 'Your contributions go live without review.'
+        : 'Your contributions are reviewed before they go live.',
+    notice: templates.when(Boolean(notice), 'notice', { text: notice }),
+    plan: planBlock(),
+    corpus: String(corpus),
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {})
+  })
+  return layout('Your account — Plugin Universe', body, {
+    description: 'Your plan and your standing in the Plugin Universe catalogue.',
+    ...viewer,
+    footer: false
+  })
+}
+
+export function renderContributionsPage (rows, { viewer = {}, correctable = {}, trustLevel = null }) {
+  const BADGE = { accepted: 'src', rejected: 'warn', pending: 'price' }
+  const accepted = rows.filter(row => row.status === 'accepted').length
+
+  const body = templates.render('contributions', {
+    heading: templates.render('page-heading', { title: 'Your contributions' }),
+    standing: rows.length === 0
+      ? ''
+      : templates.render('meta-line', {
+        text: trustLevel === 'new'
+          ? `${accepted} of your suggestions have been accepted. ` +
+            `After ${CONTRIBUTION_CONFIG.acceptedBeforeTrusted}, later ones go live as soon as you make them.`
+          : 'Your corrections are applied as soon as you make them.'
+      }),
+    items: rows.length === 0
+      ? templates.render('empty', { text: 'Nothing yet. Every plugin page has a \u201Csuggest a correction\u201D form.' })
+      : templates.each('contribution', rows, row => ({
+        slug: row.subject.split('/').pop(),
+        badge: templates.render('badge', { kind: BADGE[row.status] ?? 'price', label: row.status }),
+        field: correctable[row.predicate]?.label ?? row.predicate.replace(/^.*[/#]/, ''),
+        value: row.value,
+        rationale: templates.when(Boolean(row.rationale), 'tags-line', { text: row.rationale }),
+        at: String(row.at).slice(0, 10),
+        decided: row.reviewedAt ? `, decided ${String(row.reviewedAt).slice(0, 10)}` : ''
+      }))
+  })
+
+  return layout('Your contributions — Plugin Universe', body, {
+    description: 'Corrections you have suggested to the Plugin Universe catalogue.',
+    ...viewer
+  })
+}
+
+/**
+ * The administration page: the moderation queue, and the buttons.
+ *
+ * One page rather than two because they are one job — somebody who has just
+ * accepted a submission is exactly the person who then wants to reindex, and
+ * making them navigate between the queue and a separate console would be an
+ * invented boundary.
+ */
+export function renderAdminPage (pending, {
+  csrfToken, message, viewer = {}, submissions = [], actions = {},
+  facetValues = {}, corpus = 0, promotions = null, claims = null
+}) {
+  const total = pending.length + submissions.length
+  const body = templates.render('admin', {
+    heading: templates.render('page-heading', { title: 'Administration' }),
+    login: viewer.account?.login ?? '',
+    message: templates.when(Boolean(message), 'notice', { text: message }),
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {}),
+    actions: templates.each('admin-action', Object.entries(actions), ([name, action]) => ({
+      name,
+      label: action.label,
+      describes: action.describes,
+      csrf: csrfToken
+    })),
+    count: total === 0
+      ? 'Nothing'
+      : [
+          pending.length ? `${pending.length} correction${pending.length === 1 ? '' : 's'}` : null,
+          submissions.length ? `${submissions.length} proposed plugin${submissions.length === 1 ? '' : 's'}` : null
+        ].filter(Boolean).join(' and '),
+    items: moderationItems(pending, csrfToken),
+    submissions: submissionItems(submissions, csrfToken),
+    // Absent entirely when promotions are not configured, rather than an empty
+    // panel: a control for something the instance cannot do is a puzzle.
+    promotions: promotions ? promotionPanel(promotions, csrfToken) : '',
+    // Only where there is a paid tier to entitle. A claim grants nothing on an
+    // instance that sells nothing, and a control for that is a puzzle.
+    claims: claims
+      ? templates.render('claim-panel', {
+        csrf: csrfToken,
+        summary: claims.count === 0
+          ? 'No accounts have a confirmed vendor.'
+          : `${claims.count} account${claims.count === 1 ? '' : 's'} with a confirmed vendor.`
+      })
+      : ''
+  })
+  return layout('Administration — Plugin Universe', body, {
+    description: 'Moderation queue and catalogue operations.',
+    ...viewer,
+    footer: false
+  })
+}
+
+/**
+ * What a moderator needs to run paid placements.
+ *
+ * Three things, and the second is the one that is easy not to think of:
+ *
+ *  - promote and end, by slug
+ *  - **what is about to lapse**, so the conversation about renewing happens
+ *    before the placement stops rather than after somebody notices it has
+ *  - what is running now, with how long each has left
+ *
+ * The list of live placements is the ad repository in its working form; the
+ * public account of it is /about/promotion.
+ */
+function promotionPanel ({ live = [], expiring = [] }, csrfToken) {
+  const row = entry => ({
+    href: String(entry.plugin).replace(NAMESPACES.pu, '/'),
+    name: entry.name ?? String(entry.plugin).split('/').pop(),
+    until: String(entry.endsAt).slice(0, 10),
+    by: String(entry.by ?? '').split('/').pop(),
+    remaining: entry.daysRemaining <= 0
+      ? 'lapsed'
+      : `${entry.daysRemaining} day${entry.daysRemaining === 1 ? '' : 's'} left`,
+    // The soon-to-lapse ones are marked, because a list where every row looks
+    // the same is a list nobody scans.
+    warnClass: entry.daysRemaining <= PROMOTION_CONFIG.expiringWithinDays ? ' promotion-warn' : ''
+  })
+
+  return templates.render('promotion-panel', {
+    csrf: csrfToken,
+    summary: live.length === 0
+      ? 'Nothing is promoted.'
+      : `${live.length} live placement${live.length === 1 ? '' : 's'}.`,
+    expiring: templates.when(expiring.length > 0, 'promotion-list', {
+      title: `Lapsing within ${PROMOTION_CONFIG.expiringWithinDays} days`,
+      rows: templates.each('promotion-row', expiring, row)
+    }),
+    live: templates.when(live.length > 0, 'promotion-list', {
+      title: 'Running now',
+      rows: templates.each('promotion-row', live, row)
+    })
+  })
+}
+
+/** Corrections, as review cards. */
+function moderationItems (pending, csrfToken) {
+  if (pending.length === 0) return templates.render('empty', { text: 'Nothing waiting.' })
+  return templates.each('moderation-item', pending, item => ({
+    field: item.predicate.replace(/^.*[#/]/, ''),
+    value: String(item.value).slice(0, 120),
+    href: item.subject.replace(NAMESPACES.pu, '/'),
+    slug: item.subject.split('/').pop(),
+    by: item.by.split('/').pop(),
+    rationale: templates.when(Boolean(item.rationale), 'quoted', { text: item.rationale }),
+    csrf: csrfToken,
+    correction: item.correction
+  }))
+}
+
+/** Proposed plugins, as review cards. */
+function submissionItems (submissions, csrfToken) {
+  return templates.each('moderation-submission', submissions, item => ({
+    name: item.fields.name ?? '(unnamed)',
+    // A proposed plugin has no page to link to yet, so the summary has to
+    // carry enough for a decision without one.
+    summary: [item.fields.vendor, [item.fields.format].flat().filter(Boolean).join(', '),
+      item.fields.category, item.fields.description].filter(Boolean).join(' · ').slice(0, 200),
+    by: item.by.split('/').pop(),
+    homepage: item.fields.homepage ?? '',
+    submission: item.submission,
+    csrf: csrfToken
+  }))
+}
+
+/**
+ * The suggest-a-correction form.
+ *
+ * Only for a signed-in viewer: an anonymous form would need its own spam
+ * defence and there would be nobody to attribute the contribution to. Someone
+ * signed out gets an invitation instead, carrying a return path so they come
+ * back to the plugin they were reading.
+ *
+ * The field list comes from CORRECTABLE, so the form and the validator cannot
+ * disagree about what may be changed.
+ */
+export function renderCorrectionForm (doc, { account, csrfToken, correctable, error, submitted }) {
+  const slug = doc.iri.split('/').pop()
+  if (!account) return templates.render('correct-signed-out', { slug })
+
+  return templates.render('correct-form', {
+    slug,
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    submitted: templates.when(Boolean(submitted), 'notice', { text: submitted }),
+    csrf: csrfToken,
+    // Not every correctable property is one a person types. A picture is
+    // contributed by the upload form above, which is the only thing that can
+    // produce a value the validator accepts — offering "Picture" here would be
+    // a menu entry whose every answer is refused.
+    options: templates.each('select-option',
+      Object.entries(correctable).filter(([, field]) => field.viaForm !== false),
+      ([predicate, field]) => ({ value: predicate, label: field.label })),
+    maxValue: CONTRIBUTION_CONFIG.maxValueLength,
+    maxRationale: CONTRIBUTION_CONFIG.maxRationaleLength
+  })
+}
+
+/**
+ * Where this profile's facts came from.
+ *
+ * Shown on every plugin page rather than buried in the graph. The named-graph
+ * design exists so that every statement can be traced to a source and a licence
+ * (docs/architecture.md §3); a page that does not surface that is asking to be
+ * trusted rather than checked. It is also how the sources get credited, which
+ * the operating principle requires whether or not their licence compels it.
+ */

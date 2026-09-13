@@ -295,9 +295,16 @@ describe('every paid placement is labelled', () => {
     // within an hour of maxPromotedRank changing from 3 to 1. It now states the
     // guarantee that does not move — applied after retrieval, never adds a
     // result — and leaves the numbers to the page that publishes them.
-    const server = readFileSync('src/api/server.js', 'utf8')
-    const disclosure = server.slice(
-      server.indexOf('const PROMOTION_DISCLOSURE'), server.indexOf('})', server.indexOf('const PROMOTION_DISCLOSURE')))
+    // Read from where the disclosure actually is. It lived in
+    // `src/api/server.js` until the routes were split, and for one commit
+    // there were two copies: this guard read the dead one and passed, which is
+    // precisely the state it exists to prevent. The emptiness check below is
+    // the cheap insurance — a slice between markers that are gone asserts
+    // about '' and contains nothing, silently.
+    const source = readFileSync('src/api/catalogue-routes.js', 'utf8')
+    const at = source.indexOf('PROMOTION_DISCLOSURE = Object.freeze')
+    expect(at, 'the disclosure was not found').toBeGreaterThan(-1)
+    const disclosure = source.slice(at, source.indexOf('})', at))
     expect(disclosure).not.toMatch(/first two|first three|third place/i)
     expect(disclosure).toContain('/about/promotion')
   })
