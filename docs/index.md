@@ -10,7 +10,8 @@
 ## Standing documents
 
 * [System Architecture](architecture.md) — the design: data model, vocabularies, components, retrieval, profiler, deployment
-* [Implementation Plan](plan.md) — six phases, each with deliverables, exit criteria and risks
+* [Implementation Plan](plan.md) — what is left to build: Phases 2, 4 and the rest of 5, each with deliverables, exit criteria and risks
+* [What the plan delivered](plan-done.md) — Phases 0, 1, 3 and 5, and the built parts of 2 and 4. Kept for the reasoning, which still governs the code
 * [Suggestions](suggestions.md) — recommendations on data, engineering, product, law and scope
 * [Sources](sources.md) — data sources, forums, specifications, ontologies, tooling, and the source terms review
 * [Deployment](deployment.md) — the runbook: containers, TLS, harvesting on the server, backups
@@ -48,9 +49,14 @@
 * Ingest: permissive sources only; KVR excluded ([source terms review](sources.md))
 * Domain: plugin-universe.com (serving only — IRIs are on purl.org and survive a move)
 
-Phase 0 is complete and Phase 1 is nearly so — 645 plugins from three sources,
-SHACL-validated, hybrid search over them. See [the plan](plan.md) for what
-remains, and [MISTAKES.md](../MISTAKES.md) for what turned out to be wrong along
-the way.
+**Where the project is**, measured 2026-09-13 from `/health` rather than from
+memory: **756 plugins, 756 indexed, 50 measured.** Phases 0, 1, 3 and 5 are
+complete and deployed — see [what the plan delivered](plan-done.md). Phase 2, the
+profiler, is running and still missing CPU load, the measurement it exists for.
+Phase 4 is built and has never taken money.
+
+See [the plan](plan.md) for what remains, [TODO.md](../TODO.md) for the actions
+in priority order, and [MISTAKES.md](../MISTAKES.md) for what turned out to be
+wrong along the way.
 
 Repository conventions for AI assistants are in [CLAUDE.md](../CLAUDE.md).

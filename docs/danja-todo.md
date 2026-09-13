@@ -99,10 +99,32 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   should show a visible ring in both light and dark. If anything traps focus or hides it, that
   is worth knowing before the traffic arrives rather than after.
 
-- [ ] **`bin/publish.js`, when you get a moment.** The public SPARQL copy holds 753 plugins and
-  the site holds 754 — it lags by one accepted submission. Harmless, and it is the standing
-  habit already in this file rather than a new job; worth doing before the announcement so the
-  endpoint and the site agree if anyone checks.
+- [ ] **`bin/publish.js` — and it is not the small job this said it was.** This used to read
+  "lags by one accepted submission. Harmless." That was true when written. Measured against the
+  endpoint on 2026-09-13, it is not:
+
+  | | the site | the public copy |
+  |---|---|---|
+  | plugins | 756 | 753 |
+  | `pu:Vendor` | 376 | **0** |
+  | `foaf:maker` | one per plugin | **0** |
+  | `pu:vendorKey` | 376 | **0** |
+
+  Not thin — absent. `graph:curated/vendors` holds 0 triples in the public dataset.
+
+  **The whole vendor identity layer is missing from the public SPARQL endpoint and from the
+  dumps.** Nothing is broken and nothing is misconfigured — `bin/mint-vendors.js` registers its
+  graph as CC0, so it qualifies for the dump; publish simply has not run since minting. One
+  command fixes it.
+
+  It matters more than three plugins would, because the vendor layer is what the paid vendor
+  profile is designed to hang on, and because README and the docs say it is in the dump. Worth
+  doing **before** the announcement and before any lod-cloud.net submission, or the dataset
+  anybody fetches is missing the part that makes it a graph rather than a list.
+
+  I have added a note to TODO.md that nothing compares the two datasets — `/health` compares the
+  catalogue against the vector index for exactly this class of defect, and the site against the
+  published copy is the same question with nothing asking it. That check is mine to write.
 
 - [ ] **Before any real money: talk to a commercialista about a partita IVA.** You are in Italy
   with a codice fiscale and no VAT registration. A codice fiscale is a personal tax identifier

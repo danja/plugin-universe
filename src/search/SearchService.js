@@ -514,6 +514,31 @@ export class SearchService {
     }
   }
 
+  /**
+   * Plugins the catalogue holds and the vector index does not.
+   *
+   * The hole this closes: `takeUpNewPlugins()` never throws, by design, because
+   * a plugin that is in the catalogue and not yet embedded is still a plugin —
+   * refusing the whole submission over a failed embedding would be worse. But
+   * the consequence is that an embedding failure leaves a plugin findable
+   * lexically, invisible to semantic search, and reported nowhere but a line in
+   * a log nobody reads.
+   *
+   * `/health` printed both counts and compared nothing, which is the shape of
+   * defect this project has written down more than once: two numbers side by
+   * side, and no assertion that they agree.
+   *
+   * Returns IRIs rather than a count, because "three are missing" is a fact and
+   * "these three are missing" is something somebody can act on.
+   */
+  unindexed () {
+    const missing = []
+    for (const iri of this.documents.keys()) {
+      if (!this.index.has(iri)) missing.push(iri)
+    }
+    return missing
+  }
+
   /** The most recent profiler run for one plugin, or null. */
   measured (pluginIri) {
     return this.measurements.get(pluginIri) ?? null

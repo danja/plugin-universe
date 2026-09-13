@@ -60,8 +60,12 @@ afterAll(() => {
 describe('bin/serve.js', () => {
   it('starts and reports itself healthy', async () => {
     const health = await (await fetch(`${BASE}/health`)).json()
+    // `ok` is a claim about consistency as well as about serving: it means the
+    // catalogue and the vector index agree, and sign-in is not half configured.
+    expect(health.problems, JSON.stringify(health.problems)).toEqual([])
     expect(health.status).toBe('ok')
     expect(health.plugins).toBeGreaterThan(0)
+    expect(health.unindexed).toBe(0)
   })
 
   it('renders the pages it checks at startup', () => {

@@ -1,505 +1,210 @@
 # Plugin Universe — Implementation Plan
 
-Status: draft, 2026-09-06. Companion documents: [Architecture](architecture.md),
-[Suggestions](suggestions.md), [Sources](sources.md).
+Status: 2026-09-13. Companion documents: [Architecture](architecture.md),
+[What the plan delivered](plan-done.md), [Suggestions](suggestions.md),
+[Sources](sources.md).
 
-Every component named here is defined in [architecture.md](architecture.md). Each phase lists its
-goal, deliverables, exit criteria and risks. No phase depends on anything introduced later.
+**This file is what is left to build.** Phases 0, 1, 3 and 5 are complete and are
+in [plan-done.md](plan-done.md), along with the built parts of Phases 2 and 4 —
+moved there because a plan that is four-fifths achievement is read as a record
+rather than as an instruction, and the next action sinks out of sight.
 
-## Sequencing rationale
+Three documents, three jobs, and they should not repeat each other:
 
-The profiler is scheduled second, before accounts, wiki or revenue. That is deliberate. Measured
-data is the one thing no competing catalogue has and the one thing that cannot be replicated by
-aggregation, so it should exist before there is any pressure to launch. Accounts and payments are
-well-understood work that can be done at any time; they are not what makes the project worth doing.
+| | |
+|---|---|
+| **plan.md** (here) | the *design intent* of what is unbuilt — goal, deliverables, exit criteria, risks |
+| **[../TODO.md](../TODO.md)** | the *actions*, in priority order, with what is known about each |
+| **[danja-todo.md](danja-todo.md)** | what needs **Danja** — server access, credentials, legal, a decision |
 
-The first two phases also happen to be the ones the user personally wants ("I want this data!"), so
-if the project stops after Phase 2 it has still delivered its primary motivation.
-
----
-
-## Phase 0 — Foundations — **COMPLETE** (2026-09-06)
-
-Delivered: `src/Config.js`, `src/rdf/{NamespaceManager,URIMinter}.js`,
-`src/store/{SPARQLClient,SPARQLHelper,QueryService,GraphRegistry}.js`,
-`src/vectors/{VectorOperations,VectorIndex}.js`,
-`src/embeddings/EmbeddingService.js`, `vocabs/`, `sparql/queries/graph/`,
-`docker-compose.yml`, `Dockerfile`, `config/fuseki/assembler-tdb2.ttl`.
-62 tests pass, 22 of them against live Fuseki and Ollama.
-
-Baseline recorded for Phase 1 to improve on: vector-only retrieval scores
-**recall@1 80%, recall@3 93%** over the 12-plugin, 15-query fixture corpus in
-`tests/fixtures/`. The three failures are all vocabulary-mismatch cases, which
-is precisely what the lexical signal is for.
-
-**Goal.** A repository that can store a triple, embed a string and run a test, with the vocabulary
-settled. Nothing user-visible.
-
-**Deliverables**
-
-1. Repo scaffolding: ESM, Node ≥ 20, Vitest with separate core/sparql/integration configs, lint,
-   `npm` scripts run from the repo root.
-2. Layered configuration — `src/Config.js` ported from
-   `/home/danny/github/semem/src/Config.js` with the tbox auto-detection dropped; `config/config.json`
-   with `${ENV}` interpolation; `config/preferences.js` for tunables. No inline fallbacks anywhere.
-3. `vocabs/` — the extended `trn:` ontology (§2.2–2.3 of the architecture), starting from
-   `/home/danny/github/transmission/vocabs/profile.ttl` verbatim and adding the format individuals
-   and the SKOS category scheme; plus local copies of `lv2core.ttl` and `units.ttl` as valis does in
-   `/home/danny/github/valis/vocabs/lv2/`.
-4. `src/rdf/NamespaceManager.js` — the single prefix registry, after
-   `/home/danny/github/semem/src/ragno/core/NamespaceManager.js`.
-5. SPARQL core extracted from semem: `SPARQLHelper.js`, `SPARQLExecute.js`, and **one**
-   query-template loader over the `sparql/queries/` + `sparql/templates/prefixes.sparql` +
-   `sparql/config/query-mappings.json` convention.
-6. Embedding and vector core extracted: `VectorOperations`, the FAISS wrapper, the provider chain
-   (`EmbeddingConnectorFactory` → Ollama/Nomic), with `writeIndex`/`readIndex` persistence wired in
-   from the start rather than retrofitted.
-7. `src/rdf/URIMinter.js` — content-hash minting, plus the upstream-IRI preservation rule.
-8. Docker Compose with Fuseki (TDB2 assembler from
-   `/home/danny/github/semem/config/fuseki/assembler-tdb2.ttl`) and the app container, including the
-   apt packages the native vector build needs.
-9. SHACL shapes for the core plugin shape, and a validator module that runs them.
-10. Licence plumbing for the **CC0** decision: a per-graph licence flag set at harvest time, and the
-    dump-assembly query that selects only CC0-compatible graphs. The source terms review is done —
-    see [sources.md §4](sources.md) — so this is implementation, not investigation.
-
-**Exit criteria** — met except where noted
-
-- [x] Tests pass against a live local Fuseki — a graph is registered, read back, and its `prov:`
-  metadata is present.
-- [x] A string embeds, the vector is written to a persisted index, the process restarts, and the
-  index loads from disk without touching the triple store.
-- [x] `URIMinter` produces `http://purl.org/stuff/plugin-universe/plugin/<slug>-<hash>` and the same
-  input twice produces the same IRI.
-- [x] A graph carrying a non-CC0 licence flag is excluded from dump assembly.
-- [x] Registering a graph without a licence is refused.
-- [ ] SHACL shapes reject a plugin with no `rdfs:label`. **Deferred to Phase 1**: the shapes have
-  nothing to validate until a harvester produces plugin data, and writing them against an imagined
-  shape rather than real harvested output would be guesswork. The rule they encode
-  (`rdfs:label` plus one of `trn:bundleName` / `trn:vstClassId`) is carried in
-  `~/github/transmission/src/rdf/PluginProfileRdf.js` meanwhile.
-
-**Risks**
-
-- *Deciding the vocabulary by writing code instead of writing Turtle.* Settle `vocabs/` first; the
-  code follows the ontology, not the reverse.
-- *`faiss-node` native build friction.* Mitigated by taking semem's Dockerfile package list.
-- *Treating the licence flag as metadata to fill in later.* If it is not set by the harvester at
-  write time it will not be set at all, and the CC0 dump becomes an audit instead of a query.
+Every component named here is defined in [architecture.md](architecture.md). No
+phase depends on anything introduced later.
 
 ---
 
-## Phase 1 — Harvest and search — **COMPLETE** (2026-09-10)
+## Where the project actually is
 
-Done: the harvester interface and the downspout, LV2, Open Audio Stack and
-GitHub harvesters; the normaliser; per-source graphs with licence flags; the
-serialiser onto `lv2:port`; the ingest pipeline with IRI-collision detection and
-SHACL validation; the embedding pipeline; hybrid retrieval with an IDF-weighted
-lexical signal; the read API with content negotiation and a server-rendered
-search UI; the SHACL shapes deferred from Phase 0; the AUFX-O and schema.org
-alignment graph.
+Measured 2026-09-13 from `/health` and `npm test`, not from memory:
+**756 plugins**, 756 indexed, **50 measured**, 1208 core tests over 56 files.
 
-Every exit criterion below is met. The corpus is 754 plugins across 44 named
-graphs rather than the three seed repositories this phase was scoped around, and
-the risk it names — *"seed corpus too small and too uniform to prove semantic
-search"* — was answered by the Open Audio Stack and GitHub harvesters, as the
-mitigation said it would be. What remains of this phase is tracked in
-[../TODO.md](../TODO.md), not here.
+- **Phase 2 — the profiler.** Running. The sandbox, both scanners and the
+  measurement model are built; what is missing is **CPU load**, which is the one
+  measurement nothing produces and the one the phase exists for.
+- **Phase 4 — pro tier and revenue.** Promotion, its compliance, and the Stripe
+  integration are built. **No real money has moved**, and cannot until Danja's
+  tax registration clears Stripe's onboarding.
+- **Phase 5 — open data.** Done but for upstream contribution and the
+  conditional crawler.
 
-Corpus: **645 plugins** — 50 downspout VST3, 36 flues LV2, 559 from the Open
-Audio Stack registry — in 41,777 triples across five graphs. Every graph
-conforms to `vocabs/shapes.ttl`. Retrieval on the fixture corpus: **MRR 0.893**
-hybrid against 0.844 vector-only; recall@1 87% against 80%. 186 tests pass, 48
-against live Fuseki and Ollama.
+### What is now the critical path
 
-Still to do: the DOAP/GitHub harvester.
+The original sequencing put the profiler second, deliberately: measured data is
+the one thing no competing catalogue has and the one thing that cannot be
+replicated by aggregation, so it should exist before there is any pressure to
+launch. That reasoning still holds and the schedule has drifted off it — Phases 3
+and 5 overtook Phase 2 because they were unblocked and it was not.
 
-Three things worth carrying forward.
+So the honest statement of priority is:
 
-*`minSimilarity` is tied to the embedding model, not chosen on intuition.*
-nomic-embed-text:v1.5 compresses cosine into roughly 0.45-0.70, so the original
-0.35 floor excluded nothing and every query returned a full page of noise.
-Re-measure it if the model changes.
-
-*The registry answered a question the seed corpus could not.* "Warm analogue bus
-compressor" was, until the registry landed, a demonstration of the noise floor —
-the catalogue contained no compressor at all. It now returns five, and the store
-test asserts that rather than asserting the absence.
-
-*A blank node label is scoped to one `INSERT DATA`.* Batching a serialised graph
-by triple count cut ports and package files in half at every boundary. Writes
-are grouped by plugin; see MISTAKES.md. This is the class of defect the shapes
-were written for and they found it on their first run.
-
-**Goal.** A public, read-only search over a real corpus. The system does something useful.
-
-**Deliverables**
-
-1. Harvester interface (fetch → emit RDF into a named graph, with its licence flag → record a run),
-   plus harvesters for:
-   - **downspout** — 50 `profile.ttl` files from `/home/danny/github/downspout/plugins/*/`
-   - **flues** — 88 LV2 `.ttl` files across 37 bundles under `/home/danny/github/flues/lv2/`
-   - **valis** — `/home/danny/github/valis/profile.ttl` and the element ontology
-   - **open-audio-stack registry** — the JSON registry endpoints; CC0-1.0, so its graph flows
-     straight into the CC0 dump
-   - **DOAP / GitHub** — repository metadata via the GitHub **API** only, never HTML scraping;
-     project data, not maintainer email addresses (see [sources.md §4](sources.md))
-2. Normaliser: source shapes → the graph model. Includes the `trn:min`/`trn:minimum` reconciliation
-   onto `lv2:minimum`/`lv2:maximum`, the `trn:MIDI`/`trn:hasParameter` typo fixes, LV2 plugin classes
-   into the SKOS scheme, and OAS manifest fields into the packaging layer.
-3. Per-source named graphs with `prov:` metadata and a per-graph licence flag, plus DROP-and-reload
-   re-harvest.
-4. Embedding pipeline over the composed text view (name, vendor, description, role labels, tag
-   labels, parameter names) — composed from the graph, not from a raw description field.
-5. Hybrid query service: lexical + vector ANN + SPARQL facet filter, fused under weights from
-   `config/preferences.js`. Vector index on the hot path; no cosine-in-JavaScript over SPARQL rows.
-6. HTTP API (Express) — search, plugin by IRI, facet enumeration, health. Public, rate-limited.
-7. Web UI — search page with facets, plugin profile pages with `schema.org` JSON-LD, content
-   negotiation on plugin IRIs returning Turtle / JSON-LD / HTML.
-8. Alignment graph mapping `trn:` roles to AUFX-O and `schema:SoftwareApplication`.
-
-**Exit criteria**
-
-- The full seed corpus (downspout + flues + valis + open-audio-stack) is in Fuseki, each in its own
-  graph, each re-harvestable without disturbing the others.
-- A natural-language query — "transport-synced MIDI modulator", "warm analogue bus compressor" —
-  returns sensibly ranked results end to end through the UI.
-- A facet filter (format = LV2, licence = MIT) composes correctly with a semantic query.
-- A plugin IRI under `http://purl.org/stuff/plugin-universe/` dereferences, via the PURL redirect,
-  to Turtle and to HTML.
-- Re-running every harvester produces zero new IRIs (idempotence proven, not assumed).
-- Every graph in the store carries a licence flag; assembling a CC0 dump is one query.
-
-**Risks**
-
-- *Seed corpus too small and too uniform to prove semantic search.* All three seed repos are one
-  author's work. Mitigate by prioritising the open-audio-stack harvester within this phase for
-  breadth, and by testing queries a stranger would type.
-- *Composed-text embeddings underperform on one-line descriptions.* Measure early with a fixed set
-  of ~30 hand-written query/expected-result pairs; that set becomes the regression suite.
-- *Normaliser becomes the dumping ground.* Keep source quirks in the harvesters; the normaliser sees
-  only the common shape.
+1. **Nothing blocks an announcement except Danja's own list.** The site works.
+   This is the shortest path to the project mattering, and it is not code.
+2. **CPU load is the largest remaining gap in the product's differentiator.**
+   `pu:CpuLoad` has been defined since Phase 2 was written and is produced by
+   nothing.
+3. **Payments are built and unproven.** The gate is tax registration, not code.
+4. Everything else is improvement to something that already works.
 
 ---
 
 ## Phase 2 — Profiler — **IN PROGRESS**
 
-Done: the sandbox, the lilv scanner, the measurement model, per-run graphs, and
-a first real scan.
-
-The sandbox is the piece the rest rests on: `--network none`, read-only root
-with a noexec tmpfs, all capabilities dropped, no-new-privileges, a pids limit,
-memory and CPU bounds, an unprivileged user, and a wall-clock kill from outside
-as well as in. Confinement is verified by test rather than asserted — the
-network, the root filesystem and the plugin mount are each probed from inside.
-
-A crash is a result. That took one correction to get right: a container's exit
-code is its PID 1's, so a plugin taking the scanning tool down arrives as exit
-139 with no signal field set, and reading that as an ordinary non-zero exit
-loses the difference between "this plugin is malformed" and "this plugin
-crashed". Both are now distinguished and recorded.
-
-First measured finding, from 7 built flues bundles: **5 agree with their
-harvested profile, 2 do not.** Flues Disyn reports 8 control ports where its
-profile records 9; Flues Drumkit reports 18 against 43. The built bundles are
-from a tagged v0.1.0 while the source tree has moved on, so this is likely
-version skew rather than a defect — but that is exactly the question the
-profiler exists to raise, and it could not be asked before.
-
-**pluginval landed 2026-09-11**, built from a pinned commit into the profiler
-image rather than installed: Tracktion's tagged binaries predate the CMake build
-this uses, and a tool whose version drifted between runs would make those runs
-incomparable. First sweep over 51 built downspout VST3s: 45 pass, 1 segfaults
-under the `Automation` test, 4 turn out to have no binary in the bundle. It also
-produced the first `pu:LatencySamples` values — defined in Phase 2 and, until a
-host actually instantiated a plugin and asked, produced by nothing.
-
-The image's base is now part of the measurement. On bookworm not one downspout
-VST3 loaded — glibc 2.36 against the 2.38 they were built for — and pluginval
-reported them exactly as it reports a broken plugin. `PluginvalScanner` asks the
-dynamic loader before it asks pluginval, so the next such mismatch is recorded
-as a limitation of the profiler rather than a defect in the plugin.
-
-Still to do: a clap-validator wrapper, `lv2bm` or an in-house host for actual
-CPU load, and measured facets in the search form.
-
-
 **Goal.** Measured data in the graph. The catalogue becomes authoritative rather than aggregated.
 
-**Deliverables**
+Built, and in [plan-done.md](plan-done.md): the sandbox, the lilv scanner, the pluginval host, the
+measurement model, per-run graphs, and the readings on plugin pages and as a `measured=` filter.
 
-1. Sandboxed runner: disposable container, no network, read-only plugin mount, CPU and wall-clock
-   limits, crash captured as a result. Separate process from the API — a segfault must not affect
-   the site.
-2. Tool wrappers producing normalised output: `pluginval` (headless, VST/VST3/AU/LV2/LADSPA),
-   `clap-validator` (CLAP), `lv2bm` (LV2 benchmarks), `lilv`/`lv2info` (LV2 metadata without loading
-   binaries).
-3. In-house measurements: CPU load at fixed block size and sample rate, reported latency, denormal
-   behaviour, state save/restore integrity, scan time.
-4. Measurement layer written to per-run named graphs, tagged with platform specification.
-5. Aggregation queries (median CPU across runs) and measured facets exposed in search — "effects
-   using under 2% CPU", "plugins that pass strict validation".
-6. Plugin profile pages show measurements with their platform context.
+**Remaining deliverables**
+
+2. *(part)* Tool wrappers producing normalised output. `pluginval` and `lilv`/`lv2info` are done.
+   **`clap-validator` (CLAP)** and **`lv2bm` (LV2 benchmarks)** are not.
+3. **In-house measurements — the substantial gap.** CPU load at fixed block size and sample rate is
+   the headline figure and nothing produces it: pluginval instantiates and exercises a plugin but
+   does not report what it cost. Denormal behaviour, state save/restore integrity and scan time are
+   in the same position. Reported latency *is* produced (`pu:LatencySamples`).
+5. *(part)* Aggregation queries (median CPU across runs) — blocked on there being CPU figures to
+   aggregate. The measured facet exists as `?measured=`; whether it earns a dropdown on the form is
+   an editorial question at 7% coverage.
+6. *(part)* Plugin pages show measurements with their platform context — done, except that **only
+   the newest run shows**, so a plugin measured by both lilv and pluginval loses its port counts
+   when it is validated.
 
 **Exit criteria**
 
-- Every plugin in the seed corpus that can be run on the host has a validation verdict and a CPU
-  figure in the graph.
-- A crashing plugin produces a recorded `fail` result and leaves the runner healthy.
-- A measured facet filter works end to end from the search UI.
-- Two runs of the same plugin on the same host produce figures within a stated tolerance;
-  reproducibility is tested, not assumed.
+- [ ] Every plugin in the seed corpus that can be run on the host has a validation verdict and a CPU
+  figure in the graph. *Verdicts: 50 of 756. CPU figures: none.*
+- [x] A crashing plugin produces a recorded `fail` result and leaves the runner healthy. —
+  `sidecar.vst3` proved it.
+- [x] A measured facet filter works end to end from the search UI.
+- [ ] Two runs of the same plugin on the same host produce figures within a stated tolerance;
+  reproducibility is tested, not assumed. **Currently assumed.**
 
 **Risks**
 
-- *Cross-platform coverage.* A Linux host cannot profile AU or AAX. Be explicit in the UI about what
-  was measured where; treat macOS and Windows runners as later additions, not a blocker.
-- *Sandbox escape or resource exhaustion.* This is the highest-risk component in the system, since it
-  runs arbitrary third-party native code. Confine it hard, run it on its own machine as soon as
-  volume justifies it.
+- *Cross-platform coverage.* A Linux host cannot profile AU or AAX. AU is macOS-only; VST2 needs
+  Steinberg's SDK, which is not redistributable; LADSPA and VST2 both ship as a bare `.so`, so the
+  profiler declines to guess which a file is. Be explicit in the UI about what was measured where;
+  treat macOS and Windows runners as later additions, not a blocker.
+- *Sandbox escape or resource exhaustion.* The highest-risk component in the system, since it runs
+  arbitrary third-party native code. Confined hard; run it on its own machine as soon as volume
+  justifies it.
 - *Benchmark figures read as authoritative comparisons across machines.* Publish comparisons only
-  within a run; always show the platform.
+  within a run; always show the platform. **This risk arrives in force with CPU load** — a
+  validation verdict travels between machines and a CPU percentage does not.
+- *Coverage stays low enough that the measurements are a curiosity.* New, and the one the phase is
+  now most exposed to. 50 of 756 is 7%, and every one of them is from a single repository the user
+  wrote. A figure over one author's work is not yet the thing that makes the catalogue
+  authoritative.
 
 ---
-
-## Phase 3 — People and pages — **COMPLETE** (2026-09-11)
-
-**Goal.** The catalogue becomes a community resource rather than a database with
-a search box.
-
-*Built, and live.* Sign-in, corrections, submissions, the moderation queue,
-trust promotion, rate limiting, the contributions page, the wiki with revisions
-and conflict detection, and image upload. One exit criterion is not met and is
-tracked in [../TODO.md](../TODO.md): an admin cannot yet merge two duplicate
-plugin entries. Nothing in the corpus overlaps, so it has not bitten.
-
-What follows is the plan as written on 2026-09-07, kept because the decisions
-and their reasoning are the valuable part and they still govern the code.
-
-This is the first phase with **writes**. Everything up to now is a read-only
-projection of harvested data that can be rebuilt from source at any time; from
-here the store holds things that cannot be recreated. That changes the risk
-profile more than it changes the size of the work.
-
-### Decisions taken
-
-Three, settled before planning because each one changes what gets built.
-
-**Sign-in is GitHub OAuth, and only that.** The project never stores a
-credential — no password hashing, no reset tokens, no email verification, no
-breach plan. The audience is already there: LV2 and plugin development live on
-GitHub, and the GitHub harvester already reads it. The OAuth App requests **no
-scopes**, which still returns a public login, id and avatar from `/user`, and
-deliberately not `user:email` — the standing rule is that an email address is
-not catalogue data, and the surest way to keep it is to be unable to read one.
-The cost is excluding anyone without a GitHub account, which is accepted.
-
-**Contributions are reviewed first, then trusted.** A new contributor's first
-edits sit in a queue; past a threshold they go live immediately, with revert as
-the escape hatch. Moderation work is then bounded and shrinks as the community
-grows, rather than arriving in full on day one when there is no community to
-share it.
-
-**Scope is accounts, corrections and the wiki.** Comments, rankings and vendor
-submissions move to a Phase 3b. This still satisfies the stated exit criteria
-and still exercises the CC0 / CC BY-SA split properly, which is the part worth
-getting right while the volume is small.
-
-### Consequences worth stating
-
-*No new datastore, and no new memory.* Sessions are a signed cookie —
-`HttpOnly`, `Secure`, `SameSite=Lax`, HMAC over the account id and an issue
-time, with the secret in `.env`. There is no session table to keep, and
-suspension is checked by looking the account up at request time, which is a
-query the store answers anyway. On a 4 GB host already running Fuseki, Ollama
-and the app, adding neither a session store nor a relational database is not a
-minor consideration.
-
-*The API stays on `node:http`.* [architecture.md §4](architecture.md) said a
-framework would earn its place when writes arrived. With OAuth-only auth and
-stateless cookies the write surface turns out to be a handful of form-encoded
-POSTs, and a framework's dependency tree is a larger cost than the routing it
-saves. Reconsider if file uploads arrive.
-
-### Deliverables
-
-1. **Accounts.** GitHub OAuth login and callback, signed-cookie sessions, and
-   the tier model (public / registered / pro / admin) plus a trust level, in
-   `<graph:system>`. Sign-out invalidates by expiry; suspension by account
-   state.
-2. **A licence flag for personal data.** `<graph:system>` holds people, so it
-   gets a `personal-data` licence key with `redistributable: false`. The public
-   dump then excludes accounts by the same mechanism that excludes a
-   non-redistributable source — structurally, not by remembering to.
-3. **`foaf:Person` profiles**, with their own pages, carrying a public login and
-   a display name and nothing more.
-4. **Corrections.** A typed, structured proposal to change a fact: subject,
-   predicate, proposed value, rationale. Validated against the SHACL shapes
-   *before* it is written, using the validator the ingest path already has.
-   Accepted corrections land in the contributor's CC0 graph and take effect
-   through the existing source-precedence rules rather than by overwriting
-   anything.
-5. **Plugin wiki pages.** Revisions as graph resources with `prov:wasAttributedTo`
-   and `prov:generatedAtTime`, so history, diff and rollback are queries rather
-   than features. Stored as text and rendered as a restricted Markdown subset —
-   **never raw HTML**, and the existing escaping stays in the path.
-6. **The licence boundary, enforced by the store.** Each contributor gets two
-   graphs, not one: `graph:user/<id>-facts` under CC0 and
-   `graph:user/<id>-prose` under CC BY-SA. Which graph a write lands in is
-   decided by what kind of write it is, so the boundary is a property of the
-   store rather than a judgement made at publication time. (`GraphRegistry.graphIri`
-   currently forbids a slash in an id, hence the suffix form.)
-7. **Moderation.** A queue of pending contributions; approve, reject, revert;
-   suspend an account; merge duplicate plugins without losing either source's
-   provenance.
-8. **Write-path safety**, which is entirely new ground for this codebase: CSRF
-   tokens on every form, per-account and per-IP rate limits, SHACL validation
-   before write, and a hard rule that user input never reaches the store as
-   anything but a literal.
-
-### Exit criteria
-
-- A registered user can add a plugin that does not exist yet, edit its wiki
-  page, and see the contribution attributed to their own graph.
-- A first-time contributor's edit is queued; the same user's edit after the
-  trust threshold is live immediately.
-- The public CC0 dump contains the user's factual contribution and neither their
-  prose nor their account — checked by query, not by inspection.
-- An admin can merge two duplicate plugin entries without losing either source's
-  provenance.
-- A reverted wiki edit leaves an auditable history.
-- Dropping a contributor's graphs removes their contributions and their account.
-
-### Risks
-
-- *Spam arrives the day it opens.* Rate limits, the review queue for first
-  contributions, and per-graph revert as the escape hatch. The review-then-trust
-  model exists for this.
-- *Duplicate plugins.* Content-hash minting helps only where the identifying
-  tuple matches, and the catalogue already has a known case of the same plugin
-  reachable from two sources under different keys. A deduplication tool is part
-  of the moderation deliverable, not an afterthought.
-- *Erasure is not as clean as "drop the graph".* Dropping a contributor's graphs
-  removes their contributions and their attribution, and that is the right
-  mechanism. But a CC0 grant already made is irrevocable, and anything already
-  published in a dump is gone from our control. The contributor terms must say
-  so plainly rather than implying a right to unpublish.
-- *The first write endpoint is the first attack surface.* Everything so far is
-  read-only and CORS-open because none of it can be changed. That stops being
-  true here, and the same open CORS policy becomes a decision to re-examine
-  rather than a given.
-- *Moderation is still unbounded if the trust threshold is wrong.* It is a
-  number in `config/preferences.js`; expect to change it with evidence rather
-  than to guess it correctly first time.
-
-### Deferred to Phase 3b
-
-Comment threads, rankings, and the vendor submission flow landing in
-`<graph:vendor/{id}>` marked self-asserted. All three are additive and none
-blocks the exit criteria above.
-
-*Since written:* the vendor submission flow has acquired a second reason to
-exist. `/submit` captures seven fields, which is right for a stranger adding
-somebody else's plugin and far short of what an author knows — `trn:role`,
-`accepts`, `produces`, `requires`, `caution` and the CC mappings are all in the
-vocabulary and reachable through no form. A vendor-facing profile form and an
-explanatory page at `/about/profiles` are in [../TODO.md](../TODO.md), with the
-reasoning about what belongs in a form and what does not: ports and parameters
-are a repeating five-field structure that a vendor already has in their bundle,
-so "point us at your `profile.ttl`" is a better offer than thirty inputs.
 
 ## Phase 4 — Pro tier and revenue — **PART BUILT**
 
 **Goal.** The project pays its hosting bills.
 
-*Deliverables 3 and 4 are built and live, ahead of the money.* A moderator can
-promote a plugin from `/admin`; placements are `pu:Promotion` resources that run
-a year and lapse by their own dates, read at query time so a lapsed one stops
-applying whether or not any job ran. The re-rank is bounded, the label says
-**Promoted** and links to `/about/promotion`, which publishes the numbers that
-are actually applied — bound to the code by `tests/search/promotion.test.js`.
+Built, and in [plan-done.md](plan-done.md): promotion (deliverable 3), its compliance labelling and
+the public ranking disclosure (deliverable 4), the Stripe integration and the Pro entitlement
+(deliverables 1 and 2 in part), and vendor identity.
 
-Building the compliance first was the right order and cost little: the shape of
-the thing was decided while it was still cheap to change. What is left is
-deliverables 1, 2, 5 and 6 — and payment is the trigger `docs/sources.md` §4
-names for a real legal reading.
+**Remaining deliverables**
 
-**Deliverables**
-
-1. Payment integration with an external provider — no card data in this system, only a customer
-   reference and an entitlement with an expiry.
-2. Pro entitlements: promoted listings, the unfiltered query page, on-topic advertising, blogging.
-3. Promotion as a bounded post-retrieval re-rank, never a filter that hides results.
-4. Compliance, built in rather than retrofitted: a visible "Ad"/"Promoted" label at each promoted
-   result (not "Sponsored" — the ASA advises against it as ambiguous); a public page documenting the
-   main ranking parameters and the bound on the promotion boost; promotion records as graph
-   resources, so the DSA-style ad repository is a query. **Done.** One decision differs from what
-   this phase assumed: no rank is reserved, so a placement may reach first. The bound that does
-   the work is the relevance floor — a placement never appears in a search it does not match.
-5. Pro-tier API keys for bulk and programmatic access.
-6. Blog and reviews section.
+1. *(part)* **Payment integration proven end to end.** The code is built and unit-tested; nothing
+   has completed a real checkout. The gate is Italian tax registration, which is on
+   [danja-todo.md](danja-todo.md) and which Stripe's own onboarding will enforce.
+2. *(part)* **Pro entitlements.** Promoted listings and the Pro subscription are built. The
+   **unfiltered query page**, **on-topic advertising** and **blogging** are not.
+   - **The vendor profile** is the piece with a designed shape and no code. It is no longer blocked:
+     the identity it needed exists, and so does the profile form that the same person would have
+     filled in first. Claiming, editing, the CC BY-SA split for a vendor's own words, disclosure
+     that a profile is the vendor's own, and the hard line that it must never become a way to edit
+     facts — all in [../TODO.md](../TODO.md).
+5. **Pro-tier API keys** for bulk and programmatic access. Not started.
+6. **Blog and reviews section.** Not started.
 
 **Exit criteria**
 
-- A paid account can promote a plugin; the placement appears labelled; the boost is bounded and
-  documented; the promotion is visible in the public ad-repository query.
-- Downgrade and expiry revoke entitlements correctly.
+- [ ] A paid account can promote a plugin; the placement appears labelled; the boost is bounded and
+  documented; the promotion is visible in the public ad-repository query. *Every clause but the
+  first is met. No account has paid.*
+- [ ] Downgrade and expiry revoke entitlements correctly. *Built as an entitlement checked when
+  read, so this should hold by construction — and it has not been exercised against a real
+  subscription lifecycle.*
 
 **Risks**
 
 - *Promotion corrupts search quality and users leave.* Keep the bound conservative and keep the
   unfiltered view available; search quality is the entire asset.
 - *Payments and tax across jurisdictions.* Use a provider that handles VAT/MOSS rather than building
-  it.
+  it — **and note that Stripe does not solve this in Italy**: invoices must go through SdI in a
+  prescribed XML format, and a Stripe invoice is not an SdI invoice. See
+  [danja-todo.md](danja-todo.md).
 - *Too few pro customers to matter.* See the revenue alternatives in [suggestions.md](suggestions.md);
   do not let promoted placement be the only model.
+- *A vendor profile becomes a way to edit facts.* A profile is the vendor's own words next to the
+  catalogue's findings, never on top of them. A `crashed` measurement stays `crashed` on a paid
+  profile. That boundary is the whole reason anybody would trust the catalogue, and it is the same
+  line `/about/promotion` already draws for placement.
 
 ---
 
-## Phase 5 — Open data — **COMPLETE except the conditional crawler**
+## Phase 5 — Open data — **COMPLETE except two deliverables**
 
 **Goal.** Deliver the open-data promise, and make the catalogue something other systems build on.
 
-**Deliverables**
+Built, and in [plan-done.md](plan-done.md): the endpoint, the dumps, the MCP face, the registry
+view, `/services`.
 
-1. Public read-only SPARQL endpoint at `sparql.<domain>`, rate-limited, with query timeouts.
-2. Dataset dumps under **CC0**, assembled by selecting only CC0-compatible graphs — mechanical,
-   because the flag was set at harvest time in Phase 1. CC BY-SA prose graphs are published as a
-   separate, separately-licensed dump rather than mixed in. Both carry a VoID description, and the
-   preserved notices of any MIT/ISC-sourced graphs included.
-3. MCP endpoint at `mcp.<domain>` for agent access, using the command + Zod-schema + registry
-   pattern.
-4. An open-audio-stack-compatible JSON view, so OwlPlug/StudioRack tooling can consume this
-   catalogue as a registry.
-5. Contribution back upstream: the user's own plugins submitted to the open-audio-stack registry;
-   the `trn:` extensions proposed to the transmission repo.
-6. *Conditional* — link-out-only indexing of third-party catalogues (name and URL, no substantial
-   re-publication, robots.txt and terms respected), only if the Phase 0 legal review supports it.
-   Such graphs are marked non-redistributable and excluded from dumps.
+**Remaining deliverables**
 
-**Exit criteria**
+5. **Contribution back upstream.** The user's own plugins submitted to the open-audio-stack
+   registry; the `trn:` extensions proposed to `~/github/transmission` — in particular
+   `trn:PluginFormat`, and retiring `trn:min`/`trn:minimum` in favour of the `lv2:` equivalents.
+   *This is the operating principle rather than a feature: contribute corrections back upstream
+   rather than keeping a better copy privately. The user's plugins being in this catalogue and not
+   in theirs is the wrong way round.*
+6. *Conditional* — **link-out-only indexing of third-party catalogues** (name and URL, no substantial
+   re-publication, robots.txt and terms respected). Profile augmentation from the open web — videos
+   and reviews, linked not copied.
 
-- A third party can reconstruct the redistributable catalogue from a published dump alone.
-- An agent can answer a plugin question through the MCP endpoint without scraping the site.
-- A package manager can point at the OAS-compatible view and resolve packages from it.
+   This is the place the rules bite hardest, and the conditions are not negotiable:
+   - KVR **links** are permitted and KVR **content** is not.
+   - A source gets a row in [sources.md §4](sources.md) **before** any code.
+   - Never scrape a search engine.
+   - Such graphs are `proprietary-linkout` and excluded from the dumps by their flag.
+   - Links rot, so it needs a re-check schedule — and a 403 from Cloudflare means *unknown*, not
+     *dead*. Working around the block would be the thing [sources.md §4](sources.md) rule 3 forbids.
 
-**Risks**
+**Exit criteria** — the three original ones are met. For what remains:
 
-- *Open dumps undercut the pro tier.* They should not — the pro tier sells promotion, freshness and
-  service, not access to facts. This was the reasoning behind choosing CC0; it holds only as long as
-  the pro tier is not quietly redefined as paid access to data.
-- *Public SPARQL endpoints are trivially abused.* Timeouts, result caps, rate limits, and a
-  materialised dump as the recommended path for bulk consumers.
+- [ ] The `trn:` extensions exist upstream rather than only here, so the vocabulary this project
+  shares is genuinely shared.
 
 ---
 
 ## Cross-cutting, running throughout
 
 - **The query regression suite** from Phase 1 grows with each phase; search quality is measured, not
-  asserted.
+  asserted. The floors are recall@1 80% and recall@3 93%; move them up as the signals improve, and
+  never tune a fixture until a test passes.
 - **Every harvest is reproducible.** Any source graph can be dropped and rebuilt from source at any
   time.
-- **Documentation as worklog** — progress notes under `docs/` following the naming convention in
-  [CLAUDE.md](../CLAUDE.md).
+- **Accessibility is a standing requirement, not a task.** The one-off pass is done and
+  `tests/api/accessibility.test.js` holds it over twelve page types; this line is about not
+  regressing.
+- **Documentation as worklog** — progress notes under `docs/entries/` following the naming
+  convention in [CLAUDE.md](../CLAUDE.md). *Currently drifting:* the last entry is 2026-09-10 and
+  three days of substantial work since is recorded only in TODO.md's Done section.
 - **The seed repos stay in sync.** downspout, flues and valis are both the seed corpus and the test
   data; changes there are the first signal that the normaliser has drifted.
+- **A prose claim is a claim, and nothing tests sentences.** Take every figure from the system —
+  `/health`, a SPARQL count, a `grep -c` — and where the prose is a commitment, bind it with a test
+  as `tests/search/promotion.test.js` binds `/about/promotion`.

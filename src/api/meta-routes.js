@@ -51,11 +51,66 @@ export function isMetaPath (path) {
   return PATHS.has(path) || VOCAB_PATH.test(path) || IMAGE_PATH.test(path)
 }
 
+/**
+ * What is wrong with this instance, in words.
+ *
+ * Pure, and exported, because the interesting case is the one a healthy
+ * instance cannot demonstrate: a check that only ever runs against a correct
+ * store is a check nobody has seen fire.
+ *
+ * `/health` reported `plugins` and `index` side by side and asserted nothing
+ * about them — two numbers and no claim that they agree, which is the shape of
+ * defect this project has written down more than once. A plugin can reach the
+ * catalogue and not the vector index, because `takeUpNewPlugins` allows that
+ * deliberately: refusing a whole submission over a failed embedding would be
+ * worse than accepting a plugin that is findable by name today and by meaning
+ * tomorrow. The cost is that the failure is reported nowhere but a log line.
+ *
+ * @param {string[]} unindexed - plugin IRIs the vector index does not hold
+ * @param {string|null} authProblem
+ */
+export function healthProblems ({ unindexed = [], authProblem = null } = {}) {
+  const problems = []
+  if (unindexed.length > 0) {
+    problems.push({
+      what: 'unindexed',
+      detail: `${unindexed.length} plugin(s) are in the catalogue and not in the vector ` +
+        'index, so they are findable by name and invisible to semantic search. ' +
+        'Run: node bin/ingest.js --only-new',
+      // A sample rather than all of them: this is a health check, not a report,
+      // and a monitor that has to parse eight hundred IRIs is one that times out.
+      plugins: unindexed.slice(0, 10).map(iri => iri.replace(/^.*\/plugin\//, ''))
+    })
+  }
+  if (authProblem) problems.push({ what: 'sign-in', detail: authProblem })
+  return problems
+}
+
+/**
+ * `ok` means serving *and* consistent.
+ *
+ * Anything in `problems` makes it `degraded`: the site answers, and something
+ * about it is wrong in a way somebody has to fix. Never `error` — a process
+ * that could not serve would not be answering this at all.
+ */
+export function healthStatus (problems) {
+  return problems.length === 0 ? 'ok' : 'degraded'
+}
+
 function health ({ response, search, config, auth, authProblem, build }) {
+  const unindexed = search.unindexed()
+  const problems = healthProblems({ unindexed, authProblem })
+
   send(response, 200, {
-    status: 'ok',
+    // `ok` means serving and consistent. Anything in `problems` makes it
+    // `degraded`: the site answers, and something about it is wrong in a way
+    // somebody has to fix. It is never `error` — a process that could not serve
+    // would not be answering this.
+    status: healthStatus(problems),
+    problems,
     plugins: search.documents.size,
     index: search.index.size,
+    unindexed: unindexed.length,
     // How many plugins carry a profiler reading, and when the newest run was.
     // Here because measurements are made on one machine and carried to
     // another, and until this existed there was no way to ask the deployment
