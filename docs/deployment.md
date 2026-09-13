@@ -243,7 +243,7 @@ other people's work, not a cache.
 Rows whose licence is `unknown` are **skipped**: those repositories state no
 licence the graph registry recognises, and harvesting them would add data the
 public dump could never use. That is settled policy
-([resources.md §4, rule 7](resources.md)), so they need no action — they stay in
+([sources.md §4, rule 7](sources.md)), so they need no action — they stay in
 the file as a record of what was seen. Set `include` on one only after asking
 its maintainer.
 

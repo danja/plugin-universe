@@ -132,10 +132,16 @@ foundations.
   a popularity signal that feeds ranking is a different thing from a display number.
 * **An admin area** for `TIER.ADMIN` only. The tier exists and `bin/grant.js` sets it; nothing
   reads it. Account list, trust and suspension, the graph registry.
-* **A Plugin Resources page and a Developers page** — categorised links for people using
-  plugins and people writing them (JUCE, DPF, the LV2 and CLAP specs, validators). Curated
-  first, then in the store so contributors can add through the moderation queue that exists.
-  A `skos:Collection` over the existing scheme rather than a new taxonomy.
+* **The Resources page is curated prose, and the next step is the store.** `/resources` exists
+  with two sections — producers and developers — hand-seeded with about forty links. The
+  original plan was for contributors to add to it through the moderation queue, as a
+  `skos:Collection` over the existing scheme rather than a new taxonomy. That is still the
+  right shape and is not built: today adding a link means editing `docs/resources.md`.
+
+  **Links rot, and nothing here notices.** Four of the seeded sites answer 403 to an automated
+  request — Cloudflare and the like — so a naive checker would report them broken and a checker
+  that worked around the block would be doing the thing `docs/sources.md` §4 rule 3 forbids.
+  Any link-checking this page gets has to treat a 403 as "unknown", not as "dead".
 * **A 3D navigable plugin graph** — plugins as nodes, hover for a summary, click through to the
   page. Genuinely differentiating, and the one thing on this list that breaks a standing
   decision: the site is server-rendered with no client framework, and this cannot be. Worth
@@ -222,7 +228,7 @@ foundations.
 
   **Two things are not the code's to settle.** Italian tax registration is on Danja's list and
   gates going live — Stripe's own onboarding is what will stop an unregistered account taking
-  real money. And `docs/resources.md` §4 names payment as the trigger for a real legal reading
+  real money. And `docs/sources.md` §4 names payment as the trigger for a real legal reading
   of the contributor terms; that is still outstanding.
 
 ## Phase 5 — open data — nearly done
@@ -241,7 +247,7 @@ at `/registry/plugins/index.json`, the MCP face, and `/services` describing all 
   `trn:min`/`trn:minimum` in favour of the `lv2:` equivalents.
 * **Profile augmentation from the open web** — videos and reviews, linked not copied. The
   conditional deliverable, and the one place the rules bite hardest: KVR links are permitted
-  and KVR content is not; a source gets a row in [resources.md §4](docs/resources.md) before any
+  and KVR content is not; a source gets a row in [sources.md §4](docs/sources.md) before any
   code; never scrape a search engine; such graphs are `proprietary-linkout` and excluded from
   the dumps by their flag; and links rot, so it needs a re-check schedule.
 
@@ -321,7 +327,7 @@ which is why it is no longer restated here.
   run from the machine that made it to the one that serves. 50 plugins, 288 triples.
 * **Submitting a plugin**, and **accepting one indexes it** without a restart.
 * **Submit by URL, for a moderator** — one fetch, drafted into the form for checking.
-  `docs/resources.md` §4 rule 8 is what bounds it, written before the code.
+  `docs/sources.md` §4 rule 8 is what bounds it, written before the code.
 * **Image upload**, sniffed by magic bytes, stored content-addressed, served by nginx.
 * **Licence identifiers normalised** — 23 spellings to 19 licences, enumerated in
   `vocabs/shapes.ttl`, fixed in place by `bin/renormalise-licences.js`.

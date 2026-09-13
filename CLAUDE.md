@@ -73,7 +73,7 @@ Read those before making structural changes.
 - **Embeddings are stored out of band**, keyed by plugin IRI. The graph records the model, dimension
   and generation time; the vectors live in the index, never as JSON string literals in RDF.
 - **A harvester declares its licence and provenance, and never guesses either.** Adding a source
-  means adding a row to the terms review in `docs/resources.md` §4 first.
+  means adding a row to the terms review in `docs/sources.md` §4 first.
 - **One repository, one graph, when harvesting GitHub.** A repository's licence is a property of
   that repository, and the licence flag decides what reaches the public dump — a shared "github"
   graph would mean one flag for a hundred different answers. Repositories come from a reviewed
@@ -368,7 +368,7 @@ change, and a long one rarely does.
 
 The governing principle is to obey the law and be a good citizen of the ecosystem this catalogue
 documents. The second is stricter than the first and settles the marginal cases. Ingest rules, with
-the full review in `docs/resources.md` §4:
+the full review in `docs/sources.md` §4:
 
 - Only harvest sources whose terms have been reviewed and recorded there. Adding a source means
   adding a row to that table first.
@@ -454,7 +454,7 @@ liblapack-dev pkg-config` at build time.
 
 ## Docs and Worklog Guidelines
 
-- `docs/architecture.md`, `docs/plan.md`, `docs/suggestions.md` and `docs/resources.md` are the
+- `docs/architecture.md`, `docs/plan.md`, `docs/suggestions.md` and `docs/sources.md` are the
   standing documents. Keep `docs/index.md` current when adding one.
 - Progress reports and plans are saved as markdown under `docs/entries/`, named
   `YYYY-MM-DD_claude_title.md`, with the main title starting `# Claude :`, written in the style of a

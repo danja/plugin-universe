@@ -10,7 +10,7 @@ import { HarvestError } from './Harvester.js'
  *
  * GitHub's acceptable use policy is explicit that "scraping does not refer to
  * the collection of information through our API" — so the API is the only route
- * this project takes, and never the HTML (docs/resources.md §4).
+ * this project takes, and never the HTML (docs/sources.md §4).
  *
  * Three things this class exists to get right:
  *

@@ -117,7 +117,7 @@ export function renderSubmitPage (submittable, {
       linkText: submitted?.linkText ?? ''
     }),
     fields: Object.entries(submittable).map(field).join('\n  '),
-    // Moderators only. `docs/resources.md` §4 rule 8: an open form is an open
+    // Moderators only. `docs/sources.md` §4 rule 8: an open form is an open
     // proxy, and "a person asked for it" stops being true the moment anyone
     // can ask. The route checks it too — this only decides whether to draw it.
     fetch: templates.when(Boolean(mayRead), 'submit-fetch', {

@@ -7,7 +7,7 @@ import { LICENCES } from '../store/GraphRegistry.js'
  *
  * Discovery and harvesting are deliberately separated. Discovery produces a
  * list that a person can read and edit; harvesting consumes it. The reason is
- * the standing rule in docs/resources.md §4 — a source is added by recording a
+ * the standing rule in docs/sources.md §4 — a source is added by recording a
  * decision about its terms, not by a crawler deciding for itself — and the
  * practical effect is that "which repositories" stays a curation question with
  * a written answer, rather than whatever a search query happened to return on
@@ -29,7 +29,7 @@ export const DEFAULT_TOPICS = Object.freeze([
  * Whether a discovered repository is harvested.
  *
  * **An unrecognised or absent licence is skipped.** That is settled policy, not
- * a default awaiting review (docs/resources.md §4, rule 7). The graph registry
+ * a default awaiting review (docs/sources.md §4, rule 7). The graph registry
  * flags `unknown` as not redistributable, so harvesting one would add data the
  * public dump could never use, taken from a source that has granted nothing.
  * Silence is not permission.

@@ -20,7 +20,7 @@ export class Lv2Harvester extends Harvester {
    * @param {string} spec.repoPath - directory to search for .lv2 bundles
    * @param {string} spec.id
    * @param {string} spec.licence - the repository's licence, checked per repo
-   *   at harvest time rather than assumed (docs/resources.md §4)
+   *   at harvest time rather than assumed (docs/sources.md §4)
    */
   /**
    * @param {string|null} [spec.pricing] - a Licensing pricing IRI, where the

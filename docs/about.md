@@ -1,34 +1,44 @@
 # About Plugin Universe
 
 An open, machine-readable database of DAW plugins, with search that works on
-what a plugin *does* rather than what its marketing copy says.
-
-Everything factual in it is public domain. You can query it, download it, and
+what a plugin *does*. Everything factual in it is public domain. You can query it, download it, and
 build on it without asking.
 
-## The rest of the site
+## Who it is for
 
-The footer carries five links. Everything else this site explains about itself
-is here, so that there is one index rather than a list of links growing until
-nobody reads any of them.
+**Musicians and producers**, searching by what a plugin does. "Warm analogue bus
+compressor" should find compressors - including ones whose descriptions never use
+any of those words.
 
-- [Services](/services) — every way this catalogue can be read: web pages, JSON,
+**Plugin developers**, wanting their work found, and wanting comparisons that
+were measured rather than asserted.
+
+**Programs and agents** - DAWs, plugin managers, and AI assistants that need
+structured knowledge about plugins. This audience is the one nobody currently
+serves at all, and it is the reason the whole catalogue is RDF with a public
+SPARQL endpoint rather than a database behind a search box.
+
+## Navigation
+
+- [Services](/services) - every way this catalogue can be read: web pages, JSON,
   RDF, a public SPARQL endpoint, a package registry view and an MCP face.
-- [Plugin profiles](/about/profiles) — what a profile is, and why it is worth a
+- [Resources](/resources) - forums, news, frameworks, specifications and DSP
+  references. Other people's sites, for producers and for developers.
+- [Plugin profiles](/about/profiles) - what a profile is, and why it is worth a
   plugin's author filling one in.
-- [Promoted listings](/about/promotion) — what a paid placement buys, exactly
+- [Promoted listings](/about/promotion) - what a paid placement buys, exactly
   how much it changes ranking, and what it cannot do.
-- [Measurements](/about/measurements) — what the profiler measures, what each
+- [Measurements](/about/measurements) - what the profiler measures, what each
   verdict means, and why a reading is about one binary on one machine.
-- [Contributor terms](/terms) — what you agree to when you contribute: CC0 for
+- [Contributor terms](/terms) - what you agree to when you contribute: CC0 for
   facts, CC BY-SA for prose.
-- [Vocabularies](/ns) — the RDF terms every published description uses, as
+- [Vocabularies](/ns) - the RDF terms every published description uses, as
   documents that resolve.
-- [The SPARQL endpoint](/about/sparql) and [the MCP endpoint](/about/mcp) — the
+- [The SPARQL endpoint](/about/sparql) and [the MCP endpoint](/about/mcp) - the
   two ways to ask this catalogue a question it has no page for.
-- [About the crawler](/about/crawler) — what the harvester does, how it behaves,
+- [About the crawler](/about/crawler) - what the harvester does, how it behaves,
   and how to make it stop.
-- [Contact](/about/contact) — how to reach the person behind this, and what to
+- [Contact](/about/contact) - how to reach the person behind this, and what to
   say.
 
 ---
@@ -45,23 +55,9 @@ plugins is growing faster than any hand-curated list can absorb. A catalogue
 that ingests automatically is the right shape of answer to that, and it is worth
 building before the flood rather than after.
 
-## Who it is for
-
-**Musicians and producers**, searching by what a plugin does. "Warm analogue bus
-compressor" should find compressors — including ones whose descriptions never use
-any of those words.
-
-**Plugin developers**, wanting their work found, and wanting comparisons that
-were measured rather than asserted.
-
-**Programs and agents** — DAWs, plugin managers, and AI assistants that need
-structured knowledge about plugins. This audience is the one nobody currently
-serves at all, and it is the reason the whole catalogue is RDF with a public
-SPARQL endpoint rather than a database behind a search box.
-
 ## What makes it different
 
-**It is machine-readable to the ground.** Every plugin has a permanent
+**Turtles all the way down.** It is machine-readable to the ground. Every plugin has a permanent
 identifier that resolves to Turtle, JSON-LD or a human page depending on what
 you ask for. There is no scraping step and no API key for reading.
 
@@ -73,7 +69,7 @@ trusted.
 
 **It measures.** Most of a catalogue is what someone *said* about a plugin. The
 profiler finds out: it runs the plugin's own binary in a sandbox and records
-what it reports — ports, latency, whether it loads at all, whether it crashes.
+what it reports - ports, latency, whether it loads at all, whether it crashes.
 Where a measurement contradicts a description, the measurement wins. See
 [profiling.md](profiling.md).
 
@@ -83,7 +79,7 @@ your words can find a plugin described in someone else's.
 
 ## What it is not
 
-Not a plugin **installer** — that is [OwlPlug](https://owlplug.com/)'s job, and
+Not a plugin **installer** - that is [OwlPlug](https://owlplug.com/)'s job, and
 the catalogue is designed to be consumable by tools like it rather than to
 compete with them.
 
@@ -99,20 +95,20 @@ and measurements.
 
 Harvested from sources whose terms permit it, and only those. Each source was
 reviewed before a line of code was written to read it, and the review is public:
-[resources.md §4](resources.md).
+[sources.md §4](sources.md).
 
-Every plugin carries the two things people ask first — whether the source is
-open, and whether it costs money — as separate facts, because they are
+Every plugin carries the two things people ask first - whether the source is
+open, and whether it costs money - as separate facts, because they are
 independent. Ardour is open source and its official binaries are sold.
 
 ### Licence
 
 **The factual catalogue is [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)**
-— public domain, no conditions. Names, formats, parameters, categories,
+- public domain, no conditions. Names, formats, parameters, categories,
 download URLs, measurements. Take it and use it.
 
 **User-authored prose is [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)**
-— wiki text, reviews, comments. Share it, adapt it, credit it, and pass on the
+- wiki text, reviews, comments. Share it, adapt it, credit it, and pass on the
 same freedom.
 
 The two live in separate graphs, so the boundary is enforced by the store rather
@@ -156,21 +152,7 @@ reading of the law might permit them.
 ## Contributing
 
 Corrections, additions and wiki edits are welcome. See the
-[contributor terms](contributor-terms.md) for what you are agreeing to — the
+[contributor terms](contributor-terms.md) for what you are agreeing to - the
 short version is that facts you contribute go into the public domain and prose
 you write stays yours under a share-alike licence.
 
-## Who maintains it
-
-**Danny Ayers** — danny.ayers@gmail.com
-
-- GitHub: [@danja](https://github.com/danja)
-- Reddit: u/danja
-- Twitter/X: [@danja](https://twitter.com/danja)
-- Homepage: [danny.ayers.name](https://danny.ayers.name)
-
-Issues and pull requests on the repository are the best route for anything
-technical. Email is the right one for anything about the data itself —
-particularly a request to have something removed, which will be acted on rather
-than debated. See [the crawler page](crawler.md) for how the harvester behaves
-and how to make it stop.

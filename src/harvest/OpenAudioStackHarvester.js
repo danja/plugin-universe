@@ -13,7 +13,7 @@ const trn = NAMESPACES.trn
  * CC0-1.0 and built explicitly for third-party integration — "an open API
  * (static JSON) you can integrate into your own products". It is the cleanest
  * external source available: CC0 in, CC0 out, no notice to carry and no
- * database-right analysis to do (docs/resources.md §4).
+ * database-right analysis to do (docs/sources.md §4).
  *
  * The registry is also the model for this project's packaging layer, so its
  * manifest maps onto pu:Package and pu:PackageFile with no invention.
@@ -185,7 +185,7 @@ export class OpenAudioStackHarvester extends Harvester {
       id,
       kind: 'source',
       // Verified 2026-09-06 and re-checked at implementation: the repository's
-      // GitHub licence metadata is CC0-1.0. See docs/resources.md §4.
+      // GitHub licence metadata is CC0-1.0. See docs/sources.md §4.
       licence: 'CC0-1.0',
       derivedFrom: registryUrl ?? registryPath ?? 'https://github.com/open-audio-stack/open-audio-stack-registry'
     })

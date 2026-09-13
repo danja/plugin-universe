@@ -81,7 +81,7 @@ Ask, and it will be removed. That applies to a description, a link, a name, or
 an entire entry, whether or not you contributed it.
 
 The project's posture is set out in full in
-[the source terms review](resources.md); the short version is that it obeys the
+[the source terms review](sources.md); the short version is that it obeys the
 law and tries to be a better neighbour than the law requires, and where those
 two disagree the second one wins. Sources have been excluded on that basis
 already.

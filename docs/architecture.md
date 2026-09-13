@@ -1,7 +1,7 @@
 # Plugin Universe — System Architecture
 
 Status: draft, 2026-09-06. Companion documents: [Implementation Plan](plan.md),
-[Suggestions](suggestions.md), [Resources](resources.md).
+[Suggestions](suggestions.md), [Sources](sources.md).
 
 ## 1. Purpose and scope
 
@@ -464,7 +464,7 @@ harvested and still queryable, but carry a licence flag that excludes them from 
 attaches the required notice. This is exactly what the per-graph licence flag of §3 is for.
 
 Phase 1 sources, all verified clean (terms reviewed 2026-09-06, findings in
-[resources.md §4](resources.md)):
+[sources.md §4](sources.md)):
 
 - The user's own repos — downspout (50 profiles), flues (37 LV2 bundles), valis. Owned outright.
 - The open-audio-stack registry — **CC0-1.0**, machine-readable, purpose-built for this. The single
@@ -502,7 +502,7 @@ catalogue's content, and honouring robots.txt and terms of service. The harveste
 accommodates a source whose graph is marked non-redistributable and is excluded from public dumps;
 that per-graph licence flag (§3) is what makes the option available without re-architecting.
 
-The annotated source list lives in [resources.md](resources.md).
+The annotated source list lives in [sources.md](sources.md).
 
 ## 9. Configuration and code conventions
 
@@ -586,7 +586,7 @@ backup cadence.
 - **IRI namespace: `http://purl.org/stuff/plugin-universe/`.** Already controlled, permanent,
   independent of hosting. Minting can begin immediately; the domain name is deployment only.
 - **Source terms: reviewed.** The Phase 1 sources are verified compatible; the findings and the
-  standing rules are in [resources.md §4](resources.md).
+  standing rules are in [sources.md §4](sources.md).
 
 ### Still open
 

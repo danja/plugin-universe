@@ -9,7 +9,7 @@ import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
  * Read one page, at a moderator's request, into a draft submission.
  *
  * Somebody pasting the URL of their plugin's page is asking for one document to
- * be read once. `docs/resources.md` §4 rule 8 sets out why that is a different
+ * be read once. `docs/sources.md` §4 rule 8 sets out why that is a different
  * act from crawling — consent and scale — and, more usefully, what would turn
  * it back into crawling. Those four things are refused here in code rather than
  * in policy:

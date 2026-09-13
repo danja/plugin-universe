@@ -1,7 +1,7 @@
 # Plugin Universe — Implementation Plan
 
 Status: draft, 2026-09-06. Companion documents: [Architecture](architecture.md),
-[Suggestions](suggestions.md), [Resources](resources.md).
+[Suggestions](suggestions.md), [Sources](sources.md).
 
 Every component named here is defined in [architecture.md](architecture.md). Each phase lists its
 goal, deliverables, exit criteria and risks. No phase depends on anything introduced later.
@@ -61,7 +61,7 @@ settled. Nothing user-visible.
 9. SHACL shapes for the core plugin shape, and a validator module that runs them.
 10. Licence plumbing for the **CC0** decision: a per-graph licence flag set at harvest time, and the
     dump-assembly query that selects only CC0-compatible graphs. The source terms review is done —
-    see [resources.md §4](resources.md) — so this is implementation, not investigation.
+    see [sources.md §4](sources.md) — so this is implementation, not investigation.
 
 **Exit criteria** — met except where noted
 
@@ -143,7 +143,7 @@ were written for and they found it on their first run.
    - **open-audio-stack registry** — the JSON registry endpoints; CC0-1.0, so its graph flows
      straight into the CC0 dump
    - **DOAP / GitHub** — repository metadata via the GitHub **API** only, never HTML scraping;
-     project data, not maintainer email addresses (see [resources.md §4](resources.md))
+     project data, not maintainer email addresses (see [sources.md §4](sources.md))
 2. Normaliser: source shapes → the graph model. Includes the `trn:min`/`trn:minimum` reconciliation
    onto `lv2:minimum`/`lv2:maximum`, the `trn:MIDI`/`trn:hasParameter` typo fixes, LV2 plugin classes
    into the SKOS scheme, and OAS manifest fields into the packaging layer.
@@ -421,7 +421,7 @@ are actually applied — bound to the code by `tests/search/promotion.test.js`.
 
 Building the compliance first was the right order and cost little: the shape of
 the thing was decided while it was still cheap to change. What is left is
-deliverables 1, 2, 5 and 6 — and payment is the trigger `docs/resources.md` §4
+deliverables 1, 2, 5 and 6 — and payment is the trigger `docs/sources.md` §4
 names for a real legal reading.
 
 **Deliverables**

@@ -49,6 +49,14 @@ export const PAGES = Object.freeze({
     title: 'Services',
     description: 'Every way the Plugin Universe catalogue can be read: web, JSON, RDF, SPARQL, a package registry and MCP.'
   },
+  '/resources': {
+    file: 'docs/resources.md',
+    // Outward-pointing, and the only page here that is mostly other people's
+    // addresses. Links, never copies: the terms review admits no source to the
+    // catalogue without a row of its own, and a link needs no such permission.
+    title: 'Resources',
+    description: 'Forums, news, frameworks, specifications and DSP references for people who use plugins and people who write them.'
+  },
   '/about/mcp': {
     file: 'docs/mcp.md',
     title: 'The MCP endpoint',

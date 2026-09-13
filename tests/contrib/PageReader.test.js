@@ -7,7 +7,7 @@ import { SUBMITTABLE, validate } from '../../src/contrib/Submissions.js'
  *
  * Two things are being tested and they are not the same. One is the extraction:
  * given a page, does a sensible draft come out. The other is the refusals —
- * `docs/resources.md` §4 rule 8 says a fetch at a person's request must not be
+ * `docs/sources.md` §4 rule 8 says a fetch at a person's request must not be
  * allowed to become a crawl, and names the four things that would turn it into
  * one. Those are the tests that matter, because the extraction being poor
  * produces a draft a moderator corrects, and the refusals failing produces an

@@ -173,7 +173,7 @@ The draft is in [announcement-01.md](announcement-01.md). The points that were
 listed here are in it; what is left is your decision about where it goes and
 when. The one thing worth keeping in view while editing: the first question
 people ask is "where did you get my data", and the answer reads far better
-given than extracted — `docs/resources.md` §4 is the answer, and it is public.
+given than extracted — `docs/sources.md` §4 is the answer, and it is public.
 
 ## Two findings from the first pluginval sweep
 

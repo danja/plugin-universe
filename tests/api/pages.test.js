@@ -62,7 +62,7 @@ describe('inter-document links', () => {
 
   it('sends an unserved document to the repository rather than nowhere', () => {
     // A broken link in the terms is worse than an off-site one.
-    expect(rewriteLink('resources.md')).toMatch(/^https:\/\/github\.com\/.*resources\.md$/)
+    expect(rewriteLink('sources.md')).toMatch(/^https:\/\/github\.com\/.*sources\.md$/)
   })
 
   it('leaves absolute links, mailto and anchors alone', () => {

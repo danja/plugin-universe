@@ -4,7 +4,7 @@
 
 
 * **Where the data comes from, and where it does not.** Every source's terms are
-  reviewed before harvesting and recorded in `docs/resources.md` §4. KVR is
+  reviewed before harvesting and recorded in `docs/sources.md` §4. KVR is
   excluded and it is worth saying why unprompted. The crawler identifies itself
   and has a contact address.
 * **How to get your plugin in, without being crawled.** Send the URL and

@@ -8,7 +8,7 @@ import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 /**
  * "Read a page" on the submit form, and who may press it.
  *
- * `docs/resources.md` §4 rule 8 permits one fetch at a named person's request
+ * `docs/sources.md` §4 rule 8 permits one fetch at a named person's request
  * and says what would turn it back into crawling. The last of the four is the
  * one that lives here rather than in `PageReader`: **a URL from anyone but a
  * moderator**. An open form is an open proxy, and "a person asked for it" stops

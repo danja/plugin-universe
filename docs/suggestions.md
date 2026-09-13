@@ -1,7 +1,7 @@
 # Plugin Universe — Suggestions
 
 Status: draft, 2026-09-06. Companion documents: [Architecture](architecture.md), [Plan](plan.md),
-[Resources](resources.md).
+[Sources](sources.md).
 
 Opinionated recommendations arising from the research, each with its reasoning. These are proposals,
 not decisions.
@@ -155,7 +155,7 @@ the resulting dataset unredistributable, which contradicts the open-data promise
 The chosen posture — permissive sources now, link-out-only crawling later if a review supports it —
 is the right one, and the per-graph licence flag is what makes it enforceable rather than aspirational.
 
-The review has been done ([resources.md §4](resources.md)). The short version: every Phase 1 source
+The review has been done ([sources.md §4](sources.md)). The short version: every Phase 1 source
 is clear, most of them CC0; GitHub must be used through its API rather than scraped; and KVR is
 excluded — it has no general terms-of-service page to rely on, it blocks non-browser clients at the
 edge, and its product database is precisely the kind of curated compilation the sui generis right

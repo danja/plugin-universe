@@ -187,4 +187,4 @@ argued about.
 ---
 
 *See also: [about.md](about.md) for what the project is,
-[resources.md §4](resources.md) for the review of every source's terms.*
+[sources.md §4](sources.md) for the review of every source's terms.*

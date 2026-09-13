@@ -60,7 +60,7 @@ async function submitRoute ({
   const account = viewer.account
   const facetValues = await search.facets()
   // Moderators only, and checked here as well as in the renderer: the form not
-  // being drawn is a decision about a page, not a control. docs/resources.md §4
+  // being drawn is a decision about a page, not a control. docs/sources.md §4
   // rule 8 — the request has to stay attributable to a named person, or it is
   // an open proxy.
   const mayRead = account.trustLevel === TRUST.MODERATOR

@@ -16,7 +16,7 @@ import { HarvestError } from './Harvester.js'
  *    nothing at all. The cache is explicit and its age is checked; it is not a
  *    silent fallback for a failed fetch.
  *  - A 403, a 429 or any other refusal is an answer. It is reported, never
- *    retried around with a different user agent (docs/resources.md §4, rule 3).
+ *    retried around with a different user agent (docs/sources.md §4, rule 3).
  */
 
 /** Responses that mean "no". Retrying these is working around an answer. */

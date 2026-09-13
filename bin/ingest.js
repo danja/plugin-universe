@@ -22,7 +22,7 @@ import { composeText, textHash } from '../src/embeddings/EmbeddingService.js'
  *
  * Sources are configured here rather than discovered: adding one means adding
  * its licence and its provenance deliberately, which is the point (see
- * docs/resources.md §4). GitHub is the one exception, and only in form — its
+ * docs/sources.md §4). GitHub is the one exception, and only in form — its
  * repositories come from a candidate file a person has reviewed, which is the
  * same decision written down somewhere editable.
  *

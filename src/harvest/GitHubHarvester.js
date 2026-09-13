@@ -25,7 +25,7 @@ import { LICENCES } from '../store/GraphRegistry.js'
  *
  * **API only, never HTML.** GitHub's acceptable use policy exempts API
  * collection from its definition of scraping and does not exempt anything else
- * (docs/resources.md §4).
+ * (docs/sources.md §4).
  *
  * **Project data, not people data.** The repository owner's login and the
  * maintainer name a bundle states about itself are catalogue data. Email

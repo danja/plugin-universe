@@ -84,7 +84,7 @@ Ardour is GPL-3.0 and its official binaries are sold. Source availability is
 derived from the stated licence; pricing is only ever what a source asserted.
 
 Sources are only harvested after their terms are reviewed and recorded in
-[docs/resources.md §4](docs/resources.md). A sanctioned API is used wherever one
+[docs/sources.md §4](docs/sources.md). A sanctioned API is used wherever one
 exists, a 403 or a rate limit is treated as an answer rather than an obstacle,
 and a repository stating no recognised licence is listed but not harvested —
 silence is not permission. KVR Audio is excluded, and the reasoning is written
@@ -114,7 +114,7 @@ published, and a placement can never appear in a search it does not match.
 - [Architecture](docs/architecture.md) — data model, components, retrieval, deployment
 - [Implementation plan](docs/plan.md) — six phases with exit criteria
 - [Measurements](docs/measurements.md) — what the profiler measures and what each verdict means
-- [Resources](docs/resources.md) — data sources, forums, specs, and the source terms review
+- [Sources](docs/sources.md) — data sources, forums, specs, and the source terms review
 - [Suggestions](docs/suggestions.md) — recommendations and rationale
 - [Deployment](docs/deployment.md) — the server runbook
 - [Profiling](docs/profiling.md) — the profiler and its sandbox
