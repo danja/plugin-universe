@@ -256,12 +256,46 @@ describe('the site links', () => {
     }
   })
 
-  it('carry the terms wherever they are, since that is the one that matters', () => {
+  it('carry the licence and a way further in, wherever they are', () => {
+    // This used to require `href="/terms"` here too, on the reasoning that
+    // somebody about to contribute is owed the terms wherever they happen to be
+    // standing. The footer is now five links by editorial decision and the
+    // terms are not among them, so the requirement has moved to where a person
+    // is actually about to contribute — see below.
     for (const page of [shellPage, prose, renderPluginPage(DOC)]) {
-      expect(page).toContain('href="/terms"')
       expect(page).toContain('href="/services"')
       expect(page).toContain('CC0 1.0')
     }
+  })
+})
+
+/**
+ * The contributor terms, reachable from the pages where they matter.
+ *
+ * They were in the footer of every page until the link list was cut to five.
+ * Dropping the assertion entirely would have left nothing at all requiring them
+ * to be findable, so it moved rather than disappeared: the four surfaces where
+ * somebody is *about to give this project something* each link them, which is a
+ * narrower claim than the old one and a truer one.
+ */
+describe('where the contributor terms are reachable', () => {
+  const CONTRIBUTING = [
+    'templates/submit.html',
+    'templates/correct-form.html',
+    'templates/correct-signed-out.html',
+    'templates/image-form.html',
+    'templates/contributions.html'
+  ]
+
+  it('is every form that asks a person for something', () => {
+    for (const file of CONTRIBUTING) {
+      expect(readFileSync(file, 'utf8'), `${file} asks for a contribution and does not link the terms`)
+        .toContain('href="/terms"')
+    }
+  })
+
+  it('and the index on the About page, for everybody else', () => {
+    expect(readFileSync('docs/about.md', 'utf8')).toContain('(/terms)')
   })
 })
 

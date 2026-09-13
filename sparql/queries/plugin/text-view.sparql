@@ -36,6 +36,11 @@ SELECT ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?created ?licenc
        # most useful outbound link a plugin page has: the identifier its author
        # chose, resolving to their description of it.
        (GROUP_CONCAT(DISTINCT ?upstream; separator=" ") AS ?sameAs)
+       # The vendor's minted identity, from the derived layer rather than from
+       # the plugin's own graph — it is a fold across sources, so no source
+       # holds it. The string in ?vendor stays exactly as harvested; this is the
+       # thing that can be pointed at, described and claimed.
+       (GROUP_CONCAT(DISTINCT ?maker; separator=" ") AS ?makers)
 WHERE {
   GRAPH ?g {
     ?plugin a trn:PluginProfile ; rdfs:label ?name .
@@ -80,6 +85,16 @@ WHERE {
   # plugin's graph it was invisible — the picture in the catalogue and on no
   # page.
   OPTIONAL { GRAPH ?depictionGraph { ?plugin foaf:depiction ?anyImage } }
+
+  # Vendor identity, likewise in a graph of its own — the curated "vendors"
+  # graph, rebuilt by bin/mint-vendors.js. Absent until that has been run, which
+  # is why this is OPTIONAL and why nothing downstream may assume it is there.
+  #
+  # Written without the graph's prefixed name on purpose: QueryService scans
+  # these files for prefixes and does not skip comments, so a `word:` in prose
+  # here is read as a prefix the query uses and refused. Over-strict, and the
+  # right way round — it cannot miss a real one.
+  OPTIONAL { GRAPH ?identityGraph { ?plugin foaf:maker ?maker } }
 }
 GROUP BY ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?created ?licenceId ?sourceAvailability ?pricing
 ORDER BY ?name

@@ -1,0 +1,9 @@
+<li class="queue-item">
+  <p class="tags">{{login}}, {{at}}</p>
+  <p class="feedback-message">{{message}}</p>
+  <form method="post" action="/admin" class="inline-form">
+    <input type="hidden" name="csrf" value="{{csrf}}">
+    <input type="hidden" name="feedback" value="{{iri}}">
+    <button type="submit" name="markread" value="1">Mark read</button>
+  </form>
+</li>

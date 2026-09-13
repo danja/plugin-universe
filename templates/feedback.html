@@ -1,0 +1,24 @@
+{{{heading}}}
+<p class="meta">A message to the people who look after this catalogue. It reaches
+  the moderation queue and nowhere else — it is not published, it does not appear
+  on any page, and it is deleted along with your account if you ever ask for
+  that. See the <a href="/about/contact">contact page</a> if you would rather
+  write by email.</p>
+{{{error}}}
+{{{done}}}
+<div class="columns">
+<div class="page-body">
+<form method="post" action="/feedback" class="submit-form">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <label for="feedback-message">Your message</label>
+  <textarea id="feedback-message" name="message" rows="10" maxlength="{{maxLength}}"
+    placeholder="What is wrong, missing, or confusing?">{{message}}</textarea>
+  <button type="submit">Send to the moderators</button>
+  <p class="tags">Signed in as {{login}}, so there is no need to leave an address —
+    but the moderators have no way to reply on the site, so say how to reach you
+    if you want an answer.</p>
+</form>
+</div>
+{{{side}}}
+</div>
+{{{links}}}

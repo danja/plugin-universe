@@ -256,9 +256,43 @@ export function renderContributionsPage (rows, { viewer = {}, correctable = {}, 
  * making them navigate between the queue and a separate console would be an
  * invented boundary.
  */
+/**
+ * The feedback form.
+ *
+ * Signed-in only, so the page never has to ask who somebody is — and says so,
+ * because the useful thing to tell a person writing in is that the moderators
+ * cannot reply here.
+ */
+export function renderFeedbackPage ({
+  csrfToken, viewer = {}, facetValues = {}, corpus = 0,
+  message = '', error = null, sent = false, maxLength = CONTRIBUTION_CONFIG.maxFeedbackLength
+}) {
+  const body = templates.render('feedback', {
+    heading: templates.render('page-heading', { title: 'Send feedback' }),
+    csrf: csrfToken,
+    login: viewer.account?.login ?? '',
+    maxLength: String(maxLength),
+    // Kept after a refusal, so a long message is not lost to a typo somewhere
+    // else on the page. Emptied once it has been sent, so a reload cannot look
+    // like an unsent draft.
+    message: sent ? '' : message,
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    done: templates.when(sent, 'notice', {
+      text: 'Sent — thank you. A moderator will read it. There is no reply on the site, so if you asked a question, expect an answer by whatever means you gave.'
+    }),
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {})
+  })
+  return layout('Send feedback — Plugin Universe', body, {
+    description: 'Send a message to the people who look after the Plugin Universe catalogue.',
+    ...viewer,
+    footer: false
+  })
+}
+
 export function renderAdminPage (pending, {
   csrfToken, message, viewer = {}, submissions = [], actions = {},
-  facetValues = {}, corpus = 0, promotions = null, claims = null
+  facetValues = {}, corpus = 0, promotions = null, claims = null, feedback = null
 }) {
   const total = pending.length + submissions.length
   const body = templates.render('admin', {
@@ -281,6 +315,11 @@ export function renderAdminPage (pending, {
         ].filter(Boolean).join(' and '),
     items: moderationItems(pending, csrfToken),
     submissions: submissionItems(submissions, csrfToken),
+    // Its own panel rather than a third kind of thing in the queue above. A
+    // correction and a submission are both decided — accept or reject, with a
+    // consequence either way — and a message is only ever read. Mixing them
+    // would put a control that applies something next to one that does not.
+    feedback: feedback ? feedbackPanel(feedback, csrfToken) : '',
     // Absent entirely when promotions are not configured, rather than an empty
     // panel: a control for something the instance cannot do is a puzzle.
     promotions: promotions ? promotionPanel(promotions, csrfToken) : '',
@@ -315,6 +354,32 @@ export function renderAdminPage (pending, {
  * The list of live placements is the ad repository in its working form; the
  * public account of it is /about/promotion.
  */
+/**
+ * Messages to the moderators.
+ *
+ * Absent entirely when feedback is not configured, like the promotion and claim
+ * panels: a control for something the instance cannot do is a puzzle.
+ *
+ * The message is inserted through `{{message}}`, which escapes. This is the one
+ * place on the site where a stranger's free text reaches an administrator's
+ * screen, so it is rendered as text and never as markup — no Markdown, no
+ * links, nothing that could be made to look like part of the page around it.
+ */
+function feedbackPanel (rows, csrfToken) {
+  return templates.render('feedback-panel', {
+    summary: rows.length === 0
+      ? 'Nothing unread.'
+      : `${rows.length} unread message${rows.length === 1 ? '' : 's'}.`,
+    items: templates.each('feedback-item', rows, row => ({
+      iri: row.iri,
+      login: row.login ?? row.by,
+      message: row.message,
+      at: String(row.at).slice(0, 16).replace('T', ' '),
+      csrf: csrfToken
+    }))
+  })
+}
+
 function promotionPanel ({ live = [], expiring = [] }, csrfToken) {
   const row = entry => ({
     href: String(entry.plugin).replace(NAMESPACES.pu, '/'),

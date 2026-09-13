@@ -90,6 +90,102 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-13 — Every payment POST was answered 405 before it reached its route
+
+**What happened.** The read-only guard in `src/api/server.js` runs before any
+route module is reached. It allowed POST to `/auth/…`, the MCP endpoint,
+`/submit`, `/moderation`, `/admin` and `/plugin/<slug>/(correct|wiki|image)`,
+and refused everything else with *"This API is read-only"*.
+
+`/billing/webhook`, `/billing/subscribe`, `/billing/portal` and
+`/plugin/<slug>/promote` were not in that list. All four are POST-only. So the
+entire payment feature — hosted checkout, the Pro subscription, the customer
+portal and Stripe's webhook — returned 405 to every request, and none of the
+four handlers had ever run.
+
+Found while adding `/feedback`, which was about to ship with the same defect:
+the route was written, mounted, linked from the account bar and covered by
+seventeen tests, and a POST to it was refused by one line elsewhere.
+
+Measured rather than reasoned about, by restoring the old guard and asking:
+
+```
+POST /billing/webhook    405        POST /billing/subscribe  405
+POST /billing/portal     405        POST /plugin/x/promote   405
+POST /feedback           405        POST /submit             401
+```
+
+**Root cause.** Two lists that had to agree, with nothing connecting them —
+the project's most-repeated failure, in its purest form yet. The route modules
+know which paths they handle and which methods they accept; the guard has its
+own copy of half that knowledge, twenty lines higher, in a different file. The
+billing routes were added as a module (correctly) and the guard was not told
+(silently).
+
+Nothing could have noticed. 867 tests passed. The unit tests call
+`billingRoutes()` directly, so they never pass through the guard. No test in
+any suite had ever issued a POST to the running application.
+
+It was also invisible in use, because nobody had used it: `docs/danja-todo.md`
+says in as many words that the payment flow is built, unit-tested, and has never
+completed a real checkout. The one thing that would have found this is the one
+thing on that list nobody had got to yet.
+
+**What was done.** The guard now reads `POST_PATHS`, one list with a comment
+saying what it is for, and `tests/store/server-starts.test.js` POSTs to each of
+the ten write routes against a running server and fails on a 405. It also POSTs
+to four read-only routes and requires a 405, so the list cannot be "fixed" by
+turning the check off.
+
+**Prevention.** **A route is not reachable until something has actually
+reached it.** Unit-testing a handler proves the handler; it says nothing about
+whether a request can get to it, and everything between the socket and the
+handler — method guards, body parsers, mounting order — is untested by
+construction. The check is one real request per route, and it is cheap.
+
+And: **when a feature has never been used, the absence of bug reports is not
+evidence.** This was in production, reachable, documented and advertised for a
+day, with a price on the plugin page.
+
+---
+
+## 2026-09-13 — Bulk-edited an import block and silently mangled 40 lines of comments
+
+**What happened.** Pruning 35 dead imports from `src/api/server.js` after the
+route split, I replaced everything from the first `import` to a marker line
+further down with a freshly written block. The marker was inside the region I
+meant to keep, so the replacement swallowed the `LICENCE`, `VOCABULARIES` and
+`STATIC_FILES` doc comments and left a splice of two of them behind:
+
+    * saying so in the payload costs nothing and means a consumer never has to go
+    * looking for the termocabulary documents, served so that the IRIs in the data resolve.
+
+along with a stray `})` and a comment about `STATIC_FILES` sitting above
+`BUILD`. Forty lines of nonsense, in the most-read file in the project.
+
+`node --check` passed. All 867 tests passed. `bin/serve.js` started and served
+every route.
+
+**Root cause.** **It was all inside comments, and nothing parses comments.**
+Every tool in the project — the syntax check, the test suites, the startup
+render check, even the store suite — is blind to the contents of a comment by
+design. The corruption survived four full test runs and two live smoke tests,
+and was found only because an unrelated tool printed the file back and a
+sentence in it did not read like English.
+
+**Prevention.** **Read the diff of a bulk edit, not just its exit status.** A
+scripted replacement over a region rather than an exact string is the dangerous
+shape: `s.index(marker)` will happily find a marker in the wrong place and
+delete everything up to it. Where the edit is large, print what was removed and
+look at it — the script here already counted the removed lines and I read the
+count instead of the content.
+
+Worth stating plainly because it generalises past this project: **the test
+suite is not a proofreader.** Anything a machine cannot parse — comments, prose,
+the text on a page — is checked by a person reading it or by nothing at all.
+
+---
+
 ## 2026-09-13 — Wrote a new module over an existing one
 
 **What happened.** Breaking `src/api/server.js` up, I created a route module for

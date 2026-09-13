@@ -75,6 +75,82 @@ pu:WikiRevisionShape a sh:NodeShape ;
         sh:message "A revision supersedes at most one other. Two predecessors is a forked history, which this design has no way to present." ;
     ] .
 
+## ── Vendors ─────────────────────────────────────────────────────────────────
+## The derived identity layer. Every constraint here is something
+## `bin/mint-vendors.js` is supposed to guarantee, so a violation is a bug in the
+## derivation rather than bad data from a source — which is why the script
+## validates before it writes rather than after.
+
+pu:VendorShape a sh:NodeShape ;
+    sh:targetClass pu:Vendor ;
+    rdfs:label "Vendor" ;
+
+    sh:property [
+        sh:path foaf:name ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "A vendor has exactly one canonical name — the spelling most of their plugins use. Two would mean the fold produced a record it could not pick a name for." ;
+    ] ;
+    sh:property [
+        sh:path pu:vendorKey ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[a-z0-9]+$" ;
+        sh:message "The key is the folded name: lower case, no punctuation, no spaces. Anything else means the fold and the key disagree, and the grouping cannot be checked." ;
+    ] ;
+    sh:property [
+        sh:path skos:altLabel ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "An alternative spelling is a spelling. An empty one says a source held a blank vendor name and it reached the identity layer." ;
+    ] .
+
+## ── Feedback ────────────────────────────────────────────────────────────────
+## A message to the moderators. Correspondence rather than a contribution, so
+## there is no subject plugin and no value to apply — the whole of it is who
+## wrote it, when, what they said, and whether it has been dealt with.
+
+pu:FeedbackShape a sh:NodeShape ;
+    sh:targetClass pu:Feedback ;
+    rdfs:label "Feedback" ;
+
+    sh:property [
+        sh:path pu:message ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "A message with nothing in it is not a message. Exactly one: two would mean a write merged with an existing record instead of making a new one." ;
+    ] ;
+    sh:property [
+        sh:path prov:wasAttributedTo ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "Only a signed-in account may send feedback, so an unattributed message is one the route should never have written — and one nobody could reply to." ;
+    ] ;
+    sh:property [
+        sh:path prov:generatedAtTime ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "The queue is ordered by time, and a message without one would never appear in it." ;
+    ] ;
+    sh:property [
+        sh:path pu:feedbackStatus ;
+        sh:minCount 1 ; sh:maxCount 1 ;
+        sh:in ( "new" "read" ) ;
+        sh:message "A message is new or read. There is nothing to accept or reject — the only question is whether a moderator has dealt with it." ;
+    ] ;
+    sh:property [
+        sh:path pu:readBy ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path pu:readAt ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+    ] .
+
 ## ── Plugins ─────────────────────────────────────────────────────────────────
 
 pu:PluginShape a sh:NodeShape ;

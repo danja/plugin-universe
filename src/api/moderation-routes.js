@@ -5,6 +5,7 @@ import { readForm } from './body.js'
 import { ACTIONS, runAction } from './AdminActions.js'
 import { CORRECTABLE, CorrectionError } from '../contrib/Corrections.js'
 import { SubmissionError } from '../contrib/Submissions.js'
+import { FeedbackError } from '../contrib/Feedback.js'
 import { PromotionError, daysRemaining } from '../catalogue/Promotions.js'
 import { PROMOTION_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
@@ -106,10 +107,29 @@ async function adminConsole (context) {
  * a mode the page has to remember.
  */
 async function actOn (form, context, moderator) {
+  if (form.get('markread')) return markRead(form, context, moderator)
   if (form.get('claim') || form.get('unclaim')) return vendorClaim(form, context, moderator)
   if (form.get('promote') || form.get('unpromote')) return placement(form, context, moderator)
   if (form.get('action')) return maintenance(form, context)
   return review(form, context, moderator)
+}
+
+/**
+ * Mark a message to the moderators as dealt with.
+ *
+ * The only thing that can be done to one from this page. There is nothing to
+ * apply and nothing to publish, so "read" is the whole of its state — see
+ * `src/contrib/Feedback.js`.
+ */
+async function markRead (form, { feedback }, moderator) {
+  if (!feedback) return 'Feedback is not enabled.'
+  try {
+    await feedback.markRead({ feedbackIri: form.get('feedback'), moderator })
+    return 'Marked read. It stays in the store, attributed and dated, and is gone if that account is erased.'
+  } catch (error) {
+    if (!(error instanceof FeedbackError)) throw error
+    return error.message
+  }
 }
 
 /**
@@ -241,7 +261,9 @@ async function review (form, { search, auth, corrections, submissions }, moderat
  * a vendor claim and then promoting a plugin made the claims panel disappear.
  * One function cannot do that.
  */
-async function adminPage ({ viewer, auth, search, corrections, submissions, promotions, billing }, moderator, message) {
+async function adminPage ({
+  viewer, auth, search, corrections, submissions, promotions, billing, feedback
+}, moderator, message) {
   const promotionState = async () => {
     if (!promotions) return null
     const live = [...(await promotions.active()).values()]
@@ -255,6 +277,18 @@ async function adminPage ({ viewer, auth, search, corrections, submissions, prom
       expiring: live.filter(row => row.daysRemaining <= PROMOTION_CONFIG.expiringWithinDays)
     }
   }
+  // A message carries the IRI of whoever wrote it; a moderator needs the login.
+  // Resolved here rather than joined in the query, because the accounts live in
+  // a graph of their own and a message deliberately holds nothing about a
+  // person beyond the pointer.
+  const feedbackState = async () => {
+    if (!feedback) return null
+    const rows = await feedback.pending()
+    if (rows.length === 0) return rows
+    const logins = new Map((await auth.accounts.list()).filter(Boolean).map(a => [a.iri, a.login]))
+    return rows.map(row => ({ ...row, login: logins.get(row.by) ?? row.by }))
+  }
+
   // Only where there is a paid tier for a claim to entitle.
   const claimState = async () => {
     if (!billing) return null
@@ -271,7 +305,8 @@ async function adminPage ({ viewer, auth, search, corrections, submissions, prom
     facetValues: await search.facets(),
     corpus: search.documents.size,
     promotions: await promotionState(),
-    claims: await claimState()
+    claims: await claimState(),
+    feedback: await feedbackState()
   })
 }
 

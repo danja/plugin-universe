@@ -1,0 +1,14 @@
+# Mark one message dealt with, and say who did it.
+#
+# A DELETE of whatever status is there rather than of the one expected: a
+# message with two statuses is the case worth collapsing, and deleting by value
+# would leave the other behind.
+DELETE { GRAPH ${queueGraph} { ${feedback} pu:feedbackStatus ?old } }
+INSERT {
+  GRAPH ${queueGraph} {
+    ${feedback} pu:feedbackStatus ${status} ;
+                pu:readBy ${moderator} ;
+                pu:readAt ${at} .
+  }
+}
+WHERE { GRAPH ${queueGraph} { ${feedback} pu:feedbackStatus ?old } }

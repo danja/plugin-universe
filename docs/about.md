@@ -20,6 +20,8 @@ SPARQL endpoint rather than a database behind a search box.
 
 ## Navigation
 
+- [Read me first](/read-me-first) - what this is, how far along it is, and what
+  it is for. Start here if you have just arrived.
 - [Services](/services) - every way this catalogue can be read: web pages, JSON,
   RDF, a public SPARQL endpoint, a package registry view and an MCP face.
 - [Resources](/resources) - forums, news, frameworks, specifications and DSP

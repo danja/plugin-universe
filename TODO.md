@@ -150,27 +150,37 @@ foundations.
 
 ## Phase 4 — pro tier — promotion built, payments not started
 
-* **A vendor is a string, not an identity — and a paid profile needs one.** `/vendor/<slug>`
-  groups plugins by the vendor's name folded to lower-case alphanumerics, which merges the two
-  genuine duplicates in the catalogue and nothing else. That is enough for a listing and is not
-  enough to hang a claimable, editable profile on:
+* **Vendors have identities — and the profile that hangs on one does not exist yet.**
+  *2026-09-13:* `bin/mint-vendors.js` derives a `pu:Vendor` per vendor, with `foaf:name`, a
+  `pu:vendorKey` and a `skos:altLabel` for every other spelling met, and links each plugin with
+  `foaf:maker`. 363 vendors over 645 plugins, in the curated `vendors` graph, CC0 and in the
+  dump. `trn:vendor` still holds exactly what each source said; the identity is asserted beside
+  it, never over it.
 
-  - **Two names, one vendor.** "danja" (50 plugins) and "Danny Ayers" (36) are the same person.
-    Nothing derivable from the strings will ever say so. Only a human assertion can.
-  - **A rename orphans the page**, because the key is computed from the name.
-  - **Nothing to attach anything to** — no resource for a description, a logo, a support URL or
-    an owning account.
+  **Derived rather than harvested**, which is a deliberate departure from what this entry used
+  to say. A harvester sees one source's graph and a vendor's identity is a fold *across*
+  sources — "danja" appears in four of them — so minting at harvest time would produce one
+  vendor resource per source per name, which is the problem rather than the fix.
 
-  The fix is a harvest change rather than a page change: mint `pu:vendor/<slug>-<hash>`
-  (`URIMinter` already knows the type), give it `foaf:name` plus `skos:altLabel` for every
-  spelling met, and have plugins carry `trn:vendor` as an IRI beside the literal. Then merging
-  two vendors is adding an altLabel, a rename is editing `foaf:name`, and a claim is a triple.
+  Three of the four defects are now closed: a rename keeps the IRI (it is minted from the
+  fold, not from the display name, which a test caught when the first version was not); there
+  is a resource to attach a description, a logo or an owning account to; and the minted IRI
+  dereferences — `/vendor/danja-ba40c9e0` and `/vendor/danja` reach the same page.
 
-  *(An earlier version of this entry asserted that `pu:vendor` IRIs were already minted. There
-  were none. It is in MISTAKES.md as an instance of the documentation pattern.)*
+  **The fourth is still open, and always was a human question.** "danja" (50 plugins) and
+  "Danny Ayers" (36) are one person, and nothing derivable from the strings will ever say so.
+  What has changed is that there is now something to assert it *about*: merging them means
+  adding an `skos:altLabel` and repointing, and there is no mechanism for that yet. A curated
+  merge file read by `bin/mint-vendors.js` is the obvious shape — the reviewed-candidates file
+  the GitHub sweep uses is the precedent.
 
-* **Selling a vendor profile.** Not started, and it needs the identity above first. The shape
-  that fits what is already built:
+  Also still open: `pu:claimsVendor` holds the folded key rather than the vendor IRI. The two
+  join on the fold, so nothing is broken, and moving it means migrating claims — of which
+  there are currently none.
+
+* **Selling a vendor profile.** Not started. **The identity it needed now exists** (above), so
+  this is no longer blocked — what is missing is the page and the form, not the foundation. The
+  shape that fits what is already built:
 
   - **The profile form is the other half of this, and it is now built** (see Phase 3b). A
     vendor who has filled in their own plugins is the same person who wants a claim confirmed,
@@ -347,6 +357,18 @@ which is why it is no longer restated here.
   MCP tool, and `?accepts=` / `?produces=` filter — which makes "what can follow this?" a link
   rather than a question the catalogue silently held the answer to. In MISTAKES.md; the
   facet-to-filter binding is now a table rather than a chain of `if`s.
+* **`/feedback`, and the 405 it uncovered.** A signed-in account can write to the moderators;
+  the message is an RDF record like a correction, queued, and shown on `/admin` where the only
+  thing that can be done to it is mark it read. It is stored **as personal data, not as a
+  contribution** — see `src/contrib/Feedback.js` for why that distinction is the whole design:
+  everything else a person writes here lands in a graph with a publication licence on it, and
+  nobody writing in to say the search is confusing agreed to CC0 or CC BY-SA.
+
+  Building it found that the read-only method guard, which runs before any route module, did
+  not list the billing paths. **Every payment POST had been answered 405** — checkout,
+  subscription, portal and Stripe's webhook — so no payment could ever have completed. In
+  MISTAKES.md; the guard is now one list and `tests/store/server-starts.test.js` POSTs to all
+  ten write routes against a running server.
 * **The navigation, from the inbox.** The footer is five links in a chosen order — About,
   Services, Promotions, Plugin profiles, Contact — Vendors is the first group in the right-hand
   column, and **`/about` is now the index** for everything else the site says about itself.

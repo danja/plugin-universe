@@ -1,5 +1,5 @@
 import { send, sendText, redirect, needsSignIn, HTML } from '../api/respond.js'
-import { renderSubmitPage, renderPluginPage } from '../api/render.js'
+import { renderSubmitPage, renderPluginPage, renderFeedbackPage } from '../api/render.js'
 import { readForm, readMultipart, BodyError } from '../api/body.js'
 import { ImageError } from '../api/ImageStore.js'
 import { IMAGE_CONFIG } from '../../config/preferences.js'
@@ -8,6 +8,7 @@ import { TRUST } from '../auth/Accounts.js'
 import { CORRECTABLE, CorrectionError } from './Corrections.js'
 import { SUBMITTABLE, SubmissionError } from './Submissions.js'
 import { PageReadError } from './PageReader.js'
+import { FeedbackError } from './Feedback.js'
 
 /**
  * The three ways a person adds to the catalogue.
@@ -24,12 +25,14 @@ import { PageReadError } from './PageReader.js'
  */
 
 const SUBMIT_PATH = '/submit'
+const FEEDBACK_PATH = '/feedback'
 const IMAGE_PATH = /^\/plugin\/([A-Za-z0-9-]+)\/image$/
 const CORRECT_PATH = /^\/plugin\/([A-Za-z0-9-]+)\/correct$/
 
 export async function contributionRoutes (context) {
   const { path } = context
   if (path === SUBMIT_PATH) return submitRoute(context)
+  if (path === FEEDBACK_PATH) return feedbackRoute(context)
 
   const picturing = path.match(IMAGE_PATH)
   if (picturing) return imageRoute(context, picturing[1])
@@ -166,6 +169,71 @@ async function submitRoute ({
       values,
       status: 400
     })
+  }
+  return true
+}
+
+/**
+ * Writing to the moderators.
+ *
+ * The only route here that does not write catalogue data — a message is
+ * correspondence, and `src/contrib/Feedback.js` says at length why that matters
+ * for where it is stored. It lives in this module anyway because the guards are
+ * identical: signed in, not suspended, a CSRF token bound to that account, and
+ * a rate limit counted in the store.
+ */
+async function feedbackRoute ({
+  request, response, viewer, auth, search, feedback
+}) {
+  if (!feedback) {
+    send(response, 404, { error: 'Feedback is not enabled on this instance' })
+    return true
+  }
+  if (!viewer.account) {
+    needsSignIn(request, response, {
+      returnTo: FEEDBACK_PATH,
+      message: 'Sign in to send a message to the moderators'
+    })
+    return true
+  }
+  const account = viewer.account
+  const facetValues = await search.facets()
+  const render = extra => sendText(response, extra.status ?? 200,
+    renderFeedbackPage({
+      csrfToken: auth.session.csrfToken(account.iri),
+      viewer,
+      facetValues,
+      corpus: search.documents.size,
+      ...extra
+    }), HTML)
+
+  if (request.method !== 'POST') {
+    render({})
+    return true
+  }
+
+  let form
+  try {
+    form = await readForm(request)
+  } catch (error) {
+    send(response, error.status ?? 400, { error: error.message })
+    return true
+  }
+  if (!auth.session.verifyCsrf(form.get('csrf'), account.iri)) {
+    send(response, 403, { error: 'That form has expired. Reload the page and try again.' })
+    return true
+  }
+
+  const message = String(form.get('message') ?? '')
+  try {
+    await feedback.submit({ account, message })
+    render({ sent: true })
+  } catch (error) {
+    if (!(error instanceof FeedbackError)) throw error
+    // The message comes back with the form. Somebody who has just written three
+    // paragraphs and been told they are one over the limit should not have to
+    // write them again.
+    render({ error: error.message, message, status: 400 })
   }
   return true
 }

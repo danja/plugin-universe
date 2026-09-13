@@ -49,6 +49,15 @@ export const PAGES = Object.freeze({
     title: 'Services',
     description: 'Every way the Plugin Universe catalogue can be read: web, JSON, RDF, SPARQL, a package registry and MCP.'
   },
+  '/read-me-first': {
+    file: 'docs/read-me-first.md',
+    // Orientation for somebody who has just arrived and does not yet know what
+    // this is or how finished it is. It says the site is new and that some of
+    // the prose is scaffolding being rewritten — which is worth saying plainly
+    // rather than leaving a reader to work out.
+    title: 'Read me first',
+    description: 'What Plugin Universe is, how far along it is, and what it is for.'
+  },
   '/resources': {
     file: 'docs/resources.md',
     // Outward-pointing, and the only page here that is mostly other people's

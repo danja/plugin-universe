@@ -185,6 +185,11 @@ export class SearchService {
       pricing: row.pricing ? row.pricing.replace(/^.*\//, '') : null,
       provenance: this.sources.get(row.g) ?? null,
       vendor: row.vendor ?? null,
+      // The minted identity behind that string, where the derived layer has
+      // one. Null until `bin/mint-vendors.js` has run, so every reader of it
+      // has to cope with its absence — the string is what the catalogue has
+      // always had and the IRI is what it can now point at.
+      vendorIri: row.makers ? row.makers.split(' ').filter(Boolean)[0] ?? null : null,
       description: row.description ?? null,
       roles: row.roles ? row.roles.split(', ').filter(Boolean) : [],
       // The behavioural half of a profile: what goes in, what comes out, and
@@ -212,10 +217,14 @@ export class SearchService {
       if (!doc.vendor) continue
       const key = vendorKey(doc.vendor)
       if (!key) continue
-      if (!byKey.has(key)) byKey.set(key, { key, names: new Map(), plugins: [] })
+      if (!byKey.has(key)) byKey.set(key, { key, names: new Map(), plugins: [], iri: null })
       const vendor = byKey.get(key)
       vendor.names.set(doc.vendor, (vendor.names.get(doc.vendor) ?? 0) + 1)
       vendor.plugins.push(doc.iri)
+      // The minted identity, where the derived layer has been built. One per
+      // key by construction — `bin/mint-vendors.js` folds by the same key this
+      // does — so the first one wins and a second would be a derivation bug.
+      vendor.iri = vendor.iri ?? doc.vendorIri ?? null
     }
 
     this.vendors = new Map()
@@ -236,6 +245,11 @@ export class SearchService {
       this.vendors.set(vendor.slug, vendor)
       for (const [name] of spellings) this.vendorAliases.set(vendorSlug(name), vendor.slug)
       this.vendorAliases.set(vendor.key, vendor.slug)
+      // The minted IRI has to dereference, or it is an identifier this project
+      // published and cannot answer for — the defect CLAUDE.md names as a URL
+      // that resolves to no route. `pu:vendor/danja-ba40c9e0` therefore reaches
+      // the same page as `/vendor/danja`.
+      if (vendor.iri) this.vendorAliases.set(vendor.iri.split('/').pop(), vendor.slug)
     }
 
     // Stamped on the document so every link the site builds is the canonical

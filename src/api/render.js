@@ -170,6 +170,15 @@ export function renderVendorPage (
       items: templates.each('tag', vendor.spellings.slice(1), value => ({ value }))
     }),
     claim: templates.render('vendor-claim', { name: vendor.name }),
+    // The minted identity, where it has been derived. Shown for the same reason
+    // a plugin page shows its own IRI: this is the name the catalogue will
+    // answer to for ever, and a vendor about to claim a profile should be able
+    // to see what they are claiming. Absent until `bin/mint-vendors.js` has
+    // run, and the page is complete without it.
+    identity: templates.when(Boolean(vendor.iri), 'vendor-identity', {
+      iri: vendor.iri ?? '',
+      href: (vendor.iri ?? '').replace(NAMESPACES.pu, '/')
+    }),
     count: `${vendor.count} plugin${vendor.count === 1 ? '' : 's'}`,
     slug: vendor.slug,
     results: vendor.results.map(resultItem).join('\n')

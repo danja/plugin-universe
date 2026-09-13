@@ -9,6 +9,7 @@ import { createServer } from '../src/api/server.js'
 import Accounts from '../src/auth/Accounts.js'
 import AuthRoutes from '../src/auth/routes.js'
 import Corrections from '../src/contrib/Corrections.js'
+import Feedback from '../src/contrib/Feedback.js'
 import Promotions from '../src/catalogue/Promotions.js'
 import Billing from '../src/billing/Billing.js'
 import Submissions, { withProfileVocabulary } from '../src/contrib/Submissions.js'
@@ -64,6 +65,7 @@ console.log(`Profile vocabulary loaded: ${submittable.role.choices.length} roles
   `${submittable.accepts.choices.length} signal types`)
 
 let corrections = null
+let feedback = null
 let promotions = null
 let billing = null
 let submissions = null
@@ -105,6 +107,13 @@ if (auth) {
   console.log(`Image uploads enabled, ${(await images.list()).length} stored`)
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
   wiki = new Wiki(client)
+  // Messages to the moderators. Registered eagerly so the graph and its
+  // personal-data flag exist before the first message rather than being created
+  // by it — a graph registered under load is a graph whose licence flag was
+  // decided under load.
+  feedback = new Feedback(client)
+  await feedback.ensureGraph()
+  console.log(`Feedback enabled, ${(await feedback.pending()).length} unread`)
   console.log('Contributions enabled')
   console.log('Wiki enabled')
 } else if (authProblem) {
@@ -130,6 +139,7 @@ try {
 const server = createServer({
   submittable,
   search, config, projectRoot: Config.projectRoot, auth, corrections, submissions, images, promotions, billing,
+  feedback,
   wiki, publication, authProblem
 })
 server.listen(port, () => {

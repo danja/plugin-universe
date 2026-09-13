@@ -7,6 +7,7 @@
 @prefix prov:    <http://www.w3.org/ns/prov#> .
 @prefix skos:    <http://www.w3.org/2004/02/skos/core#> .
 @prefix units:   <http://lv2plug.in/ns/extensions/units#> .
+@prefix foaf:    <http://xmlns.com/foaf/0.1/> .
 
 pu: a owl:Ontology ;
     rdfs:label "Plugin Universe vocabulary" ;
@@ -94,7 +95,7 @@ pu:stripeCustomer a owl:DatatypeProperty ; rdfs:range xsd:string ;
     rdfs:comment "The payment processor's customer id, and the whole of what this system knows about somebody's payment details. Opaque and useless without the processor, which is the point: no card, no name, no billing address is stored here, and the one thing that is stored is a handle rather than a fact about a person. Personal data nonetheless — it links an account to a payment relationship — so it lives in the accounts graph, which is flagged personal-data and never reaches a dump." .
 
 pu:claimsVendor a owl:DatatypeProperty ; rdfs:range xsd:string ;
-    rdfs:comment "A vendor name, folded to lower-case alphanumerics, that this account has been confirmed as speaking for. The folded form rather than an IRI because vendors have no IRIs yet: trn:vendor is a bare literal and there is nothing else to key on — see the note in TODO.md. Set only by a moderator, never by the account holder, because the entitlement it unlocks is the right to promote somebody's plugins for free and a self-asserted claim would be a way to promote anybody's." .
+    rdfs:comment "A vendor name, folded to lower-case alphanumerics, that this account has been confirmed as speaking for. The folded form rather than an IRI for historical reasons: vendors had no IRIs when this was written, and now they do — pu:Vendor carries the same fold as pu:vendorKey, so a claim and an identity can be joined on it. Moving this to an IRI is the obvious next step and has not been done, because doing it means migrating claims and there are none. Set only by a moderator, never by the account holder, because the entitlement it unlocks is the right to promote somebody's plugins for free and a self-asserted claim would be a way to promote anybody's." .
 
 pu:claimConfirmedBy a owl:ObjectProperty ;
     rdfs:comment "The moderator who confirmed a vendor claim. A claim that cannot be traced to somebody who decided it is not an audit trail." .
@@ -127,6 +128,66 @@ pu:correctionStatus a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:ra
     rdfs:comment "pending, accepted or rejected. A correction from a trusted contributor is accepted on arrival; one from a new contributor waits." .
 pu:reviewedBy a owl:ObjectProperty ; rdfs:domain pu:Correction .
 pu:reviewedAt a owl:DatatypeProperty ; rdfs:domain pu:Correction ; rdfs:range xsd:dateTime .
+
+## ── Vendors ─────────────────────────────────────────────────────────────────
+## Who made a plugin, as a resource rather than as a string.
+##
+## `trn:vendor` is free text and stays free text: it is what a source said, and
+## overwriting it would lose that. What it cannot do is be *pointed at*. A name
+## has no description, no logo, no support address and no owning account; two
+## spellings of one maker are two vendors for ever; and renaming orphans
+## whatever was attached to the old spelling, because the key was computed from
+## the name.
+##
+## So identity is asserted alongside the string. The IRI is minted by content
+## hash over the folded name, which makes it stable and idempotent — re-deriving
+## produces the same IRIs — and every spelling met is kept as a `skos:altLabel`
+## so that merging two vendors is adding a label rather than rewriting history.
+##
+## **Derived, not harvested.** A harvester sees one source's graph, and the
+## identity of a vendor is a fold *across* sources — "danja" appears in four of
+## them. No harvester is in a position to compute it, so it is built after
+## ingest by `bin/mint-vendors.js` into a graph of its own, and rebuilding is a
+## DROP and a re-derive.
+
+pu:Vendor a owl:Class ; rdfs:subClassOf foaf:Agent ; rdfs:label "Vendor" ;
+    rdfs:comment "Whoever makes a plugin — a company, a project or one person. Deliberately a foaf:Agent rather than an Organization: most vendors in this catalogue are individuals, and the data never says which." .
+
+pu:vendorKey a owl:DatatypeProperty ; rdfs:domain pu:Vendor ; rdfs:range xsd:string ;
+    rdfs:label "vendor key" ;
+    rdfs:comment "The folded name two spellings have in common: lower case, punctuation and spacing removed. What the grouping is computed from, kept so the derivation can be checked and so a lookup by key needs no string handling at query time." .
+
+## The link from a plugin to its maker is foaf:maker, which already means this.
+## A project-specific predicate here would be a bespoke term for a relation that
+## two widely-used vocabularies already have a word for.
+
+## ── Feedback ────────────────────────────────────────────────────────────────
+## A message to the moderators, from somebody signed in.
+##
+## Deliberately *not* a contribution. A correction, a submission and a wiki
+## revision are all offers of material for the catalogue, and each ends up in a
+## graph with a publication licence on it. This is correspondence: it is about
+## the site rather than about a plugin, nobody agreed to publish it, and it
+## lives in a personal-data graph for the same reason the accounts do. The
+## public dump excludes it by the query that already excludes anything
+## non-redistributable, and erasing a person erases their messages with them.
+##
+## It carries no subject line and no reply address on purpose. The account says
+## who wrote it and the moderators answer out of band, so the record holds the
+## least it can while still being useful.
+
+pu:Feedback a owl:Class ; rdfs:label "Feedback" ;
+    rdfs:comment "A message sent to the moderators through the site by a signed-in account. Correspondence, not a contribution: it is never published, never enters a dump, and is deleted with the account that wrote it." .
+
+pu:message a owl:DatatypeProperty ; rdfs:domain pu:Feedback ; rdfs:range xsd:string ;
+    rdfs:label "message" ;
+    rdfs:comment "What was written. Plain text, rendered escaped and never as markup — it is read by a moderator in a queue, and a message is the one place on this site where a stranger's words reach an administrator's screen." .
+pu:feedbackStatus a owl:DatatypeProperty ; rdfs:domain pu:Feedback ; rdfs:range xsd:string ;
+    rdfs:label "feedback status" ;
+    rdfs:comment "new or read. A message is not accepted or rejected — there is nothing to apply — so the only question a moderator answers is whether it has been dealt with." .
+pu:readBy a owl:ObjectProperty ; rdfs:domain pu:Feedback ;
+    rdfs:comment "The moderator who marked it read." .
+pu:readAt a owl:DatatypeProperty ; rdfs:domain pu:Feedback ; rdfs:range xsd:dateTime .
 
 ## A person proposing a plugin the catalogue does not have. Reviewed as one
 ## thing rather than as a set of corrections: a plugin needs a name to exist at

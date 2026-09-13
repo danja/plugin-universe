@@ -138,7 +138,17 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
     anything, but EUR is the natural choice and changing it later means re-creating prices.
 
 - [ ] **Test the payment flow end to end with the Stripe CLI.** The code is built and unit-tested
-  but nothing has yet completed a real checkout. Two terminals:
+  but nothing has yet completed a real checkout.
+
+  **2026-09-13: this was not going to work, and now should.** The read-only guard in
+  `src/api/server.js` runs before any route is reached and did not list the billing paths, so
+  `/billing/webhook`, `/billing/subscribe`, `/billing/portal` and `/plugin/<slug>/promote` all
+  answered **405** and their handlers never ran. Measured, not guessed — the old guard was put
+  back and each one asked. Fixed, and a test now POSTs to every write route against a running
+  server. It is worth knowing when you do run this: if a delivery had been tried before today,
+  it failed for that reason and not because of anything in your Stripe setup.
+
+  Two terminals:
 
   ```sh
   stripe login
@@ -250,6 +260,12 @@ Nothing here needs server access. The profiler runs on this machine.
   then `docker compose restart app`, then `bin/publish.js` — or the public
   SPARQL copy drifts behind. A restart reuses the image, which is right for data
   and wrong for code.
+* **Vendor identity:** `docker compose run --rm app node bin/mint-vendors.js`,
+  then `docker compose restart app`. Derives a `pu:Vendor` per vendor from the
+  `trn:vendor` strings and links every plugin to one with `foaf:maker`. Run it
+  after any ingest that adds plugins, or their makers have no identity and their
+  vendor pages show no identifier. `--dry-run` says what it would write. Safe to
+  repeat: the IRIs are content hashes, so re-deriving produces the same ones.
 * **Vocabulary change:** `node bin/ingest.js --vocabs-only`, then restart the
   app. The store holds its own copy of `vocabs/*.ttl`, and it is that copy that
   tells a plugin page what `pu:OpenTimeCold` means.

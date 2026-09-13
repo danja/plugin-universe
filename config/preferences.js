@@ -364,7 +364,17 @@ export const CONTRIBUTION_CONFIG = {
 
   // Wiki saves one account may make in an hour. Lower than the correction
   // limit because each one writes a full revision that is kept forever.
-  wikiEditsPerHour: 20
+  wikiEditsPerHour: 20,
+
+  // A message to the moderators. Long enough to describe a problem properly —
+  // several paragraphs — and short enough that a moderator will read it and
+  // that one paste cannot fill the store.
+  maxFeedbackLength: 4000,
+
+  // Messages one account may send in an hour. Much lower than the correction
+  // limit: a correction is machine-checkable and a message is a demand on
+  // somebody's attention, so the cost of a flood is a person's time.
+  feedbackPerHour: 6
 }
 
 /**

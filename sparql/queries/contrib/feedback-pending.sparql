@@ -1,0 +1,16 @@
+# Messages to the moderators that nobody has dealt with, oldest first.
+#
+# A queue, not a list, and ordered like the correction queue and for the same
+# reason: newest-first is an order in which an awkward message can be outrun by
+# fresher ones and never read.
+SELECT ?feedback ?message ?by ?at
+WHERE {
+  GRAPH ${queueGraph} {
+    ?feedback pu:feedbackStatus ${status} ;
+              pu:message ?message ;
+              prov:wasAttributedTo ?by ;
+              prov:generatedAtTime ?at .
+  }
+}
+ORDER BY ?at
+LIMIT ${limit}

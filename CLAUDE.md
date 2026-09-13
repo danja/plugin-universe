@@ -129,6 +129,7 @@ complained, and each was found in production or by accident:
 | Shipped a feature | the prose written around it | a caption reading "not copied here" on an image that is copied here; a disclosure promising a bound that changed an hour later |
 | Added `/plugin/<slug>/image`, writing `foaf:depiction` | `CORRECTABLE`, the whitelist that route writes through | every upload refused with "cannot be corrected"; 22 upload tests passed, none wrote the fact |
 | Harvested `trn:accepts`/`produces`/`requires` from Phase 0 | `plugin/text-view.sparql`, the one query every document is built from | 181 plugins declaring what they accept, on no page, in no result, reachable by no facet — and a form and a prose page recommending the fields before anything read one back |
+| Added the billing routes as their own module | `POST_PATHS`, the read-only method guard twenty lines above the router | the checkout, the subscription, the portal **and Stripe's webhook** all answered 405 before their handlers ran; the whole payment feature was unreachable and 867 tests passed |
 
 **When adding a runtime dependency on a path, a value, or a list, find what else
 has to agree with it — and write the test that binds them.** A test asserting
@@ -323,7 +324,18 @@ change, and a long one rarely does.
   committed and because a test imported it; a module with neither would have gone quietly.
 - **Run the program after any change to imports, wiring or startup.** `npm test` does not.
   `tests/store/server-starts.test.js` now spawns `bin/serve.js` and asks it for a page, which
-  is the only check that has ever caught a failure of this class — and it has caught two.
+  is the only check that has ever caught a failure of this class — and it has caught three.
+- **A route is not reachable until a real request has reached it.** Unit-testing a handler
+  proves the handler and says nothing about the method guard, the body parser or the mounting
+  order in front of it — all of which are untested by construction. A new write route means a
+  new line in `POST_PATHS` *and* a new line in `server-starts.test.js`, or it answers 405 with
+  every one of its own tests passing. This is how the entire billing feature shipped unreachable.
+- **Read what a bulk edit removed, not just how much.** A scripted replacement over a *region*
+  (`s.index(marker)` to `s.index(other)`) will find a marker in the wrong place and delete
+  everything between. Forty lines of `server.js` comments were spliced into nonsense this way
+  and survived four full test runs, because **nothing in this project parses a comment** — not
+  `node --check`, not the suites, not the startup render check. The test suite is not a
+  proofreader: comments, prose and page text are checked by a person or by nothing.
 - Log mistakes in MISTAKES.md (what happened, root cause, prevention).
 - Periodically review TODO.md and revise as necessary, and `docs/danja-todo.md` with it: TODO.md
   is what the project needs, danja-todo.md is what the user needs to do. An item that lands in

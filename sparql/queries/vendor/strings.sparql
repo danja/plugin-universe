@@ -1,0 +1,13 @@
+# Every plugin and the vendor string it carries.
+#
+# Across every graph, not scoped to one: the identity of a vendor is a fold
+# across sources — the same maker appears in four of them — and scoping this to
+# a source graph would mint one vendor per source per name, which is the problem
+# rather than the fix.
+SELECT DISTINCT ?plugin ?vendor
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile ;
+            trn:vendor ?vendor .
+  }
+}

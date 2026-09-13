@@ -109,6 +109,53 @@ describe('bin/serve.js', () => {
     }
   })
 
+  /**
+   * Every write route accepts a POST at all.
+   *
+   * The read-only guard runs before any route module is reached, from a list of
+   * paths that is separate from the modules themselves — so a route can be
+   * written, mounted, linked and unit-tested while every POST to it is refused
+   * by one line in `server.js`. That is not hypothetical: `/billing/webhook`,
+   * `/billing/subscribe`, `/billing/portal` and `/plugin/<slug>/promote` all
+   * answered 405, so no payment could ever have completed, and `/feedback`
+   * joined them the day it was built.
+   *
+   * These POSTs carry no CSRF token and no session, so the *right* answer is a
+   * refusal from the route — 401, 403, or a redirect to sign in. The only
+   * failure this asserts is 405, which means the request never got that far.
+   */
+  const WRITE_PATHS = [
+    '/submit',
+    '/feedback',
+    '/admin',
+    '/moderation',
+    '/billing/subscribe',
+    '/billing/portal',
+    '/billing/webhook',
+    '/plugin/anything-00000000/correct',
+    '/plugin/anything-00000000/image',
+    '/plugin/anything-00000000/promote'
+  ]
+
+  it.each(WRITE_PATHS)('accepts a POST to %s rather than refusing the method', async path => {
+    const response = await fetch(`${BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'probe=1',
+      redirect: 'manual'
+    })
+    expect(response.status, `${path} is in no POST list, so its handler never runs`).not.toBe(405)
+  })
+
+  it('still refuses a POST to a route that only reads', async () => {
+    // The guard has to keep doing its job: the list is what may be written to,
+    // not a switch that turns the check off.
+    for (const path of ['/plugins', '/search', '/facets', '/health']) {
+      const response = await fetch(`${BASE}${path}`, { method: 'POST', body: 'probe=1' })
+      expect(response.status, path).toBe(405)
+    }
+  })
+
   it('resolves a plugin IRI in all four representations', async () => {
     const list = await (await fetch(`${BASE}/plugins?limit=1`)).json()
     const slug = list.results[0].iri.replace(/^.*\/plugin\//, '')

@@ -27,6 +27,32 @@ import catalogueRoutes from './catalogue-routes.js'
 export { FACET_NAMES, facetsFrom, negotiate, prefersPage, pageOffset }
 
 /**
+ * Every path that accepts a POST, besides `/auth/…` and the MCP endpoint.
+ *
+ * The read-only guard runs *before* any route module is reached, so a route
+ * that handles a POST and is missing from this list answers 405 and its
+ * handler never runs. That is a second list to keep in step with the route
+ * modules, and it is exactly the shape of defect this project keeps shipping —
+ * `/feedback` was written, mounted, linked and tested, and a POST to it was
+ * refused by this line until somebody tried one.
+ *
+ * `tests/store/server-starts.test.js` now POSTs to each of these and fails on a
+ * 405, which is the check that would have caught it: a real request, against
+ * the running application, with no CSRF token — so the answer should be a
+ * refusal from the *route* (403, or a redirect to sign in) and never from here.
+ */
+const POST_PATHS = Object.freeze([
+  /^\/plugin\/[^/]+\/(correct|wiki|image|promote)$/,
+  '/moderation',
+  '/admin',
+  '/submit',
+  '/feedback',
+  '/billing/subscribe',
+  '/billing/portal',
+  '/billing/webhook'
+])
+
+/**
  * The public read API.
  *
  * Deliberately dependency-free: this is a handful of read-only JSON endpoints
@@ -75,32 +101,6 @@ export const VOCABULARIES = Object.freeze({
 })
 
 /**
- * Decide the representation to return for a plugin IRI.
- *
- * An explicit .ttl or .jsonld suffix wins; otherwise the Accept header decides,
- * defaulting to HTML because the common case is a person following a link.
- */
-/**
- * Licence and attribution, on every response.
- *
- * The dataset is CC0 and attribution is requested rather than required, so
- * saying so in the payload costs nothing and means a consumer never has to go
- * looking for the termocabulary documents, served so that the IRIs in the data resolve.
- *
- * `pu:` terms appear in every plugin description this catalogue publishes, so a
- * consumer that follows one has to arrive somewhere. Only the shapes: 'vocabs/shapes.ttl'
-})
-
-/**
- * Files served verbatim from the repository, by exact path.
- *
- * A whitelist by name rather than a static directory: "serve whatever is at the
- * root" is one stray file away from serving something that was never meant to
- * leave the machine. Their existence is checked at startup, for the same reason
- * the prose pages are — `docs/` was excluded by `.dockerignore` once and the
- * only symptom was three routes returning 500 in production.
- */
-/**
  * Which code this process is running.
  *
  * Read once, at load. `||` rather than `??`: an unset Docker build argument
@@ -119,6 +119,15 @@ export const BUILD = Object.freeze({
   builtAt: process.env.BUILD_TIME || null
 })
 
+/**
+ * Files served verbatim from the repository, by exact path.
+ *
+ * A whitelist by name rather than a static directory: "serve whatever is at the
+ * root" is one stray file away from serving something that was never meant to
+ * leave the machine. Their existence is checked at startup, for the same reason
+ * the prose pages are — `docs/` was excluded by `.dockerignore` once and the
+ * only symptom was three routes returning 500 in production.
+ */
 export const STATIC_FILES = Object.freeze({
   '/robots.txt': { file: 'robots.txt', type: 'text/plain; charset=utf-8' }
 })
@@ -126,6 +135,7 @@ export const STATIC_FILES = Object.freeze({
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
   submissions = null, images = null, pageReader = new PageReader(), promotions = null,
+  feedback = null,
   billing = null,
   // The field table with its choices filled from the profile vocabulary. The
   // bare SUBMITTABLE has `choices: null` on the profile fields, deliberately —
@@ -204,10 +214,8 @@ export function createServer ({
     // POST reaches the auth routes only. Everything else is still read-only,
     // and says so.
     const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
-    const isCorrectionPost = request.method === 'POST' &&
-      (/^\/plugin\/[^/]+\/(correct|wiki|image)$/.test(url.pathname) ||
-        url.pathname === '/moderation' || url.pathname === '/admin' ||
-        url.pathname === '/submit')
+    const isCorrectionPost = request.method === 'POST' && POST_PATHS.some(
+      pattern => pattern instanceof RegExp ? pattern.test(url.pathname) : pattern === url.pathname)
     // MCP is JSON-RPC over POST. It writes no data — every tool answers a
     // question — but it is a POST, so the read-only guard has to know about it.
     const isMcp = url.pathname === MCP_PATH
@@ -253,14 +261,14 @@ export function createServer ({
       // A contributor's own list, and the moderator's console above it.
       if (await moderationRoutes({
         request, response, path, viewer, auth, search, config,
-        corrections, submissions, promotions, billing
+        corrections, submissions, promotions, billing, feedback
       })) return
 
       // Submitting a plugin, correcting a fact about one, adding a picture of
       // one — the only routes that write catalogue data for a person.
       if (await contributionRoutes({
         request, response, path, viewer, auth, search,
-        submissions, submittable, pageReader, images, corrections, navigationFor
+        submissions, submittable, pageReader, images, corrections, navigationFor, feedback
       })) return
 
       // What the site says about itself, and the files it serves flat: the
