@@ -5,6 +5,7 @@ import {
   renderVocabularies
 } from '../../src/api/render.js'
 import { PAGES } from '../../src/api/pages.js'
+import { readFileSync } from 'fs'
 import Config from '../../src/Config.js'
 
 /**
@@ -76,6 +77,32 @@ describe('every page carries a card', () => {
     // using it unchanged reads "Plugin Universe / Shifty — Plugin Universe".
     expect(tag(renderPluginPage(DOC), 'og:title')).toBe('Example')
     expect(renderPluginPage(DOC)).toContain('<title>Example — Plugin Universe</title>')
+  })
+
+  it('tells a scraper how big the card is, so it renders on the first share', () => {
+    // Facebook renders an image on the first scrape only if it already knows
+    // the dimensions; otherwise it has to fetch and measure the file, and the
+    // share that triggered the scrape shows a bare title. Measured from the PNG
+    // itself, so replacing the placeholder cannot leave the numbers behind.
+    // Read here rather than imported, so the assertion is about the file on disk.
+    const bytes = readFileSync('og-image.png')
+    const width = bytes.readUInt32BE(16)
+    const height = bytes.readUInt32BE(20)
+    expect(width).toBeGreaterThanOrEqual(600)
+    expect(height).toBeGreaterThanOrEqual(315)
+
+    const html = PAGE_TYPES.landing()
+    expect(tag(html, 'og:image:width')).toBe(String(width))
+    expect(tag(html, 'og:image:height')).toBe(String(height))
+    expect(tag(html, 'og:image:type')).toBe('image/png')
+  })
+
+  it('gives no dimensions for a picture it did not make', () => {
+    // A plugin's uploaded screenshot is whatever somebody uploaded. Guessing
+    // would be worse than letting the scraper measure it.
+    const stored = `${ORIGIN}/image/${'a'.repeat(64)}.png`
+    const html = renderPluginPage({ ...DOC, image: stored, imageIsLocal: true })
+    expect(tag(html, 'og:image:width')).toBeUndefined()
   })
 
   it('uses the plugin\'s own picture when this site stores it', () => {

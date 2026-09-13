@@ -3,6 +3,7 @@ import { RETRIEVAL_CONFIG, PROMOTION_CONFIG } from '../../config/preferences.js'
 import templates, { escape } from './Templates.js'
 import { UNVERSIONED, NOASSERTION, LICENCE_IDS } from '../harvest/Licensing.js'
 import { vendorSlug } from '../search/SearchService.js'
+import fs from 'fs'
 import Config from '../Config.js'
 
 /**
@@ -19,6 +20,29 @@ import Config from '../Config.js'
  * default to invent.
  */
 const ORIGIN = Config.load().get('site.origin').replace(/\/$/, '')
+
+/**
+ * The site card's own dimensions, read from the file rather than written here.
+ *
+ * Facebook renders an image on the *first* scrape only if it already knows how
+ * big it is; without `og:image:width` and `og:image:height` it has to fetch and
+ * measure the file, and the share that triggered the scrape shows no picture.
+ * Everybody who has posted a link and seen a bare title has met this.
+ *
+ * Measured from the PNG's own header so that replacing `og-image.png` — which
+ * is a placeholder and will be replaced — cannot leave the numbers behind. Two
+ * places holding one fact is this project's most expensive habit, and a
+ * hardcoded 1200×630 would be exactly that.
+ */
+const CARD = (() => {
+  const bytes = fs.readFileSync('og-image.png')
+  // PNG: 8-byte signature, a 4-byte length, "IHDR", then width and height as
+  // big-endian 32-bit integers.
+  if (bytes.subarray(12, 16).toString('ascii') !== 'IHDR') {
+    throw new Error('og-image.png is not a PNG: no IHDR where one must be')
+  }
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+})()
 
 /**
  * The furniture every page is built out of.
@@ -87,6 +111,15 @@ export function layout (title, body, {
       description,
       image: image ?? `${ORIGIN}/og-image.png`,
       imageAlt,
+      // Dimensions only for the card, whose size this knows. A plugin's own
+      // uploaded picture is whatever somebody uploaded, and guessing would be
+      // worse than letting the scraper measure it.
+      imageSize: image
+        ? ''
+        : templates.render('og-image-size', {
+          width: String(CARD.width),
+          height: String(CARD.height)
+        }),
       canonical: templates.when(Boolean(canonical), 'canonical-link', {
         url: `${ORIGIN}${canonical ?? ''}`
       })
