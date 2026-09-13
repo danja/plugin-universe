@@ -11,6 +11,6 @@ to the producer and developers communities to enrich the material.
 Anyone signed in can add plugins and suggest corrections to existing entries.
 
 *Speaking of riches*, the intention here is not to make money but to provide a service that 
-until now was lacking. The plan is to allow plugin vendors to promote their products for a
+until now was lacking. The plan is to allow plugin vendors to promote their products (push them up the search results) for a
 small fee, which will be used to fund hosting and maintenance of the site. 
 
