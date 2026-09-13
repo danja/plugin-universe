@@ -2,7 +2,8 @@
   "baseUri": "http://purl.org/stuff/plugin-universe/",
   "site": {
     "domain": "plugin-universe.com",
-    "origin": "https://plugin-universe.com"
+    "origin": "https://plugin-universe.com",
+    "facebookAppId": ""
   },
   "storage": {
     "type": "sparql",

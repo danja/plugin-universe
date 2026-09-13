@@ -19,7 +19,8 @@ import Config from '../Config.js'
  * project asks for — a missing configuration value is an error to fix, not a
  * default to invent.
  */
-const ORIGIN = Config.load().get('site.origin').replace(/\/$/, '')
+const CONFIG = Config.load()
+const ORIGIN = CONFIG.get('site.origin').replace(/\/$/, '')
 
 /**
  * The site card's own dimensions, read from the file rather than written here.
@@ -34,6 +35,21 @@ const ORIGIN = Config.load().get('site.origin').replace(/\/$/, '')
  * places holding one fact is this project's most expensive habit, and a
  * hardcoded 1200×630 would be exactly that.
  */
+/**
+ * Facebook's `fb:app_id`, if this deployment has one.
+ *
+ * The Sharing Debugger reports it as a *required* property and it is not: a
+ * link preview renders perfectly well without it, and every card this site
+ * serves does. What it is for is attributing domain insights to a Meta app, so
+ * having one means registering an app with Meta — a decision about who this
+ * project deals with, not a technical gap.
+ *
+ * So it is optional, off by default, and one value away from being on. Empty
+ * means absent, which is how this project reads every empty environment value.
+ */
+const FB_APP_ID = process.env.FACEBOOK_APP_ID ||
+  (CONFIG.has('site.facebookAppId') ? CONFIG.get('site.facebookAppId') : '') || null
+
 const CARD = (() => {
   const bytes = fs.readFileSync('og-image.png')
   // PNG: 8-byte signature, a 4-byte length, "IHDR", then width and height as
@@ -120,6 +136,7 @@ export function layout (title, body, {
           width: String(CARD.width),
           height: String(CARD.height)
         }),
+      appId: templates.when(Boolean(FB_APP_ID), 'fb-app-id', { id: FB_APP_ID ?? '' }),
       canonical: templates.when(Boolean(canonical), 'canonical-link', {
         url: `${ORIGIN}${canonical ?? ''}`
       })

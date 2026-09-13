@@ -131,6 +131,11 @@ services:
       # Builds the OAuth callback URL; must match the GitHub OAuth App exactly.
       # Defaults to site.origin in config/config.json.
       SITE_ORIGIN: ${SITE_ORIGIN:-}
+      # Optional. Facebook's Sharing Debugger reports fb:app_id as "required"
+      # and it is not — cards render without it. It attributes domain insights
+      # to a Meta app, so setting it means registering one. Absent is fine and
+      # is the default.
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
       PORT: "4100"
       # Measured, not guessed: serving the full 645-plugin catalogue the
       # container sits at 48 MB resident, and stays there through a 40-request
