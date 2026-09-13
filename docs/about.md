@@ -77,20 +77,6 @@ Where a measurement contradicts a description, the measurement wins. See
 semantic similarity over a composed view of each plugin, so a query phrased in
 your words can find a plugin described in someone else's.
 
-## What it is not
-
-Not a plugin **installer** - that is [OwlPlug](https://owlplug.com/)'s job, and
-the catalogue is designed to be consumable by tools like it rather than to
-compete with them.
-
-Not a **store**. Nothing is sold here.
-
-Not a **host**. No plugin binaries are stored or served; the catalogue records
-where to get them, with checksums where the source publishes them.
-
-Not a **review site**. Opinions are welcome eventually, but the core is facts
-and measurements.
-
 ## The data
 
 Harvested from sources whose terms permit it, and only those. Each source was
