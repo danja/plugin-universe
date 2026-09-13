@@ -1,15 +1,22 @@
 <nav class="site-links" aria-label="Site">
   <ul>
-    <li><a href="/vendors">Vendors</a></li>
-    <li><a href="/services">Services</a></li>
     <li><a href="/about">About</a></li>
-    <li><a href="/terms">Contributor terms</a></li>
-    <li><a href="/about/crawler">Crawler</a></li>
-    <li><a href="/about/contact">Contact</a></li>
-    <li><a href="/ns">Vocabularies</a></li>
+    <li><a href="/services">Services</a></li>
     <li><a href="/about/promotion">Promotions</a></li>
+    <li><a href="/about/profiles">Plugin profiles</a></li>
+    <li><a href="/about/contact">Contact</a></li>
   </ul>
+  <!--
+    The contributor terms are not in the list above, and are here instead.
+
+    The list is five links by editorial decision. The terms have to be reachable
+    from every page by a different kind of decision — somebody about to
+    contribute is owed them wherever they happen to be standing, and
+    `tests/api/responsive.test.js` holds that. A licence sentence is where they
+    belong anyway: this says what the data is under, and they say what you agree
+    to by adding to it.
+  -->
   <p class="licence">Catalogue data released under
     <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0 1.0</a>;
-    attribution requested, not required.</p>
+    attribution requested, not required. <a href="/terms">Contributor terms</a>.</p>
 </nav>

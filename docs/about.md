@@ -6,6 +6,31 @@ what a plugin *does* rather than what its marketing copy says.
 Everything factual in it is public domain. You can query it, download it, and
 build on it without asking.
 
+## The rest of the site
+
+The footer carries five links. Everything else this site explains about itself
+is here, so that there is one index rather than a list of links growing until
+nobody reads any of them.
+
+- [Services](/services) — every way this catalogue can be read: web pages, JSON,
+  RDF, a public SPARQL endpoint, a package registry view and an MCP face.
+- [Plugin profiles](/about/profiles) — what a profile is, and why it is worth a
+  plugin's author filling one in.
+- [Promoted listings](/about/promotion) — what a paid placement buys, exactly
+  how much it changes ranking, and what it cannot do.
+- [Measurements](/about/measurements) — what the profiler measures, what each
+  verdict means, and why a reading is about one binary on one machine.
+- [Contributor terms](/terms) — what you agree to when you contribute: CC0 for
+  facts, CC BY-SA for prose.
+- [Vocabularies](/ns) — the RDF terms every published description uses, as
+  documents that resolve.
+- [The SPARQL endpoint](/about/sparql) and [the MCP endpoint](/about/mcp) — the
+  two ways to ask this catalogue a question it has no page for.
+- [About the crawler](/about/crawler) — what the harvester does, how it behaves,
+  and how to make it stop.
+- [Contact](/about/contact) — how to reach the person behind this, and what to
+  say.
+
 ---
 
 ## Why it exists

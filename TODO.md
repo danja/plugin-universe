@@ -341,6 +341,14 @@ which is why it is no longer restated here.
   MCP tool, and `?accepts=` / `?produces=` filter — which makes "what can follow this?" a link
   rather than a question the catalogue silently held the answer to. In MISTAKES.md; the
   facet-to-filter binding is now a table rather than a chain of `if`s.
+* **The navigation, from the inbox.** The footer is five links in a chosen order — About,
+  Services, Promotions, Plugin profiles, Contact — Vendors is the first group in the right-hand
+  column, and **`/about` is now the index** for everything else the site says about itself.
+  That last part is what makes the first possible: `tests/api/linked-routes.test.js` requires
+  every route to have something linking to it, so the pages dropped from the footer had to land
+  somewhere real rather than just disappear. The contributor terms are the exception — they sit
+  in the licence line beneath the list, because they must be one click away from every page and
+  a licence sentence is where they belong.
 * **`server.js`, `render.js` and `SearchService.js` broken up.** 1247, 1189 and 744 lines became
   298, 238 and 545, with the route groups and page kinds in modules of their own — the layout is
   in [CLAUDE.md](CLAUDE.md). No caller changed: `render.js` re-exports the whole rendering
