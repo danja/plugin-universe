@@ -180,10 +180,36 @@ describe('the browse panel', () => {
   })
 
   it('collapses on a narrow screen and opens without script', () => {
+    // The mechanism is a checkbox and a sibling selector, so the panel opens
+    // with JavaScript off, blocked or broken. This used to assert the page
+    // contained no `<script>` at all, which was a sound proxy while it served
+    // none; the site now serves one, for a spinner on submit buttons, and the
+    // commitment being guarded is that *this* does not depend on it.
     expect(CSS).toMatch(/\.side\s*\{[^}]*display:\s*none/)
     expect(CSS).toMatch(/\.browse-toggle:checked\s*~\s*\.side\s*\{[^}]*display:\s*block/)
     expect(page).toContain('type="checkbox"')
-    expect(page).not.toMatch(/<script/i)
+    // Nothing scripted touches the toggle or the panel.
+    const script = readFileSync('templates/site.js', 'utf8')
+    expect(script).not.toMatch(/browse-toggle|\.side\b/)
+  })
+
+  it('serves its one script as a deferred external file, never inline', () => {
+    // Inline would work — there is no Content-Security-Policy today — and would
+    // mean an exception the day there is one. Deferred so a page that needs
+    // nothing from it is not held up rendering.
+    expect(page).toMatch(/<script src="\/site\.js" defer><\/script>/)
+    expect(page).not.toMatch(/<script(?![^>]*\bsrc=)/i)
+  })
+
+  it('adds nothing a form needs in order to work', () => {
+    // Progressive enhancement, asserted rather than intended: the script may
+    // not disable a submit button. Seven templates dispatch on the pressed
+    // button's own name and value, and a disabled button is not submitted —
+    // so disabling it, the usual way to stop a double post, would drop the
+    // field that says which action this is.
+    const script = readFileSync('templates/site.js', 'utf8')
+    expect(script).not.toMatch(/\.disabled\s*=|setAttribute\(\s*['"]disabled/)
+    expect(script).toContain('aria-busy')
   })
 
   it('keeps the toggle reachable by keyboard', () => {

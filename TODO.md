@@ -382,6 +382,19 @@ which is why it is no longer restated here.
   subscription, portal and Stripe's webhook — so no payment could ever have completed. In
   MISTAKES.md; the guard is now one list and `tests/store/server-starts.test.js` POSTs to all
   ten write routes against a running server.
+* **A throbber on submit buttons.** Submitting a plugin writes the store, checks the shapes and
+  — when accepted — embeds and indexes it, which takes a few seconds during which nothing on
+  screen said so. `templates/site.js` is the site's first and only script: one delegated
+  listener that marks the pressed button `aria-busy` and refuses a second submit. Served as a
+  deferred external file rather than inlined, so a CSP can be added later without an exception.
+
+  Two things it deliberately does not do. It **does not disable the button** — seven templates
+  dispatch on the pressed button's own `name`/`value`, and a disabled button is not submitted,
+  so the usual double-post guard would have dropped the field that says which action it is. And
+  it **is not required by anything**: every form works with the script blocked, which
+  `tests/api/responsive.test.js` now asserts rather than assumes. The browse panel's no-script
+  commitment was expressed as "the page contains no `<script>` at all" and is now expressed as
+  what it actually protects.
 * **A favicon, borrowed.** `/favicon.png` and `/favicon.ico` are served from the repository
   root through `STATIC_FILES`, linked from every page by `<link rel="icon">`. The image is the
   **hyperdata.it mark, the owner's own design, standing in** until this project has one. Serving

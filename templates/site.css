@@ -483,3 +483,28 @@ code { font-size:.88em; background:color-mix(in srgb, var(--fg) 7%, transparent)
 .wiki-current { white-space:pre-wrap; max-height:18rem; overflow:auto; font-size:.9rem;
                 background:color-mix(in srgb, var(--fg) 6%, transparent); padding:.6rem .8rem;
                 border-radius:6px; }
+
+/* A submit button that is waiting for the server.
+ *
+ * Submitting a plugin takes a few seconds — the store is written, the shapes
+ * checked, and an accepted submission embedded and indexed — and until this
+ * existed nothing on screen said so.
+ *
+ * Set by /site.js, which sets aria-busy rather than `disabled`: seven forms
+ * dispatch on the pressed button's own name and value, and a disabled button is
+ * not submitted with the form.
+ */
+@keyframes pu-spin { to { transform: rotate(360deg); } }
+
+button[aria-busy="true"] { cursor: progress; opacity: .8; }
+button[aria-busy="true"]::before {
+  content: ""; display: inline-block; width: .75em; height: .75em;
+  margin-right: .5em; vertical-align: -.05em;
+  border: 2px solid currentColor; border-top-color: transparent;
+  border-radius: 50%; animation: pu-spin .7s linear infinite;
+}
+/* A spinner that cannot spin is a dot. The dimming and the cursor carry the
+   message instead, so the state is still visible without motion. */
+@media (prefers-reduced-motion: reduce) {
+  button[aria-busy="true"]::before { animation: none; opacity: .6; }
+}

@@ -174,7 +174,10 @@ const PROSE = Object.values(PAGES)
 
 function linkedPaths () {
   const links = [
-    ...[...RENDER.matchAll(/(?:href|action)="([^"]*)"/g)].map(match => match[1]),
+    // `src` as well as `href` and `action`: a <script src> or an <img src> is a
+    // request the page makes for a route, and the guard was blind to the whole
+    // category until the site served its first script.
+    ...[...RENDER.matchAll(/(?:href|action|src)="([^"]*)"/g)].map(match => match[1]),
     // Markdown, in the prose pages: [text](/path)
     ...[...PROSE.matchAll(/\]\((\/[^)\s]*)\)/g)].map(match => match[1])
   ]

@@ -19,7 +19,10 @@ import { ImageError } from './ImageStore.js'
  * catalogue's* routes.
  */
 
-const PATHS = new Set(['/health', '/robots.txt', '/favicon.png', '/favicon.ico', '/registry/plugins/index.json', '/ns'])
+const PATHS = new Set([
+  '/health', '/robots.txt', '/favicon.png', '/favicon.ico', '/site.js',
+  '/registry/plugins/index.json', '/ns'
+])
 const VOCAB_PATH = /^\/ns\/([a-z0-9-]+)\.ttl$/
 const IMAGE_PATH = /^\/image\/([0-9a-f]{64}\.(?:png|jpg|gif|webp))$/
 

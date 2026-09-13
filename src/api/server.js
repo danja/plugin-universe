@@ -137,6 +137,14 @@ export const STATIC_FILES = Object.freeze({
   // in the layout points at the PNG; a browser that has not read the markup yet
   // — or a feed reader, or a bookmarking tool — asks for `/favicon.ico` at the
   // root by convention, and answering 404 to that is a needless miss.
+  // The site's one script: a spinner on a submit button and nothing else.
+  // Served as a file rather than inlined so a Content-Security-Policy can be
+  // added later without an exception, and so a browser caches it.
+  '/site.js': {
+    file: 'templates/site.js',
+    type: 'application/javascript; charset=utf-8',
+    cache: 'public, max-age=3600'
+  },
   '/favicon.png': {
     file: 'favicon.png',
     type: 'image/png',
