@@ -269,7 +269,12 @@ describe('the routes the site links to', () => {
     // The PNG is linked from <link rel="icon"> in the layout and so needs no
     // exemption. This one is the convention a browser follows before it has
     // read any markup, which is a request nothing on the site can link to.
-    '/favicon.ico': 'browsers ask for it at the root by convention, before reading any markup'
+    '/favicon.ico': 'browsers ask for it at the root by convention, before reading any markup',
+    // Referenced by every page, in `<meta property="og:image" content="…">`,
+    // as an absolute URL built at render time. The guard reads href, action and
+    // src attributes; a meta content is a different kind of reference and
+    // teaching it to read those would mean reading every page description too.
+    '/og-image.png': 'the social card, referenced by absolute URL in og:image on every page'
   })
 
   it('gives every fixed route something that links to it', () => {

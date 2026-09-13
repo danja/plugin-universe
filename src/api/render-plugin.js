@@ -188,6 +188,12 @@ export function renderPluginPage (
     jsonLd: `<script type="application/ld+json">${scriptSafeJson(pluginJsonLd(doc))}</script>`
   })
   return layout(`${doc.name} — Plugin Universe`, body, {
+    // The page somebody posts a link to, and the picture that should appear
+    // with it. A hotlinked screenshot is somebody else's server and may refuse
+    // a scraper, so only an image this site stores is offered.
+    canonical: doc.iri.replace(NAMESPACES.pu, '/'),
+    image: doc.imageIsLocal ? doc.image : null,
+    imageAlt: doc.imageIsLocal ? `${doc.name}` : undefined,
     description: doc.description ?? '', ...viewer, footer: false
   })
 }

@@ -185,7 +185,9 @@ export async function loadPage (path, projectRoot = process.cwd()) {
   if (!fs.existsSync(file)) {
     throw new PageError(`${path} is served from ${page.file}, which is missing`)
   }
-  return { ...page, html: renderMarkdown(await fs.promises.readFile(file, 'utf8')) }
+  // The route as well as the document: the renderer needs it for the
+  // canonical URL, and the key of this table is the only place it exists.
+  return { ...page, route: path, html: renderMarkdown(await fs.promises.readFile(file, 'utf8')) }
 }
 
 export default loadPage

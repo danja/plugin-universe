@@ -20,7 +20,7 @@ import { ImageError } from './ImageStore.js'
  */
 
 const PATHS = new Set([
-  '/health', '/robots.txt', '/favicon.png', '/favicon.ico', '/site.js',
+  '/health', '/robots.txt', '/favicon.png', '/favicon.ico', '/og-image.png', '/site.js',
   '/registry/plugins/index.json', '/ns'
 ])
 const VOCAB_PATH = /^\/ns\/([a-z0-9-]+)\.ttl$/

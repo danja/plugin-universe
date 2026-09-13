@@ -28,6 +28,7 @@ export * from './render-plugin.js'
  * question to be answerable at all.
  */
 export function renderLandingPage ({ corpus, results, facetValues, viewer = {} }) {
+  // The most-shared address on the site, and a stable one.
   const body = searchShell({
     query: null,
     facets: {},
@@ -45,6 +46,7 @@ export function renderLandingPage ({ corpus, results, facetValues, viewer = {} }
   })
   return layout('Plugin Universe', body, {
     description: 'An open, machine-readable database of DAW plugins with semantic search.',
+    canonical: '/',
     ...viewer,
     footer: false
   })
@@ -93,6 +95,9 @@ export function renderBrowsePage ({
   })
   return layout('All plugins — Plugin Universe', body, {
     description: 'Every plugin in the Plugin Universe catalogue.',
+    // Page one only. Pointing page four at `/plugins` would tell a crawler the
+    // two are the same document, and they are not.
+    canonical: offset === 0 ? '/plugins' : null,
     ...viewer,
     footer: false
   })
@@ -122,13 +127,14 @@ export function renderVocabularies (vocabularies, viewer = {}) {
   })
   return layout('Vocabularies — Plugin Universe', body, {
     description: 'The ontologies the Plugin Universe catalogue publishes its data in.',
+    canonical: '/ns',
     ...viewer
   })
 }
 
-export function renderDocPage ({ title, description, html, lang = 'en' }, viewer = {}) {
+export function renderDocPage ({ title, description, html, lang = 'en', route = null }, viewer = {}) {
   return layout(`${title} — Plugin Universe`, templates.render('doc-page', { html }),
-    { description, lang, ...viewer })
+    { description, lang, canonical: route, type: 'article', ...viewer })
 }
 
 /** A list of sibling category links, or nothing. */
@@ -185,6 +191,7 @@ export function renderVendorPage (
   })
   return layout(`${vendor.name} — Plugin Universe`, body, {
     description: `Plugins by ${vendor.name} in the Plugin Universe catalogue.`,
+    canonical: `/vendor/${vendor.slug}`,
     ...viewer,
     footer: false
   })
@@ -205,6 +212,7 @@ export function renderVendorsPage (vendors, viewer = {}, { facetValues = {}, cor
   })
   return layout('Vendors — Plugin Universe', body, {
     description: 'Every vendor with plugins in the Plugin Universe catalogue.',
+    canonical: '/vendors',
     ...viewer,
     footer: false
   })
@@ -241,6 +249,7 @@ export function renderCategoryPage (
 
   return layout(`${concept?.prefLabel ?? slug} — Plugin Universe`, body, {
     description: concept?.definition ?? `Plugins categorised as ${slug} in the Plugin Universe catalogue.`,
+    canonical: `/category/${slug}`,
     ...viewer,
     footer: false
   })

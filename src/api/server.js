@@ -145,6 +145,14 @@ export const STATIC_FILES = Object.freeze({
     type: 'application/javascript; charset=utf-8',
     cache: 'public, max-age=3600'
   },
+  // The card a link to this site shows when it is posted anywhere. 1200x630,
+  // which is what the scrapers want; the 48px favicon is far below the 200px
+  // minimum most of them accept and would have shown nothing.
+  '/og-image.png': {
+    file: 'og-image.png',
+    type: 'image/png',
+    cache: 'public, max-age=604800'
+  },
   '/favicon.png': {
     file: 'favicon.png',
     type: 'image/png',

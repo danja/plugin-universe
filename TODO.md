@@ -152,9 +152,12 @@ foundations.
   request — Cloudflare and the like — so a naive checker would report them broken and a checker
   that worked around the block would be doing the thing `docs/sources.md` §4 rule 3 forbids.
   Any link-checking this page gets has to treat a 403 as "unknown", not as "dead".
-* **A logo, and a favicon of this project's own.** What is served now is the hyperdata.it mark
-  as a placeholder. Replacing it is two files at the repository root and nothing else — the
-  route, the `<link>` and the cache headers are already there.
+* **A logo, a favicon and a social card of this project's own.** What is served now is the
+  hyperdata.it mark, plus a 1200×630 card generated from it against the site's dark palette.
+  Replacing them is three files at the repository root — `favicon.png`, `favicon.ico`,
+  `og-image.png` — and nothing else: the routes, the `<link>`, the `og:image` and the cache
+  headers are already there. The card is the one most worth a designer's attention: it is what
+  somebody sees before they decide whether to click.
 * **A 3D navigable plugin graph** — plugins as nodes, hover for a summary, click through to the
   page. Genuinely differentiating, and the one thing on this list that breaks a standing
   decision: the site is server-rendered with no client framework, and this cannot be. Worth
@@ -382,6 +385,19 @@ which is why it is no longer restated here.
   subscription, portal and Stripe's webhook — so no payment could ever have completed. In
   MISTAKES.md; the guard is now one list and `tests/store/server-starts.test.js` POSTs to all
   ten write routes against a running server.
+* **Social metadata, on every page.** Open Graph and Twitter Card tags, plus `rel=canonical`.
+  There were none at all, so a link posted anywhere was a bare URL. Every page now carries
+  `og:site_name`, `og:type`, `og:title`, `og:description` and `og:image`; a plugin page uses
+  its own picture where **this site stores it** — a hotlinked screenshot is somebody else's
+  server and may refuse a scraper — and otherwise a 1200×630 card at `/og-image.png`.
+
+  `og:url` and `rel=canonical` are given only where the address is stable: the front page, a
+  plugin, a vendor, a category, the prose pages, and page one of `/plugins`. **Not a search**,
+  because a query is not a document, and not page four of a listing, because saying so would
+  ask a crawler to drop it. `tests/api/metadata.test.js` binds all of it.
+
+  The card image is generated, not designed — the mark on the site's dark palette — and is a
+  placeholder alongside the logo item below.
 * **A throbber on submit buttons.** Submitting a plugin writes the store, checks the shapes and
   — when accepted — embeds and indexes it, which takes a few seconds during which nothing on
   screen said so. `templates/site.js` is the site's first and only script: one delegated

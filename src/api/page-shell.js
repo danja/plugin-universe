@@ -3,6 +3,22 @@ import { RETRIEVAL_CONFIG, PROMOTION_CONFIG } from '../../config/preferences.js'
 import templates, { escape } from './Templates.js'
 import { UNVERSIONED, NOASSERTION, LICENCE_IDS } from '../harvest/Licensing.js'
 import { vendorSlug } from '../search/SearchService.js'
+import Config from '../Config.js'
+
+/**
+ * Where this instance lives, for the absolute URLs social metadata requires.
+ *
+ * Open Graph will not take a relative `og:image` or `og:url` — a scraper has no
+ * base to resolve one against — so the renderer needs an origin, and nothing
+ * else in it did. Read from config once at load rather than threaded through
+ * the seventeen callers of `layout()`: it is one value, it is the same for
+ * every page, and it does not change while the process runs.
+ *
+ * `Config.load()` throws when the value is absent, which is the behaviour this
+ * project asks for — a missing configuration value is an error to fix, not a
+ * default to invent.
+ */
+const ORIGIN = Config.load().get('site.origin').replace(/\/$/, '')
 
 /**
  * The furniture every page is built out of.
@@ -44,6 +60,15 @@ export function layout (title, body, {
   // The document's language, for anything that reads it aloud. English unless
   // a page says otherwise — `/leggere-prima` is the first that does.
   lang = 'en',
+  // The page's own path, for `og:url` and `rel=canonical`. Null on a page whose
+  // address is not canonical — a search result is a query, and pointing every
+  // variant of one at itself tells a crawler nothing useful.
+  canonical = null,
+  // A page-specific image for the card, absolute. Null falls back to the site
+  // card, so every link posted anywhere has *something* to show.
+  image = null,
+  imageAlt = 'Plugin Universe — an open, machine-readable database of DAW plugins',
+  type = 'website',
   // A page laid out in columns carries the site links in one of them, so it
   // asks for the footer to be left off. One template renders them either way —
   // two copies of a list of links is two lists to keep correct, and this one
@@ -53,6 +78,19 @@ export function layout (title, body, {
   return templates.render('layout', {
     title,
     lang,
+    social: templates.render('social-meta', {
+      type,
+      // The bare page title, not the one with the site name appended: a card
+      // that reads "Shifty — Plugin Universe" under a heading that already says
+      // Plugin Universe says it twice.
+      title: title.replace(/\s+—\s+Plugin Universe$/, ''),
+      description,
+      image: image ?? `${ORIGIN}/og-image.png`,
+      imageAlt,
+      canonical: templates.when(Boolean(canonical), 'canonical-link', {
+        url: `${ORIGIN}${canonical ?? ''}`
+      })
+    }),
     description: templates.when(Boolean(description), 'meta-description', { description }),
     // The <style> element is part of the value, not part of the template.
     //
