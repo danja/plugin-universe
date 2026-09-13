@@ -8,15 +8,18 @@
 {{{done}}}
 <div class="columns">
 <article class="page-body">
+  <h3>Write to the moderators</h3>
   <form method="post" action="/feedback" class="submit-form">
     <input type="hidden" name="csrf" value="{{csrf}}">
-    <label for="feedback-message">Your message</label>
-    <textarea id="feedback-message" name="message" rows="10" maxlength="{{maxLength}}"
-      placeholder="What is wrong, missing, or confusing?">{{message}}</textarea>
+    <label class="field">
+      <span class="field-label">Your message</span>
+      <textarea name="message" rows="10" maxlength="{{maxLength}}" required
+        placeholder="What is wrong, missing, or confusing?">{{message}}</textarea>
+      <span class="field-help">Signed in as {{login}}, so there is no need to leave an
+        address — but the moderators have no way to reply on the site, so say how to
+        reach you if you want an answer.</span>
+    </label>
     <button type="submit">Send to the moderators</button>
-    <p class="tags">Signed in as {{login}}, so there is no need to leave an address —
-      but the moderators have no way to reply on the site, so say how to reach you
-      if you want an answer.</p>
   </form>
 </article>
 {{{side}}}

@@ -217,12 +217,20 @@ button:hover { filter:brightness(1.08); }
    so clicking the help focuses the field and a screen reader reads all three as
    one thing. */
 .submit-form { margin:1.5rem 0; max-width:34rem; }
+/* A form that is the whole of a card needs no top margin: the card's own
+   padding is already the gap, and the two together read as a stray indent. */
+.page-body > .submit-form:first-child, .page-body > h3 + .submit-form { margin-top:0; }
 .submit-form .field { display:block; margin:0 0 1.1rem; }
 .field-label { display:block; font-weight:600; font-size:.92rem; margin-bottom:.2rem; }
-.submit-form input { display:block; width:100%; padding:.5rem .6rem; font-size:1rem;
+.submit-form input, .submit-form textarea {
+                     display:block; width:100%; padding:.5rem .6rem; font-size:1rem;
                      border:1px solid var(--control); border-radius:4px;
                      background:var(--bg); color:var(--fg); }
 .field-help { display:block; font-size:.85rem; color:var(--muted); margin-top:.25rem; }
+/* A textarea in a submit form. The rule above covers `input` and did not cover
+   this until /feedback needed one: the box rendered at the browser default of
+   about twenty columns, in a column three times that wide. */
+.submit-form textarea { font-family:inherit; line-height:1.5; resize:vertical; min-height:9rem; }
 .submit-form fieldset { border:0; padding:0; margin:0 0 1.1rem; }
 .submit-form legend { padding:0; }
 .checkboxes { display:flex; flex-wrap:wrap; gap:.3rem .9rem; margin:.2rem 0; }
