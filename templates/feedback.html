@@ -7,18 +7,18 @@
 {{{error}}}
 {{{done}}}
 <div class="columns">
-<div class="page-body">
-<form method="post" action="/feedback" class="submit-form">
-  <input type="hidden" name="csrf" value="{{csrf}}">
-  <label for="feedback-message">Your message</label>
-  <textarea id="feedback-message" name="message" rows="10" maxlength="{{maxLength}}"
-    placeholder="What is wrong, missing, or confusing?">{{message}}</textarea>
-  <button type="submit">Send to the moderators</button>
-  <p class="tags">Signed in as {{login}}, so there is no need to leave an address —
-    but the moderators have no way to reply on the site, so say how to reach you
-    if you want an answer.</p>
-</form>
-</div>
+<article class="page-body">
+  <form method="post" action="/feedback" class="submit-form">
+    <input type="hidden" name="csrf" value="{{csrf}}">
+    <label for="feedback-message">Your message</label>
+    <textarea id="feedback-message" name="message" rows="10" maxlength="{{maxLength}}"
+      placeholder="What is wrong, missing, or confusing?">{{message}}</textarea>
+    <button type="submit">Send to the moderators</button>
+    <p class="tags">Signed in as {{login}}, so there is no need to leave an address —
+      but the moderators have no way to reply on the site, so say how to reach you
+      if you want an answer.</p>
+  </form>
+</article>
 {{{side}}}
-</div>
 {{{links}}}
+</div>

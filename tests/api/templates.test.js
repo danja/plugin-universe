@@ -208,3 +208,50 @@ describe('no template has had its placeholders mangled', () => {
     }
   })
 })
+
+/**
+ * The site links are a *column*, not a block that follows the columns.
+ *
+ * `.columns` is a three-column grid on a wide screen — `11rem | 1fr | 14rem` —
+ * with `.site-links` placed in the first and `.side` in the third. A template
+ * that puts `{{{links}}}` outside the wrapper leaves the grid two children, so
+ * the page's main content is auto-placed into the 11rem column and the layout
+ * collapses. `templates/feedback.html` shipped that way: every other column
+ * template had the links inside and the new one did not, and nothing compared
+ * them.
+ *
+ * This is the same defect as a footer rendered twice, which `layout({footer})`
+ * already guards — one list of links, in one place per page — approached from
+ * the other side.
+ */
+describe('every column template puts the site links in the grid', () => {
+  const columned = fs.readdirSync('templates')
+    .filter(name => name.endsWith('.html'))
+    .filter(name => fs.readFileSync(`templates/${name}`, 'utf8').includes('class="columns"'))
+
+  it('finds the column templates', () => {
+    // CLAUDE.md notes there were five; there are more now, and a count that
+    // cannot go down by accident is the point of asserting it at all.
+    expect(columned.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it.each(columned)('%s has {{{links}}} inside <div class="columns">', file => {
+    const text = fs.readFileSync(`templates/${file}`, 'utf8')
+    const opens = text.indexOf('<div class="columns">')
+    const closes = text.lastIndexOf('</div>')
+    const links = text.indexOf('{{{links}}}')
+    expect(links, `${file} uses columns but never renders the site links`).toBeGreaterThan(-1)
+    expect(links > opens && links < closes,
+      `${file} renders {{{links}}} outside .columns, so its main content falls into the 11rem column`)
+      .toBe(true)
+  })
+
+  it.each(columned)('%s puts the sidebar in the grid too', file => {
+    const text = fs.readFileSync(`templates/${file}`, 'utf8')
+    const opens = text.indexOf('<div class="columns">')
+    const closes = text.lastIndexOf('</div>')
+    const side = text.indexOf('{{{side}}}')
+    if (side === -1) return // not every columned page has a sidebar
+    expect(side > opens && side < closes, `${file} renders {{{side}}} outside .columns`).toBe(true)
+  })
+})
