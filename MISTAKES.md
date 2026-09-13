@@ -90,6 +90,94 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-13 — `set -e` and a trailing `&&` would have killed the next deploy
+
+**What happened.** Adding the test gate to `bin/deploy.sh`, the script exited 1
+before reaching it — silently, with no message, part-way through working out
+which modified files actually reach the image.
+
+The loop ended with:
+
+    [ "$excluded" = no ] && echo "$path"
+
+which returns 1 when the file *is* excluded. That is the last command of the
+loop, so it is the exit status of the loop, so it is the exit status of the
+command substitution the result is assigned from — and under `set -eu` a failing
+command substitution in an assignment ends the script.
+
+It only fires when the **last** path `git status --porcelain -uall` lists is one
+`.dockerignore` excludes. For most of this repository's life the last path was
+not. It is now: this session left untracked files under `tests/`, which is
+excluded, so the next deploy would have died with no output at all.
+
+**Root cause.** `cmd && echo` as the final statement of a block is an expression
+whose value is "did the condition hold", in a position where the shell reads it
+as "did this block succeed". The two meanings coincide until the condition is
+false.
+
+**What was done.** `if [ "$excluded" = no ]; then echo "$path"; fi` — an `if`
+with no else is 0 whichever way the test goes.
+
+**Prevention.** **In a `set -e` script, do not end a block with `&&`.** The
+last command's status is the block's status, and a guard clause is not a
+failure. Found only because the new gate gave a reason to run the script with an
+unusual working tree; it had been waiting in there for however long.
+
+**What happened.** `templates/layout.html` read:
+
+    <style>{{{style}}}</style>
+
+An editor's "format document" parsed the braces as CSS and pretty-printed them:
+
+    <style>
+      {
+          {
+            {
+            style
+          }
+        }
+      }
+    </style>
+
+The placeholder no longer existed, so `layout` was handed a `style` value it did
+not use, `Templates` refused it — correctly — and the container would not start:
+*"Template layout was given values it does not use: style."*
+
+**Root cause.** A placeholder inside a `<style>` or `<script>` element is sitting
+in a language the editor knows how to reformat, and `{{{…}}}` is indistinguishable
+from a nested block to a CSS parser. The design invited it.
+
+Two things went right and one went wrong. The **startup check caught it**: the
+container refused to start rather than serving every page without a stylesheet,
+which is exactly what that check is for. The **test suite caught it too** — 81
+failures across 18 files. What went wrong is that the suite was not run: the
+change went from an editor to a commit to a deploy without `npm test`, and the
+first thing that noticed was production.
+
+**What was done.** The `<style>` element moved out of the template and into the
+value — `layout()` now supplies `` `<style>${…}</style>` `` — so there is no CSS
+in any template for a formatter to find. The same hazard existed in
+`templates/plugin.html`, where `{{{jsonLd}}}` sat inside
+`<script type="application/ld+json">`: an editor that formats JSON would have
+done the same thing there, with the added charm that the JSON-LD block is the
+one place in this project where escaping is deliberately switched off. Those
+tags moved too, and `scriptSafeJson` is untouched and still tested.
+
+`tests/api/templates.test.js` gained a check that says this in one line instead
+of eighty-one: no template may contain a bare brace on a line of its own, every
+placeholder must open and close on one line, and no template may hold a `<style>`
+element or an inline `<script>` body at all.
+
+**Prevention.** **Keep templates free of other languages.** Markup with
+placeholders is one syntax; the moment a second one is embedded in it, every
+tool that understands the second one is a hazard. Where a page needs CSS or JSON
+inline, the element belongs in the value.
+
+And the plain one: **run the suite before deploying.** It found this in full and
+was not asked.
+
+---
+
 ## 2026-09-13 — Every payment POST was answered 405 before it reached its route
 
 **What happened.** The read-only guard in `src/api/server.js` runs before any

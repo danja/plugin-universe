@@ -14,14 +14,29 @@
 # and then checks, from outside, that the running container reports the commit
 # it was just given. Data is not touched: an ingest is a separate decision.
 #
-# Usage:  ./bin/deploy.sh            deploy HEAD after pulling
-#         ./bin/deploy.sh --no-pull  deploy the working tree as it stands
+# Usage:  ./bin/deploy.sh               deploy HEAD after pulling
+#         ./bin/deploy.sh --no-pull     deploy the working tree as it stands
+#         ./bin/deploy.sh --skip-tests  deploy without running the suite first
 
 set -eu
 
 cd "$(dirname "$0")/.."
 
-if [ "${1:-}" != "--no-pull" ]; then
+PULL=yes
+TESTS=yes
+for arg in "$@"; do
+  case "$arg" in
+    --no-pull) PULL=no ;;
+    --skip-tests) TESTS=no ;;
+    *)
+      echo "!!  Unknown option: $arg"
+      echo "!!  Usage: ./bin/deploy.sh [--no-pull] [--skip-tests]"
+      exit 1
+      ;;
+  esac
+done
+
+if [ "$PULL" = yes ]; then
   # Local modifications stop a pull with a message about "local changes being
   # overwritten", which is accurate and unhelpful at the moment you read it.
   # Say which files, and say which of them are safe to throw away.
@@ -66,7 +81,12 @@ IMAGE_DIRTY=$(git status --porcelain -uall | while read -r _ path; do
     case "$rule" in ''|'#'*|'!'*) continue ;; esac
     case "$path" in "${rule%/}"|"${rule%/}"/*) excluded=yes ;; esac
   done < .dockerignore
-  [ "$excluded" = no ] && echo "$path"
+  # An `if` rather than `[ … ] && echo`: the && form returns 1 when the file IS
+  # excluded, and if that happens to be the last path git lists, the command
+  # substitution fails and `set -e` kills the deploy before it starts. Which is
+  # exactly what it did the first time this script was run with untracked files
+  # under tests/ — excluded by .dockerignore, listed last, and fatal.
+  if [ "$excluded" = no ]; then echo "$path"; fi
 done)
 
 if [ -n "$IMAGE_DIRTY" ]; then
@@ -74,6 +94,39 @@ if [ -n "$IMAGE_DIRTY" ]; then
   echo "$IMAGE_DIRTY" | sed 's/^/!!    /'
   echo "!!  /health will report ${BUILD_COMMIT}, which is not what is running."
   echo "!!  Commit first, or accept a misleading stamp."
+fi
+
+# The suite, before the build rather than after the deploy.
+#
+# It is here because a template edit once went from an editor to a commit to a
+# running container without anything running the tests, and the first thing to
+# notice was the container refusing to start. The suite had caught it in full:
+# 81 failures across 18 files, on a machine nobody asked.
+#
+# `npm test` is the core configuration — no Fuseki, no Ollama, no network — so
+# it runs on a server as happily as anywhere. The store and live suites are
+# deliberately not run: one needs services this script does not manage, and the
+# other tests the deployment that does not exist yet.
+if [ "$TESTS" = yes ]; then
+  if [ ! -x node_modules/.bin/vitest ]; then
+    echo "!!  The test runner is not installed here, so the suite cannot gate this deploy."
+    echo "!!  vitest is a devDependency and 'npm ci --omit=dev' leaves it out."
+    echo "!!"
+    echo "!!  Either install them:        npm ci"
+    echo "!!  or deploy without the gate: ./bin/deploy.sh --skip-tests"
+    exit 1
+  fi
+  echo "==> npm test"
+  if ! npm test; then
+    echo "!!"
+    echo "!!  The suite failed, so nothing was built and nothing was deployed."
+    echo "!!  The running container is untouched and still serving."
+    echo "!!"
+    echo "!!  Fix it, or deploy anyway with: ./bin/deploy.sh --skip-tests"
+    exit 1
+  fi
+else
+  echo "==> skipping tests (--skip-tests)"
 fi
 
 echo "==> building ${BUILD_COMMIT}"

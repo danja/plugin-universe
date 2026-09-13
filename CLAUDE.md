@@ -256,6 +256,13 @@ ended the string and broke the build.
   directory refuses to start rather than 500ing on every page a person can see.
 - **A guard that scrapes markup must scrape `templates/` too.** `tests/api/linked-routes.test.js`
   kept reading `render.js` after the links moved and went blind rather than red.
+- **No second language inside a template.** `<style>{{{style}}}</style>` put a placeholder in a
+  CSS context, an editor's "format document" pretty-printed the braces across eight lines, and
+  the deployment refused to start. `{{{jsonLd}}}` sat inside `<script type="application/ld+json">`
+  with the same hazard. Both elements now live in the *value* — `` `<style>${…}</style>` `` —
+  so there is no CSS or JSON in `templates/` for a tool to act on, and
+  `tests/api/templates.test.js` fails on a `<style>` element, an inline `<script>` body, a bare
+  brace on its own line, or a placeholder that does not close on the line it opened.
 - **One template, rendered in one place per page.** The site links are the footer on a prose
   page and the left column on every page with columns; `layout()` takes `footer: false` so the
   page gets one and not both. Five templates now open with `<div class="columns">`; if a sixth

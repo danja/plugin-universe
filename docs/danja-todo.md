@@ -252,6 +252,11 @@ Nothing here needs server access. The profiler runs on this machine.
 ## Standing habits
 
 * **Code change:** `./bin/deploy.sh` on the server, then `npm run test:live`.
+  **It now runs `npm test` first and will not build if the suite fails** — the
+  running container is left untouched, so a red suite costs you nothing but the
+  minute it took. `./bin/deploy.sh --skip-tests` deploys anyway when you need it
+  to. If it says the test runner is not installed, the server has production
+  dependencies only: `npm ci` there, once.
 * **An accepted submission indexes itself.** Nothing to run — accepting one in
   the moderation queue reloads the documents and embeds the new plugin in the
   running app, and the page says so. If Ollama is down it says that instead, and

@@ -174,7 +174,18 @@ export function renderPluginPage (
       : '',
     ttl: `${path}.ttl`,
     jsonld: `${path}.jsonld`,
-    jsonLd: scriptSafeJson(pluginJsonLd(doc))
+    // The <script> element is part of the value, not part of the template, for
+    // the reason `layout` now keeps its <style> tags on this side: a
+    // placeholder inside a script or style element sits in a language an editor
+    // knows how to reformat, and one duly exploded `{{{style}}}` into eight
+    // lines of pretty-printed CSS and stopped the deployment starting. An
+    // `application/ld+json` body is exactly as reformattable.
+    //
+    // The escaping is unchanged and is still the load-bearing part:
+    // `scriptSafeJson` escapes `<` to `\u003c`, because JSON.stringify does not
+    // and any harvested value containing `</script>` would otherwise close this
+    // block and have the rest parsed as markup.
+    jsonLd: `<script type="application/ld+json">${scriptSafeJson(pluginJsonLd(doc))}</script>`
   })
   return layout(`${doc.name} — Plugin Universe`, body, {
     description: doc.description ?? '', ...viewer, footer: false

@@ -142,3 +142,69 @@ describe('the templates reach the deployment', () => {
     }
   })
 })
+
+/**
+ * A placeholder is still a placeholder.
+ *
+ * `templates/layout.html` read `<style>{{{style}}}</style>`, which put a
+ * placeholder inside a CSS context — and an editor's "format document" parsed
+ * those braces as CSS and pretty-printed them across eight lines:
+ *
+ *     <style>
+ *       {
+ *           {
+ *             {
+ *             style
+ *           }
+ *         }
+ *       }
+ *     </style>
+ *
+ * The placeholder stopped existing, so `layout` was handed a value it no longer
+ * used, and the deployment refused to start. The suite did catch it — in 81
+ * failures across 18 files, none of which said "a formatter ate a placeholder".
+ * This says it in one.
+ *
+ * The `<style>` tags have since moved into the value, so there is no CSS in any
+ * template for a formatter to find. This is the check that the next one does
+ * not get in either way.
+ */
+describe('no template has had its placeholders mangled', () => {
+  const files = fs.readdirSync('templates').filter(name => name.endsWith('.html'))
+
+  it('finds templates to check at all', () => {
+    // Without this the suite passes by vacuum, which is the failure mode of
+    // every test whose subject is "nothing is broken".
+    expect(files.length).toBeGreaterThan(20)
+  })
+
+  it.each(files)('%s has no orphaned brace on a line of its own', file => {
+    const text = fs.readFileSync(`templates/${file}`, 'utf8')
+    const lines = text.split('\n')
+    lines.forEach((line, index) => {
+      expect(line.trim(), `${file}:${index + 1} is a bare brace — a placeholder has been reformatted`)
+        .not.toMatch(/^\{+$|^\}+$/)
+    })
+  })
+
+  it.each(files)('%s opens and closes every placeholder on one line', file => {
+    const text = fs.readFileSync(`templates/${file}`, 'utf8')
+    for (const line of text.split('\n')) {
+      const opens = (line.match(/\{\{/g) ?? []).length
+      const closes = (line.match(/\}\}/g) ?? []).length
+      expect(opens, `${file}: "${line.trim()}" opens a placeholder it does not close`).toBe(closes)
+    }
+  })
+
+  it('keeps no CSS or script body in a template, where a formatter would find it', () => {
+    // The shape that caused this: a placeholder inside a <style> or <script>
+    // element is in a language an editor knows how to reformat. Keeping those
+    // elements on the JavaScript side leaves nothing for it to act on.
+    for (const file of files) {
+      const text = fs.readFileSync(`templates/${file}`, 'utf8')
+      expect(text, `${file} contains a <style> element; put the tags in the value instead`)
+        .not.toMatch(/<style[^>]*>/)
+      expect(text, `${file} contains an inline <script> body`).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>\s*\S/)
+    }
+  })
+})

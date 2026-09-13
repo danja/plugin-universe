@@ -50,7 +50,15 @@ export function layout (title, body, {
   return templates.render('layout', {
     title,
     description: templates.when(Boolean(description), 'meta-description', { description }),
-    style: templates.asset('site.css'),
+    // The <style> element is part of the value, not part of the template.
+    //
+    // `templates/layout.html` used to read `<style>{{{style}}}</style>`, which
+    // put the placeholder inside a CSS context — and an editor's "format
+    // document" duly parsed those braces as CSS and pretty-printed them across
+    // eight lines. The placeholder stopped existing, `layout` was handed a
+    // value it no longer used, and the deployment refused to start. Keeping the
+    // tags on this side means there is no CSS for a formatter to find.
+    style: `<style>${templates.asset('site.css')}</style>`,
     account: accountBar(account, signInEnabled),
     body,
     footer: templates.when(footer, 'footer', { links: templates.render('site-links', {}) })
