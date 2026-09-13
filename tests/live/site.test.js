@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import fs from 'fs'
 import Config from '../../src/Config.js'
 import { parseTurtle } from '../../src/harvest/TurtleReader.js'
-import { HARVEST_CONFIG } from '../../config/preferences.js'
+import { HARVEST_CONFIG, PUBLICATION_CONFIG } from '../../config/preferences.js'
 
 /**
  * The deployed site, over the public internet.
@@ -491,6 +491,68 @@ describe.skipIf(!sparqlLive)('the public SPARQL endpoint', () => {
       }).catch(() => null)
       if (!response) continue
       expect([401, 403, 404, 405], `${path} answered ${response.status}`).toContain(response.status)
+    }
+  })
+})
+
+/**
+ * The published copy is the site's data, or it is not the site's data.
+ *
+ * This is the check that was missing on 2026-09-13, when the public endpoint
+ * held 753 plugins against the site's 756 — the harmless kind of lag — and
+ * `graph:curated/vendors` held **nothing**: 376 vendors and every `foaf:maker`
+ * link absent from the endpoint and from the dumps, because `bin/publish.js`
+ * had not run since `bin/mint-vendors.js` did.
+ *
+ * It was not a configuration error. The graph is registered CC0, so it
+ * qualifies for publication; qualifying and being published are two facts and
+ * only the first had a test. Meanwhile the docs said the vendor layer was in
+ * the dump, and an lod-cloud submission was queued behind a dataset missing the
+ * part that makes it a graph rather than a list.
+ *
+ * Counting plugins alone would not have caught it — the plugins were all there.
+ * Hence the second check: a layer that is absent fails differently from one
+ * that is behind.
+ */
+describe.skipIf(!sparqlLive)('the published copy is the site\'s data', () => {
+  const count = async query => {
+    const response = await fetch(`${SPARQL}?query=${encodeURIComponent(query)}`, {
+      headers: { 'User-Agent': AGENT, Accept: 'application/sparql-results+json' },
+      signal: AbortSignal.timeout(30000)
+    })
+    const results = await response.json()
+    return Number(results.results.bindings[0].n.value)
+  }
+
+  it('holds about as many plugins as the site does', async () => {
+    const live = (await (await get('/health')).json()).plugins
+    const published = await count(
+      'PREFIX trn: <http://purl.org/stuff/transmissions/> ' +
+      'SELECT (COUNT(DISTINCT ?p) AS ?n) WHERE { ?p a trn:PluginProfile }')
+    const lag = live - published
+    expect(lag,
+      `the public SPARQL copy holds ${published} plugins and the site holds ${live}. ` +
+      `Run: node bin/publish.js on the server`
+    ).toBeLessThanOrEqual(PUBLICATION_CONFIG.maxPluginLag)
+    // A published copy *ahead* of the site means the site lost data, which is
+    // the more alarming direction and would otherwise read as a healthy 0 lag.
+    expect(lag, `the published copy is ahead of the site by ${-lag}`).toBeGreaterThanOrEqual(0)
+  })
+
+  it('holds every layer the dump promises, not only the plugins', async () => {
+    for (const predicate of PUBLICATION_CONFIG.requiredPredicates) {
+      const n = await count(`SELECT (COUNT(*) AS ?n) WHERE { ?s <${predicate}> ?o }`)
+      // Two causes, and publishing again fixes only the second. The first is the
+      // one that actually happened: the derivation had never been run on the
+      // serving host, so the graph did not exist there and publish dutifully
+      // published everything that did.
+      expect(n,
+        `<${predicate}> is absent from the published dataset — a whole layer missing, ` +
+        `not a stale one. Either the graph was never derived on the serving host, or ` +
+        `publish has not run since it was. On the server, in that order:\n` +
+        `  docker compose run --rm app node bin/mint-vendors.js && docker compose restart app\n` +
+        `  node bin/publish.js`
+      ).toBeGreaterThan(0)
     }
   })
 })

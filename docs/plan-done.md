@@ -528,11 +528,20 @@ write route against a running server.
 in the curated `vendors` graph, registered CC0 — so they *qualify* for the dump. `trn:vendor` still
 holds exactly what each source said; the identity is asserted beside it, never over it.
 
-**They are not actually in the published copy**, as of 2026-09-13: `graph:curated/vendors` holds 0
-triples there, because `bin/publish.js` has not run since minting. This sentence used to say "CC0
-and in the dump", which is the same species of claim as the one MISTAKES.md records about this very
-feature — and wrong for a more ordinary reason. Qualifying for publication and being published are
-two facts, and only the first has a test. In [../TODO.md](../TODO.md).
+**None of this exists on the serving host**, as of 2026-09-13. `bin/mint-vendors.js` has only ever
+been run on the development machine, so the server has no `graph:curated/vendors` and the published
+dataset has nothing to publish — `/vendor/danja` answers 200 from a fold of `trn:vendor` strings,
+while the minted `/vendor/danja-ba40c9e0` answers 404.
+
+This sentence has now been wrong twice, in the two ways available. It first said "CC0 and in the
+dump" — the species of claim MISTAKES.md already records against this very feature. Corrected to
+"qualifies but publish has not run", which sounded right, was checkable, and was not checked: a
+publish then moved 753 plugins to 756 and left the vendors at zero. **Qualifying for publication,
+being published, and having been derived on that host at all are three facts, and only the first
+had a test.** The third is the one that was false.
+
+The check that now asks is `tests/live/site.test.js`, *the published copy is the site's data*. In
+[../TODO.md](../TODO.md), with the two commands in the order they must run.
 
 **Derived rather than harvested**, which is a deliberate departure from the original plan. A
 harvester sees one source's graph and a vendor's identity is a fold *across* sources — "danja"

@@ -24,37 +24,67 @@ never taken money.
 Small, unblocked, and each closes something that is already wrong. None is more
 than an hour; the first is one command.
 
-* **Run `bin/publish.js`. The public copy is missing more than it looks.**
-  [danja-todo.md](docs/danja-todo.md) records this as lagging "by one accepted
-  submission", which is how it was true when written and is not how it is true
-  now. Measured against the endpoint on 2026-09-13:
+* **`bin/mint-vendors.js` has never been run on the server.** The vendor identity
+  layer does not exist there — not stale, not unpublished, *absent*. Measured
+  against the endpoint and the live site on 2026-09-13, after a deploy and a
+  publish:
 
   | | site | public copy |
   |---|---|---|
-  | plugins | 756 | 753 |
-  | `pu:Vendor` | 376 | **0** |
-  | `foaf:maker` | one per plugin | **0** |
-  | `pu:vendorKey` | 376 | **0** |
+  | plugins | 756 | 756 ✓ |
+  | `pu:Vendor` | **0** | **0** |
+  | `foaf:maker` | **0** | **0** |
+  | `/vendors` says | 376 vendors | — |
 
-  `graph:curated/vendors` is not merely thin in the public dataset, it is absent:
-  `SELECT (COUNT(*)) WHERE { GRAPH <graph:curated/vendors> { ?s ?p ?o } }`
-  returns 0. (376 is the live site's count, from `/vendors`; this machine's store
-  holds 363 over its smaller corpus.)
+  **This was diagnosed wrong first time and the wrong diagnosis is the lesson.**
+  It was recorded here as a publish lag: the graph is registered `CC0-1.0` and
+  `inCC0Dump`, so it qualifies for the dump, and publish had not run since
+  minting. Publish then ran. Plugins went 753 → 756 and the vendor layer stayed
+  at zero, which falsified it. `bin/publish.js` publishes what the serving store
+  holds, and the serving store holds no vendors graph — minting is a separate
+  step in *Standing habits* in [danja-todo.md](docs/danja-todo.md) and has only
+  ever been run on this machine.
 
-  **The entire vendor identity layer is absent from the public SPARQL endpoint
-  and from the dumps.** It is not a selection bug — `bin/mint-vendors.js`
-  registers the graph `CC0-1.0`, so it qualifies — it is that publish has not run
-  since minting. The consequence is that the answer to "who made this plugin", as
-  a resource rather than a string, is a thing the catalogue holds and does not
-  publish, while [plan-done.md](docs/plan-done.md) and README both say it is in
-  the dump. Fix the data first, then the sentences.
+  **Why nothing noticed, which is the part worth keeping.** Every vendor-facing
+  page works exactly the same with the graph absent. `/vendors` and
+  `/vendor/<slug>` are folded from `trn:vendor` **strings in JavaScript**
+  (`SearchService.vendorList()`, `vendorKey()`), not read from the graph — so the
+  site cheerfully reports 376 vendors it has no resources for. The proof is one
+  request each: `/vendor/danja` answers 200 and the minted `/vendor/danja-ba40c9e0`
+  answers **404**.
 
-  **And the reason it went unnoticed is the interesting part.** Nothing compares
-  the two datasets. `/health` now compares `plugins` against `index` for exactly
-  this class of defect; the site against the published copy is the same shape of
-  question with nothing asking it. **Worth a `npm run test:live` check** that the
-  published plugin count is within a stated distance of the live one, and that a
-  predicate the dump promises is actually in it.
+  And the identity is read back by almost nothing: `grep -rn 'foaf:maker'
+  sparql/queries/` finds exactly one hit, an `OPTIONAL` in
+  `plugin/text-view.sparql` — which degrades silently by construction.
+  `pu:Vendor` and `pu:vendorKey` are selected by **no query at all**. This is the
+  `trn:accepts` pattern again: written by something, read by nothing, and
+  therefore invisible rather than broken. See CLAUDE.md, which names this exact
+  check.
+
+  **The fix, in this order, on the server:**
+
+  ```sh
+  docker compose run --rm app node bin/mint-vendors.js && docker compose restart app
+  node bin/publish.js
+  ```
+
+  ***The guard now exists and is the one red test.*** `npm run test:live` has
+  *the published copy is the site's data*. Two checks, because the two failures
+  are not alike: the plugin count may lag by up to
+  `PUBLICATION_CONFIG.maxPluginLag` (25), since publish is a habit and a few
+  accepted submissions between runs is ordinary — **that half went green when
+  publish ran** — while `PUBLICATION_CONFIG.requiredPredicates` asks whether a
+  promised layer is there at all. Counting plugins would never have caught this:
+  every plugin is published and every maker is missing.
+
+  **Then fix the sentences.** [plan-done.md](docs/plan-done.md) and README both
+  describe the vendor layer as live. It is live on this machine only.
+
+  **And then decide what the identity is for.** A layer nothing queries, behind
+  pages that do not need it, is a layer whose absence costs nothing — which is an
+  argument for either wiring it up (the vendor pages should read it, not fold
+  strings) or being honest that it is groundwork for the paid vendor profile and
+  not yet in use.
 
 * **`docs/index.md` states the project is at Phase 1.** "Phase 0 is complete and
   Phase 1 is nearly so — 645 plugins from three sources." Three phases and 111

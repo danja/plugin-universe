@@ -30,18 +30,10 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   still wins. If a vendor ever complains that they paid and are second, that is why, and
   `boostFactor` is the number that would change.
 
-- [ ] **purl.org was down on 2026-09-12**, and `npm run test:live` fails on the one test that
-  follows the PURL chain. **Nothing here is broken** — 57 of 58 live tests pass, the site
-  serves normally, and purl.org answers on neither port 80 nor 443 while archive.org (same
-  operator) and everything else responds in under a second. The test now says so in as many
-  words instead of "TypeError: fetch failed".
-
-  What is actually broken while it lasts: dereferencing a plugin IRI. Anyone following
-  `http://purl.org/stuff/plugin-universe/plugin/<slug>` — which is how an RDF consumer reaches
-  the catalogue, and what the IRIs promise — gets nothing. Browsing and searching are
-  unaffected.
-
-  Check with `curl -sSI http://purl.org/stuff/plugin-universe/`. Nothing to do but wait.
+- [x] **purl.org was down on 2026-09-12 — and is back.** Confirmed 2026-09-13: the live test
+  that follows the PURL chain passes, so a plugin IRI dereferences again. Nothing was ever
+  broken here; the outage was theirs. **Left on this list, unticked in spirit, for the
+  paragraph below** — the dates are the point.
 
   **If it happens repeatedly, there is a decision behind it.** The minting base was chosen so
   IRIs survive a change of serving domain, and that reasoning is sound — but it makes a third
@@ -99,32 +91,36 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   should show a visible ring in both light and dark. If anything traps focus or hides it, that
   is worth knowing before the traffic arrives rather than after.
 
-- [ ] **`bin/publish.js` — and it is not the small job this said it was.** This used to read
-  "lags by one accepted submission. Harmless." That was true when written. Measured against the
-  endpoint on 2026-09-13, it is not:
+- [x] **`bin/publish.js` — done, 2026-09-13.** The public copy now holds 756 plugins, matching
+  the site. That half is closed.
 
-  | | the site | the public copy |
-  |---|---|---|
-  | plugins | 756 | 753 |
-  | `pu:Vendor` | 376 | **0** |
-  | `foaf:maker` | one per plugin | **0** |
-  | `pu:vendorKey` | 376 | **0** |
+- [ ] **Run `bin/mint-vendors.js` on the server. It never has been.** Publishing revealed this
+  rather than fixing it, and I had told you the wrong cause — apologies. I said the vendor layer
+  was minted-but-unpublished. You published; the plugins came across and the vendors did not,
+  which is what proved it wrong. `bin/publish.js` copies what the serving store holds, and the
+  serving store has no vendors graph. Minting is a separate step — it is in *Standing habits*
+  below — and has only ever run on my machine.
 
-  Not thin — absent. `graph:curated/vendors` holds 0 triples in the public dataset.
+  Two commands, in this order:
 
-  **The whole vendor identity layer is missing from the public SPARQL endpoint and from the
-  dumps.** Nothing is broken and nothing is misconfigured — `bin/mint-vendors.js` registers its
-  graph as CC0, so it qualifies for the dump; publish simply has not run since minting. One
-  command fixes it.
+  ```sh
+  docker compose run --rm app node bin/mint-vendors.js && docker compose restart app
+  node bin/publish.js
+  ```
 
-  It matters more than three plugins would, because the vendor layer is what the paid vendor
-  profile is designed to hang on, and because README and the docs say it is in the dump. Worth
-  doing **before** the announcement and before any lod-cloud.net submission, or the dataset
-  anybody fetches is missing the part that makes it a graph rather than a list.
+  **Nothing is broken, and that is exactly why it went unnoticed.** `/vendors` and every
+  `/vendor/<slug>` page are built by folding the `trn:vendor` strings in JavaScript, not by
+  reading the graph — so the site reports 376 vendors while holding no vendor resources at all.
+  `/vendor/danja` answers 200; the minted `/vendor/danja-ba40c9e0` answers 404. Nothing a reader
+  can see will change when you run this.
 
-  I have added a note to TODO.md that nothing compares the two datasets — `/health` compares the
-  catalogue against the vector index for exactly this class of defect, and the site against the
-  published copy is the same question with nothing asking it. That check is mine to write.
+  **What it is actually for** is the paid vendor profile, which needs something to hang a claim,
+  a logo and a description on. That is the reason to do it — plus the dumps, before any
+  lod-cloud.net submission, so the published dataset is a graph rather than a list of strings.
+
+  **`npm run test:live` tells you when it is done.** *The published copy is the site's data* is
+  the one red test, and its message now names both commands. Everything else is green: 59 of 60
+  pass and the 2026-09-13 deploy is healthy.
 
 - [ ] **Before any real money: talk to a commercialista about a partita IVA.** You are in Italy
   with a codice fiscale and no VAT registration. A codice fiscale is a personal tax identifier

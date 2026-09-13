@@ -90,6 +90,53 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-13 — Diagnosed a missing graph as unpublished when it had never been derived
+
+**What happened.** The public SPARQL endpoint held no vendor identity at all: no
+`pu:Vendor`, no `foaf:maker`, and `graph:curated/vendors` empty. I diagnosed it
+as a publish lag — the graph is registered `CC0-1.0` and `inCC0Dump`, so it
+qualifies for the dump, and `bin/publish.js` had not run since
+`bin/mint-vendors.js`. I wrote that cause into TODO.md, danja-todo.md and
+plan-done.md, and told the user it was one command.
+
+They ran it. Plugins went 753 → 756 and the vendor layer stayed at zero.
+
+**Root cause.** `bin/mint-vendors.js` had never been run on the serving host.
+`bin/publish.js` copies what the serving store holds, and the serving store held
+no vendors graph, so publishing worked perfectly and moved nothing. Minting is a
+separate step, listed in *Standing habits* in danja-todo.md, and had only ever
+run on the development machine — whose store I had queried to confirm the graph
+was "registered correctly and would be selected". It was. On the wrong host.
+
+**The reasoning error.** I checked that the graph *qualified* for publication and
+treated that as establishing it *existed to be published*. Three facts —
+derived on that host, qualifies, published — and I tested the second, asserted
+the third, and never asked the first. The development store answering correctly
+is what made it feel verified; it was the strongest available evidence for a
+claim about a machine it was not evidence about.
+
+**Why nothing had ever noticed.** Every vendor-facing page folds `trn:vendor`
+strings in JavaScript (`SearchService.vendorList()`, `vendorKey()`) rather than
+reading the graph, so the live site reports 376 vendors while holding no vendor
+resources: `/vendor/danja` answers 200 and the minted `/vendor/danja-ba40c9e0`
+answers 404. And `grep -rn 'foaf:maker' sparql/queries/` finds one hit, an
+`OPTIONAL` in `plugin/text-view.sparql`, which degrades silently by
+construction; `pu:Vendor` and `pu:vendorKey` are selected by no query at all.
+Pattern 3 again — written by something, read by nothing, therefore invisible
+rather than broken.
+
+**Prevention.** `tests/live/site.test.js` gained *the published copy is the
+site's data* before any of this was understood, and it is what falsified the
+diagnosis: its predicate check stayed red through a successful publish. Its
+message now names both causes in the order they must be fixed, because
+"run publish" was a remedy for the wrong one. The general lesson is narrower
+than "test it": **a fact about the production host is not established by a query
+against the development store**, however exactly the two are meant to match —
+and the tell was available, since `/vendor/<hash>` returning 404 on the live
+site would have settled it in one request at any point.
+
+---
+
 ## 2026-09-13 — `set -e` and a trailing `&&` would have killed the next deploy
 
 **What happened.** Adding the test gate to `bin/deploy.sh`, the script exited 1

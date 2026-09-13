@@ -387,3 +387,39 @@ export const EMBEDDING_CONFIG = {
   // Plugins embedded per batch when rebuilding the index.
   batchSize: 32
 }
+
+/**
+ * How far the published SPARQL copy may drift behind the site before it is
+ * wrong rather than merely stale.
+ *
+ * `bin/publish.js` is a habit, not a job, so some lag is the normal state: an
+ * accepted submission is live on the site the moment it is accepted and reaches
+ * the public endpoint at the next publish. That is by design and should not go
+ * red.
+ *
+ * What should go red is the case this exists for. On 2026-09-13 the published
+ * copy was three plugins behind — which is the harmless kind — *and* missing
+ * `graph:curated/vendors` entirely: 376 vendors and every `foaf:maker` link
+ * absent from the endpoint and the dumps, because publish had not run since
+ * `bin/mint-vendors.js` did. Nothing compared the two datasets, so nothing said
+ * so, while the docs said the vendor layer was in the dump.
+ *
+ * `/health` compares the catalogue against the vector index for exactly this
+ * shape of defect — two numbers side by side and no claim that they agree. The
+ * site against its published copy is the same question, and this is the thing
+ * that asks it.
+ */
+export const PUBLICATION_CONFIG = {
+  // Plugins the published copy may lag by. A handful of accepted submissions
+  // between publishes is ordinary; a corpus-sized gap is a publish that never
+  // ran.
+  maxPluginLag: 25,
+  // Predicates the published dataset promises. A layer that is *absent* is a
+  // different failure from one that is behind, and counting plugins alone would
+  // never have caught the vendor graph: the plugins were there and their makers
+  // were not.
+  requiredPredicates: [
+    'http://xmlns.com/foaf/0.1/maker',
+    'http://purl.org/stuff/plugin-universe/vendorKey'
+  ]
+}
