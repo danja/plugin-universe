@@ -91,36 +91,17 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   should show a visible ring in both light and dark. If anything traps focus or hides it, that
   is worth knowing before the traffic arrives rather than after.
 
-- [x] **`bin/publish.js` — done, 2026-09-13.** The public copy now holds 756 plugins, matching
-  the site. That half is closed.
+- [x] **Vendor identity on the server — done, 2026-09-13.** `bin/mint-vendors.js` had never run
+  there; you ran it and published. Verified: **376 `pu:Vendor` and 756 `foaf:maker` on the
+  public endpoint**, and `/vendor/danja-ba40c9e0` resolves where it answered 404. All 60 live
+  tests pass.
 
-- [ ] **Run `bin/mint-vendors.js` on the server. It never has been.** Publishing revealed this
-  rather than fixing it, and I had told you the wrong cause — apologies. I said the vendor layer
-  was minted-but-unpublished. You published; the plugins came across and the vendors did not,
-  which is what proved it wrong. `bin/publish.js` copies what the serving store holds, and the
-  serving store has no vendors graph. Minting is a separate step — it is in *Standing habits*
-  below — and has only ever run on my machine.
-
-  Two commands, in this order:
-
-  ```sh
-  docker compose run --rm app node bin/mint-vendors.js && docker compose restart app
-  node bin/publish.js
-  ```
-
-  **Nothing is broken, and that is exactly why it went unnoticed.** `/vendors` and every
-  `/vendor/<slug>` page are built by folding the `trn:vendor` strings in JavaScript, not by
-  reading the graph — so the site reports 376 vendors while holding no vendor resources at all.
-  `/vendor/danja` answers 200; the minted `/vendor/danja-ba40c9e0` answers 404. Nothing a reader
-  can see will change when you run this.
-
-  **What it is actually for** is the paid vendor profile, which needs something to hang a claim,
-  a logo and a description on. That is the reason to do it — plus the dumps, before any
-  lod-cloud.net submission, so the published dataset is a graph rather than a list of strings.
-
-  **`npm run test:live` tells you when it is done.** *The published copy is the site's data* is
-  the one red test, and its message now names both commands. Everything else is green: 59 of 60
-  pass and the 2026-09-13 deploy is healthy.
+  Worth knowing, because it cost you an extra round trip: I first told you this was an
+  unpublished graph and that publishing would fix it. It was not, and it did not — publish moved
+  the plugins and left the vendors at zero, which is what showed the diagnosis was wrong. I had
+  confirmed the graph was registered and dump-eligible by querying *my* store, and treated that
+  as evidence about *yours*. It is in MISTAKES.md. The check that caught it stays in the live
+  suite, so this particular thing cannot go quiet again.
 
 - [ ] **Before any real money: talk to a commercialista about a partita IVA.** You are in Italy
   with a codice fiscale and no VAT registration. A codice fiscale is a personal tax identifier

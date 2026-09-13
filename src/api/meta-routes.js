@@ -67,9 +67,10 @@ export function isMetaPath (path) {
  * tomorrow. The cost is that the failure is reported nowhere but a log line.
  *
  * @param {string[]} unindexed - plugin IRIs the vector index does not hold
+ * @param {{total: number, minted: number}|null} vendors - identity coverage
  * @param {string|null} authProblem
  */
-export function healthProblems ({ unindexed = [], authProblem = null } = {}) {
+export function healthProblems ({ unindexed = [], vendors = null, authProblem = null } = {}) {
   const problems = []
   if (unindexed.length > 0) {
     problems.push({
@@ -80,6 +81,24 @@ export function healthProblems ({ unindexed = [], authProblem = null } = {}) {
       // A sample rather than all of them: this is a health check, not a report,
       // and a monitor that has to parse eight hundred IRIs is one that times out.
       plugins: unindexed.slice(0, 10).map(iri => iri.replace(/^.*\/plugin\//, ''))
+    })
+  }
+  // The whole identity layer missing, as distinct from being behind.
+  //
+  // This is the check that would have caught what actually happened:
+  // `bin/mint-vendors.js` had never been run on the serving host, so there were
+  // no `pu:Vendor` resources at all — and nothing reported it, because every
+  // vendor page is folded from `trn:vendor` strings and answers 200 without the
+  // graph. Only the total absence is a problem: some vendors being unminted is
+  // the ordinary state between an accepted submission and the next derivation,
+  // and flagging that would make this noise.
+  if (vendors && vendors.total > 0 && vendors.minted === 0) {
+    problems.push({
+      what: 'vendor-identity',
+      detail: `${vendors.total} vendor(s) and no minted identity for any of them, so ` +
+        'nothing can be claimed, described or merged, and the published dataset ' +
+        'names makers only as strings. ' +
+        'Run: node bin/mint-vendors.js, then restart, then node bin/publish.js'
     })
   }
   if (authProblem) problems.push({ what: 'sign-in', detail: authProblem })
@@ -99,7 +118,8 @@ export function healthStatus (problems) {
 
 function health ({ response, search, config, auth, authProblem, build }) {
   const unindexed = search.unindexed()
-  const problems = healthProblems({ unindexed, authProblem })
+  const vendors = search.vendorIdentityCoverage()
+  const problems = healthProblems({ unindexed, vendors, authProblem })
 
   send(response, 200, {
     // `ok` means serving and consistent. Anything in `problems` makes it
@@ -119,6 +139,12 @@ function health ({ response, search, config, auth, authProblem, build }) {
     measured: search.measurements.size,
     measuredAt: [...search.measurements.values()]
       .map(entry => entry.at).sort().pop() ?? null,
+    // Vendors, and how many carry a minted identity. Reported as a count rather
+    // than only as a problem, because "some are unminted" is the ordinary state
+    // and is still worth being able to watch: it is what says whether a
+    // derivation is overdue, before it becomes the kind of absence nobody sees.
+    vendors: vendors.total,
+    vendorsMinted: vendors.minted,
     embeddingModel: config?.get('embedding.model') ?? null,
     // Which code, not just which data. Null means the image was built without
     // a stamp, not that the build is old.

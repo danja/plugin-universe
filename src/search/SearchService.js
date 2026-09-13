@@ -41,6 +41,7 @@ export class SearchError extends Error {
 import { FACET_PATTERNS } from './facets.js'
 import { fuse, applyPromotion, byName, byRecency } from './ranking.js'
 import { pickImage, isLocalImage, vendorSlug, vendorKey } from './documents.js'
+import { vendorNames } from '../catalogue/VendorIdentity.js'
 export { FACET_PATTERNS, fuse, applyPromotion, byName, byRecency }
 export { pickImage, isLocalImage, vendorSlug, vendorKey }
 
@@ -84,6 +85,8 @@ export class SearchService {
     this.categories = new Map()
     /** @type {Map<string, object>} plugin IRI to its most recent profiler run */
     this.measurements = new Map()
+    /** @type {Map<string, object>} vendor key to its minted identity */
+    this.vendorIdentities = new Map()
     this.lexical = new LexicalIndex()
   }
 
@@ -166,6 +169,25 @@ export class SearchService {
       if (metric === 'ValidationResult') entry.verdict = row.value
     }
 
+    // The minted vendor identity, keyed by the same fold the documents group by.
+    //
+    // Loaded here rather than joined per request for the same reason as the
+    // scheme and the measurements — and, like the measurements, because it had
+    // been written by a script and read back by almost nothing: `foaf:maker`
+    // reached the site through a single OPTIONAL and the names the layer
+    // asserts were on no page at all. `skos:altLabel` is where a *person's*
+    // judgement that two spellings are one maker will be recorded, so a page
+    // that re-derived its spellings from the corpus could never show one.
+    this.vendorIdentities = new Map()
+    for (const row of await this.client.select(this.queries.get('vendor/identities', {}))) {
+      this.vendorIdentities.set(row.key, {
+        iri: row.vendor,
+        key: row.key,
+        name: row.name,
+        altLabels: row.altLabels ? row.altLabels.split('|').filter(Boolean).sort() : []
+      })
+    }
+
     const rows = await this.client.select(this.queries.get('plugin/text-view', {}))
     this.documents = new Map(rows.map(row => [row.plugin, {
       iri: row.plugin,
@@ -238,10 +260,29 @@ export class SearchService {
       // them is the one somebody wrote deliberately.
       const spellings = [...vendor.names.entries()]
         .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
-      vendor.name = spellings[0][0]
-      vendor.spellings = spellings.map(([name]) => name)
+      const folded = {
+        name: spellings[0][0],
+        spellings: spellings.map(([name]) => name)
+      }
+      // The minted identity is the authority for a vendor's names where it
+      // exists: it was derived over the whole store rather than over the loaded
+      // documents, and it is where a human assertion that two spellings are one
+      // maker lands. The fold stays in the union so that a plugin accepted
+      // since the last derivation does not lose its spelling.
+      const identity = this.vendorIdentities.get(vendor.key) ?? null
+      const names = vendorNames(folded, identity)
+      vendor.name = names.name
+      vendor.spellings = names.spellings
+      vendor.altLabels = names.altLabels
+      vendor.minted = names.minted
+      vendor.staleSpellings = names.stale
       vendor.count = vendor.plugins.length
       vendor.slug = vendorSlug(vendor.name)
+      // Prefer the identity's own IRI over the one stamped on a document by
+      // `foaf:maker`: they are the same IRI when both exist, and the identity
+      // has one even for a vendor whose plugins are all in graphs the search
+      // does not load.
+      vendor.iri = identity?.iri ?? vendor.iri
       this.vendors.set(vendor.slug, vendor)
       for (const [name] of spellings) this.vendorAliases.set(vendorSlug(name), vendor.slug)
       this.vendorAliases.set(vendor.key, vendor.slug)
@@ -344,6 +385,32 @@ export class SearchService {
     return [...(this.vendors?.values() ?? [])]
       .map(({ slug, name, count }) => ({ slug, name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  }
+
+  /**
+   * How much of the vendor identity layer this instance is actually holding.
+   *
+   * Here because of how its absence was found. `bin/mint-vendors.js` had never
+   * been run on the serving host, so there were no `pu:Vendor` resources at
+   * all — and every vendor page answered 200 throughout, because they were
+   * folded from `trn:vendor` strings and did not need the graph. A layer
+   * nothing reads is a layer whose absence costs nothing, and this is the site
+   * asking the question rather than waiting to be asked.
+   *
+   * `unminted` is expected to be small and non-zero: a plugin accepted since
+   * the last derivation has a vendor the identity has not met. `total > 0 &&
+   * minted === 0` is the different case — the derivation has not run here.
+   */
+  vendorIdentityCoverage () {
+    const vendors = [...(this.vendors?.values() ?? [])]
+    const minted = vendors.filter(vendor => vendor.minted)
+    return {
+      total: vendors.length,
+      minted: minted.length,
+      unminted: vendors.length - minted.length,
+      // Vendors carrying a spelling the identity layer has not met yet.
+      stale: vendors.filter(vendor => (vendor.staleSpellings?.length ?? 0) > 0).length
+    }
   }
 
   async loadPromotions (now = new Date()) {

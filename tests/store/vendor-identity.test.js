@@ -4,6 +4,9 @@ import SPARQLClient from '../../src/store/SPARQLClient.js'
 import GraphRegistry from '../../src/store/GraphRegistry.js'
 import QueryService from '../../src/store/QueryService.js'
 import { vendorRecords } from '../../src/catalogue/VendorIdentity.js'
+import VectorIndex from '../../src/vectors/VectorIndex.js'
+import EmbeddingService from '../../src/embeddings/EmbeddingService.js'
+import SearchService from '../../src/search/SearchService.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
 /**
@@ -108,5 +111,97 @@ describe('the vendor identity layer', () => {
       `SELECT (COUNT(*) AS ?n) WHERE { GRAPH ?g { ?s <${NAMESPACES.trn}vendor> ?o FILTER(isIRI(?o)) } }`)
     expect(Number(literals)).toBeGreaterThan(0)
     expect(Number(iris), 'trn:vendor gained an IRI object; the string is the source\'s word').toBe(0)
+  })
+})
+
+/**
+ * The read path — the half that did not exist.
+ *
+ * The layer was written by a script and selected by almost nothing: `foaf:maker`
+ * reached the site through one OPTIONAL in `plugin/text-view.sparql`, used only
+ * to make the minted IRI dereference, and `pu:Vendor`, `pu:vendorKey` and
+ * `skos:altLabel` were read by no query at all. So the graph could be — and on
+ * the serving host was — entirely absent while every vendor page answered 200,
+ * because the pages fold `trn:vendor` strings and never needed it. See
+ * MISTAKES.md.
+ *
+ * These load the real service against the real store and ask for the names, so
+ * the query, the loader and the fold are exercised together rather than
+ * separately.
+ */
+describe('the identity reaching the vendor page', () => {
+  let search
+
+  beforeAll(async () => {
+    if (!derived) return
+    const config = await Config.load()
+    // The real service against the real store, index and embeddings included.
+    // `SearchService` refuses a partial construction, which is the right
+    // behaviour and means this exercises what the site actually runs.
+    const index = await VectorIndex.open({
+      dimension: config.get('embedding.dimension'),
+      path: config.get('index.path'),
+      model: config.get('embedding.model')
+    })
+    search = new SearchService({
+      client, index, embeddings: EmbeddingService.fromConfig(config)
+    })
+    await search.loadDocuments()
+  }, 120000)
+
+  it('loads one identity per vendor in the graph', async () => {
+    const [{ n }] = await client.select(
+      `SELECT (COUNT(DISTINCT ?v) AS ?n) WHERE { GRAPH <${GRAPH}> { ?v a <${pu}Vendor> } }`)
+    expect(search.vendorIdentities.size).toBe(Number(n))
+  })
+
+  it('reports every vendor as minted, because the derivation covers the catalogue', () => {
+    const coverage = search.vendorIdentityCoverage()
+    expect(coverage.total).toBeGreaterThan(0)
+    // An unminted vendor here means the derivation is behind the corpus: some
+    // plugin has a vendor string that `bin/mint-vendors.js` has not seen. That
+    // is the ordinary state after an accepted submission, so this names the
+    // remedy rather than merely failing.
+    expect(coverage.unminted,
+      `${coverage.unminted} vendor(s) have no minted identity — run: node bin/mint-vendors.js`
+    ).toBe(0)
+  })
+
+  it('surfaces the graph\'s altLabels on a vendor that has more than one spelling', async () => {
+    const rows = await client.select(
+      `SELECT ?key (COUNT(?l) AS ?n) WHERE { GRAPH <${GRAPH}> { ` +
+      `?v <${pu}vendorKey> ?key ; <${NAMESPACES.skos}altLabel> ?l } } ` +
+      'GROUP BY ?key ORDER BY DESC(?n) LIMIT 1')
+    if (rows.length === 0) return // no vendor in this corpus is spelled two ways
+    const key = rows[0].key
+    const identity = search.vendorIdentities.get(key)
+    expect(identity, `no loaded identity for key ${key}`).toBeTruthy()
+    expect(identity.altLabels.length).toBe(Number(rows[0].n))
+
+    // And the page's record carries them: this is the assertion that would have
+    // failed for as long as the page re-derived its own spellings.
+    const folded = [...search.vendors.values()].find(vendor => vendor.key === key)
+    expect(folded, `no folded vendor for key ${key}`).toBeTruthy()
+    const record = search.vendor(folded.slug)
+    expect(record).toBeTruthy()
+    expect(record.altLabels).toEqual(identity.altLabels)
+    for (const label of identity.altLabels) expect(record.spellings).toContain(label)
+  })
+
+  it('prefers the identity\'s name over the corpus\'s most-used spelling', () => {
+    for (const vendor of search.vendors.values()) {
+      if (!vendor.minted) continue
+      expect(vendor.name).toBe(search.vendorIdentities.get(vendor.key).name)
+      expect(vendor.spellings[0]).toBe(vendor.name)
+    }
+  })
+
+  it('still answers for a vendor whose identity is missing, rather than 404ing', () => {
+    // The fallback matters: an unminted vendor is a page that must still work,
+    // because the alternative is that accepting a submission breaks a page
+    // until somebody remembers to re-derive.
+    const [slug] = [...search.vendors.keys()]
+    expect(search.vendor(slug)).toBeTruthy()
+    expect(search.vendor(slug).spellings.length).toBeGreaterThan(0)
   })
 })

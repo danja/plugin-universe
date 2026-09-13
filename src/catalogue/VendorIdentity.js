@@ -116,4 +116,56 @@ export function identityTriples (records) {
   return records.flatMap(vendorTriples)
 }
 
+/**
+ * The names to show for one vendor: the minted identity's, where there is one.
+ *
+ * **Why this is not just the fold.** `SearchService` groups the loaded documents
+ * by key and can re-derive the spellings it can see, which is what the vendor
+ * page used to show. Two spellings it can never see that way: one carried by a
+ * plugin in a graph the search does not load, and — the one that matters — one a
+ * *person* asserted. "danja" and "Danny Ayers" are one maker and no fold over
+ * the strings will ever say so; the way that gets recorded is a `skos:altLabel`
+ * on the minted resource. A page that re-derives its own spellings would ignore
+ * it, which would make the identity layer decorative.
+ *
+ * So the graph is the authority for the name, and the spellings are a **union**:
+ * the identity's labels plus anything the corpus is currently using. The union
+ * rather than a replacement because the two go stale in opposite directions — a
+ * plugin accepted since the last `bin/mint-vendors.js` has a spelling the
+ * identity has not met yet, and dropping it would make a page go *backwards*
+ * when the identity layer arrived.
+ *
+ * `stale` names the second case so it can be counted rather than discovered. It
+ * is not an error: it is the ordinary state between an accepted submission and
+ * the next derivation.
+ *
+ * @param {{name: string, spellings: string[]}} folded - from the document fold
+ * @param {{name: string, altLabels: string[]}|null} identity - from the graph
+ */
+export function vendorNames (folded, identity = null) {
+  const foldSpellings = folded.spellings ?? []
+  if (!identity) {
+    return {
+      name: folded.name,
+      spellings: [...new Set(foldSpellings)],
+      altLabels: [],
+      minted: false,
+      stale: []
+    }
+  }
+  // The identity's own name leads, because that is the one the catalogue will
+  // answer to and the one a vendor would be claiming.
+  const asserted = [identity.name, ...identity.altLabels]
+  const spellings = [...new Set([...asserted, ...foldSpellings])]
+  const assertedSet = new Set(asserted)
+  return {
+    name: identity.name,
+    spellings,
+    altLabels: identity.altLabels,
+    minted: true,
+    // In the corpus, not in the identity: the layer needs re-deriving.
+    stale: foldSpellings.filter(spelling => !assertedSet.has(spelling))
+  }
+}
+
 export default vendorRecords

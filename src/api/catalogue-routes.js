@@ -252,9 +252,18 @@ async function vendorPage ({ response, viewer, search, navigationFor }, slug, su
     send(response, 200, {
       vendor: record.name,
       slug: record.slug,
+      // The minted identity, where one has been derived. A consumer joining
+      // this against their own data wants the IRI rather than our slug: the
+      // slug moves if the preferred spelling does, and the IRI does not.
+      iri: record.iri ?? null,
       // Every spelling the catalogue met, because a consumer reconciling this
       // against their own data needs the variants rather than our pick of them.
       names: record.spellings,
+      // The subset of those the identity layer actually asserts, as distinct
+      // from the ones re-derived from the corpus. A merge of two vendors is
+      // recorded here and nowhere else, so a consumer that wants the
+      // catalogue's judgement rather than its observations reads this.
+      altLabels: record.altLabels ?? [],
       total: record.count,
       results: record.results,
       licence: LICENCE

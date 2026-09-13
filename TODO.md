@@ -22,69 +22,33 @@ never taken money.
 ## 0. Do these first
 
 Small, unblocked, and each closes something that is already wrong. None is more
-than an hour; the first is one command.
+than an hour.
 
-* **`bin/mint-vendors.js` has never been run on the server.** The vendor identity
-  layer does not exist there — not stale, not unpublished, *absent*. Measured
-  against the endpoint and the live site on 2026-09-13, after a deploy and a
-  publish:
+* **A curated merge file, now that a merge would show.** *2026-09-13: the
+  identity layer is wired into the vendor pages* — `sparql/queries/vendor/identities.sparql`
+  loads `foaf:name`, `pu:vendorKey` and `skos:altLabel`, and `vendorNames()` in
+  `src/catalogue/VendorIdentity.js` makes the graph the authority for a vendor's
+  names, unioned with the corpus fold so a plugin accepted since the last
+  derivation does not lose its spelling. The spellings, the `iri` and the
+  `altLabels` are on the page and in `/vendor/<slug>.json`.
 
-  | | site | public copy |
-  |---|---|---|
-  | plugins | 756 | 756 ✓ |
-  | `pu:Vendor` | **0** | **0** |
-  | `foaf:maker` | **0** | **0** |
-  | `/vendors` says | 376 vendors | — |
+  **What that unblocks** is the one open defect from the original four: "danja"
+  (50 plugins) and "Danny Ayers" (36) are one person, nothing derivable from the
+  strings will ever say so, and until now there was nowhere to put the answer
+  where anything would read it. Now an `skos:altLabel` on the minted resource
+  shows up on the page — verified by asserting one by hand against the local
+  store and watching it appear, then removing it.
 
-  **This was diagnosed wrong first time and the wrong diagnosis is the lesson.**
-  It was recorded here as a publish lag: the graph is registered `CC0-1.0` and
-  `inCC0Dump`, so it qualifies for the dump, and publish had not run since
-  minting. Publish then ran. Plugins went 753 → 756 and the vendor layer stayed
-  at zero, which falsified it. `bin/publish.js` publishes what the serving store
-  holds, and the serving store holds no vendors graph — minting is a separate
-  step in *Standing habits* in [danja-todo.md](docs/danja-todo.md) and has only
-  ever been run on this machine.
+  So the remaining work is the mechanism: **a curated merge file read by
+  `bin/mint-vendors.js`**, the way the GitHub sweep reads its reviewed-candidates
+  file. It needs to survive a re-derivation, which is the whole reason it is a
+  file rather than a one-off UPDATE — `mint-vendors` drops and rewrites the graph
+  whole, so anything asserted by hand is lost on the next run. That is worth
+  knowing before somebody merges thirty vendors by hand.
 
-  **Why nothing noticed, which is the part worth keeping.** Every vendor-facing
-  page works exactly the same with the graph absent. `/vendors` and
-  `/vendor/<slug>` are folded from `trn:vendor` **strings in JavaScript**
-  (`SearchService.vendorList()`, `vendorKey()`), not read from the graph — so the
-  site cheerfully reports 376 vendors it has no resources for. The proof is one
-  request each: `/vendor/danja` answers 200 and the minted `/vendor/danja-ba40c9e0`
-  answers **404**.
-
-  And the identity is read back by almost nothing: `grep -rn 'foaf:maker'
-  sparql/queries/` finds exactly one hit, an `OPTIONAL` in
-  `plugin/text-view.sparql` — which degrades silently by construction.
-  `pu:Vendor` and `pu:vendorKey` are selected by **no query at all**. This is the
-  `trn:accepts` pattern again: written by something, read by nothing, and
-  therefore invisible rather than broken. See CLAUDE.md, which names this exact
-  check.
-
-  **The fix, in this order, on the server:**
-
-  ```sh
-  docker compose run --rm app node bin/mint-vendors.js && docker compose restart app
-  node bin/publish.js
-  ```
-
-  ***The guard now exists and is the one red test.*** `npm run test:live` has
-  *the published copy is the site's data*. Two checks, because the two failures
-  are not alike: the plugin count may lag by up to
-  `PUBLICATION_CONFIG.maxPluginLag` (25), since publish is a habit and a few
-  accepted submissions between runs is ordinary — **that half went green when
-  publish ran** — while `PUBLICATION_CONFIG.requiredPredicates` asks whether a
-  promised layer is there at all. Counting plugins would never have caught this:
-  every plugin is published and every maker is missing.
-
-  **Then fix the sentences.** [plan-done.md](docs/plan-done.md) and README both
-  describe the vendor layer as live. It is live on this machine only.
-
-  **And then decide what the identity is for.** A layer nothing queries, behind
-  pages that do not need it, is a layer whose absence costs nothing — which is an
-  argument for either wiring it up (the vendor pages should read it, not fold
-  strings) or being honest that it is groundwork for the paid vendor profile and
-  not yet in use.
+  Also still open: `pu:claimsVendor` holds the folded key rather than the vendor
+  IRI. The two join on the fold, so nothing is broken, and moving it means
+  migrating claims — of which there are still none. Cheapest it will ever be.
 
 * **`docs/index.md` states the project is at Phase 1.** "Phase 0 is complete and
   Phase 1 is nearly so — 645 plugins from three sources." Three phases and 111
@@ -214,17 +178,9 @@ Promotion, its compliance and the Stripe integration are built
     which holds only as long as the pro tier is not quietly redefined as paid
     access to data.
 
-* **`pu:claimsVendor` holds the folded key rather than the vendor IRI.** The two
-  join on the fold, so nothing is broken, and moving it means migrating claims —
-  of which there are currently none. Cheapest it will ever be.
-
-* **Merging two vendors is a human question with nowhere to put the answer.**
-  "danja" (50 plugins) and "Danny Ayers" (36) are one person, and nothing
-  derivable from the strings will ever say so. There is now something to assert
-  it *about* — merging means adding a `skos:altLabel` and repointing — and no
-  mechanism for it. A curated merge file read by `bin/mint-vendors.js` is the
-  obvious shape; the reviewed-candidates file the GitHub sweep uses is the
-  precedent.
+* **The vendor merge mechanism, and `pu:claimsVendor` holding a key rather than
+  an IRI**, are both in *Do these first* above — they became concrete when the
+  identity layer was wired into the pages, so they are written out once, there.
 
 * **Not started, and not blocking**: the unfiltered query page, on-topic
   advertising, pro-tier API keys, and the blog and reviews section.
@@ -327,6 +283,14 @@ stated in [docs/backups.md](docs/backups.md):
 
 ## 6. Smaller things, not blocking
 
+* **`SearchService.js` is 651 lines and past the point CLAUDE.md says to look.** It was 545
+  after the last split; `unindexed()` and the vendor identity loading took it over. **The seam
+  is the vendor fold** — `vendorIdentities`, the grouping in `loadDocuments`, `vendor()`,
+  `vendorList()`, `vendorAliases` and `vendorIdentityCoverage()` are about a hundred lines that
+  change when vendors change, not when retrieval does. `src/search/vendors.js`, with
+  `SearchService.js` re-exporting as it already does for ranking, facets and documents, so no
+  caller moves. Not urgent, and the longer it waits the more of the vendor-profile work lands
+  in the wrong file.
 * **Embedding staleness**: `--only-new` embeds plugins with no vector, but cannot see a plugin
   whose *text* changed upstream — the IRI is unchanged, so the stale vector stays. Storing
   `pu:composedTextHash` beside each vector would close it and make a nightly refresh cheap.
@@ -372,8 +336,17 @@ under [docs/entries/](docs/entries/) and what went wrong is in
 In one line each, most recent first:
 
 * **2026-09-13** — `/health` compares its two counts and reports `degraded` with a named remedy;
-  the *Read a bundle* panel on `/admin`; vendor identity derived by `bin/mint-vendors.js`;
-  `/leggere-prima`; a borrowed favicon; the navigation reorganised with `/about` as its index.
+  the *Read a bundle* panel on `/admin`; vendor identity derived by `bin/mint-vendors.js`,
+  **and carried to the server**, where it had never been run — 376 vendors and 756 `foaf:maker`
+  links now on the public endpoint, with `/vendor/<name>-<hash>` resolving. Found by
+  `tests/live/site.test.js` *the published copy is the site's data*, which stayed red through a
+  successful publish and so disproved the diagnosis that had been written into three documents;
+  in [MISTAKES.md](MISTAKES.md). **And then wired into the pages it was derived for**:
+  `vendor/identities.sparql`, `vendorNames()`, the spellings and the IRI on `/vendor/<slug>` and
+  its JSON, and `/health` reporting a vendor layer that is absent rather than waiting to be
+  asked. Also `/leggere-prima`; a borrowed favicon; the navigation
+  reorganised with `/about` as its index; and the plan split into
+  [docs/plan.md](docs/plan.md) and [docs/plan-done.md](docs/plan-done.md).
 * **2026-09-12** — Stripe checkout and the Pro subscription; plugin profiles submittable *and*
   readable back; `/feedback`, and the 405 that had made every payment POST unreachable; social
   metadata on every page; the submit throbber; `server.js`, `render.js` and `SearchService.js`

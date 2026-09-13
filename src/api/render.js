@@ -169,8 +169,15 @@ export function renderVendorPage (
     side: sidebar(facetValues, corpus),
     links: templates.render('site-links', {}),
     heading: templates.render('page-heading', { title: vendor.name }),
-    // Shown only when the catalogue really did meet more than one spelling, so
-    // it reads as information rather than as boilerplate.
+    // Shown only when there really is more than one spelling, so it reads as
+    // information rather than as boilerplate.
+    //
+    // These are the identity layer's `skos:altLabel`s where a vendor has been
+    // minted, unioned with whatever the corpus is currently spelling them. That
+    // distinction is the point of reading the graph at all: an altLabel is
+    // where somebody's judgement that "danja" and "Danny Ayers" are one maker
+    // gets recorded, and a list re-derived from the strings could never contain
+    // one. See `vendorNames` in src/catalogue/VendorIdentity.js.
     alsoKnownAs: templates.when(vendor.spellings.length > 1, 'labelled-tags', {
       label: 'Also written',
       items: templates.each('tag', vendor.spellings.slice(1), value => ({ value }))

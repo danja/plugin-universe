@@ -1,0 +1,34 @@
+# The minted vendor identity layer: one row per vendor.
+#
+# `bin/mint-vendors.js` writes this; until now almost nothing read it back.
+# `foaf:maker` reached the site through one OPTIONAL in `plugin/text-view.sparql`
+# and was used only to make the minted IRI dereference, so the names the layer
+# asserts — `foaf:name` and every `skos:altLabel` — were on no page at all.
+#
+# **Why the spellings must come from here rather than from the fold.**
+# `SearchService` groups the loaded documents by `vendorKey` and can therefore
+# re-derive the spellings it can see. Two things it cannot see:
+#
+#  - a plugin in a graph the search does not load. Minting reads the whole
+#    store, so the identity covers the catalogue rather than the index.
+#  - a spelling asserted by a person. Merging "danja" with "Danny Ayers" is a
+#    human judgement no fold over the strings will ever make, and the way it
+#    will be recorded is an extra `skos:altLabel` here. A page that re-derives
+#    its own spellings would silently ignore it — which is the whole reason
+#    there is a resource to assert things about.
+#
+# Across every graph rather than scoped to the curated one: where a merge file
+# or a vendor's own claim later adds a label from a different graph, this picks
+# it up without needing to know which graph it landed in.
+SELECT ?vendor ?key ?name
+       (GROUP_CONCAT(DISTINCT ?altLabel; separator="|") AS ?altLabels)
+WHERE {
+  GRAPH ?g {
+    ?vendor a pu:Vendor ;
+            pu:vendorKey ?key ;
+            foaf:name ?name .
+  }
+  OPTIONAL { GRAPH ?ag { ?vendor skos:altLabel ?altLabel } }
+}
+GROUP BY ?vendor ?key ?name
+ORDER BY ?key

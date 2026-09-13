@@ -528,20 +528,27 @@ write route against a running server.
 in the curated `vendors` graph, registered CC0 — so they *qualify* for the dump. `trn:vendor` still
 holds exactly what each source said; the identity is asserted beside it, never over it.
 
-**None of this exists on the serving host**, as of 2026-09-13. `bin/mint-vendors.js` has only ever
-been run on the development machine, so the server has no `graph:curated/vendors` and the published
-dataset has nothing to publish — `/vendor/danja` answers 200 from a fold of `trn:vendor` strings,
-while the minted `/vendor/danja-ba40c9e0` answers 404.
+**Live on the serving host and published since 2026-09-13**: 376 `pu:Vendor` resources and 756
+`foaf:maker` links on the public endpoint, with `/vendor/<name>-<hash>` dereferencing.
 
-This sentence has now been wrong twice, in the two ways available. It first said "CC0 and in the
-dump" — the species of claim MISTAKES.md already records against this very feature. Corrected to
-"qualifies but publish has not run", which sounded right, was checkable, and was not checked: a
-publish then moved 753 plugins to 756 and left the vendors at zero. **Qualifying for publication,
-being published, and having been derived on that host at all are three facts, and only the first
-had a test.** The third is the one that was false.
+**This sentence was wrong twice before it was right, in the two ways available.** It first said
+"CC0 and in the dump" — the species of claim MISTAKES.md already records against this very feature.
+Corrected to "qualifies, but publish has not run", which sounded right, was checkable, and was
+checked against the wrong machine: a publish then moved 753 plugins to 756 and left the vendors at
+zero. **Derived on that host, qualifying for publication, and actually published are three facts**,
+and the first — the one never asked — was the false one. `bin/mint-vendors.js` had only ever run on
+the development machine.
 
-The check that now asks is `tests/live/site.test.js`, *the published copy is the site's data*. In
-[../TODO.md](../TODO.md), with the two commands in the order they must run.
+Two things kept it invisible for as long as it was. The vendor pages fold `trn:vendor` strings in
+JavaScript rather than reading the graph, so every one answered 200 throughout; and `foaf:maker` is
+selected by a single `OPTIONAL` in `plugin/text-view.sparql`, which degrades silently by
+construction, while `pu:Vendor` and `pu:vendorKey` are selected by nothing. **A published layer that
+no page needs is a layer whose absence costs nothing** — which is why wiring the vendor pages to
+read it is in [../TODO.md](../TODO.md) rather than being called finished here.
+
+The guard is `tests/live/site.test.js`, *the published copy is the site's data*. It was written
+before any of this was understood and is what falsified the diagnosis, by staying red through a
+successful publish.
 
 **Derived rather than harvested**, which is a deliberate departure from the original plan. A
 harvester sees one source's graph and a vendor's identity is a fold *across* sources — "danja"

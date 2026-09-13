@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { vendorRecords, vendorTriples, identityTriples } from '../../src/catalogue/VendorIdentity.js'
+import { vendorRecords, vendorTriples, identityTriples, vendorNames } from '../../src/catalogue/VendorIdentity.js'
 import { vendorKey, vendorSlug } from '../../src/search/documents.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
@@ -143,5 +143,78 @@ describe('the triples it becomes', () => {
     const records = vendorRecords([doc('a', 'One'), doc('b', 'Two')])
     expect(identityTriples(records)).toHaveLength(
       vendorTriples(records[0]).length + vendorTriples(records[1]).length)
+  })
+})
+
+/**
+ * Reading the layer back, which is the half that did not exist.
+ *
+ * `bin/mint-vendors.js` wrote `skos:altLabel` from the day it was built and no
+ * page ever showed one: the vendor page re-derived its spellings by folding
+ * `trn:vendor` strings, so the graph could have been absent — and on the
+ * serving host it *was* absent for as long as the feature existed — with every
+ * page answering 200. See MISTAKES.md.
+ *
+ * The distinction these tests protect: a folded spelling is an *observation*
+ * ("some plugin is labelled this"), an altLabel is an *assertion* ("these are
+ * one maker"). Only the second can record that "danja" and "Danny Ayers" are
+ * the same person, because no fold over those strings will ever say so. A page
+ * that re-derives its own list cannot show one, which is what made the identity
+ * layer decorative.
+ */
+describe('the names a vendor page shows', () => {
+  const folded = { name: 'danja', spellings: ['danja', 'Danja'] }
+
+  it('falls back to the fold when nothing has been minted', () => {
+    const names = vendorNames(folded, null)
+    expect(names.name).toBe('danja')
+    expect(names.spellings).toEqual(['danja', 'Danja'])
+    expect(names.minted).toBe(false)
+    expect(names.altLabels).toEqual([])
+  })
+
+  it('surfaces an altLabel no fold could ever have produced', () => {
+    // The case the whole feature exists for: a person asserted that these two
+    // names are one maker. Nothing in the strings says so, so if the page
+    // re-derived its spellings this would be invisible.
+    const names = vendorNames(folded, {
+      name: 'danja', altLabels: ['Danja', 'Danny Ayers']
+    })
+    expect(names.spellings).toContain('Danny Ayers')
+    expect(names.altLabels).toContain('Danny Ayers')
+    expect(names.minted).toBe(true)
+  })
+
+  it('leads with the identity\'s name, not the corpus\'s most popular spelling', () => {
+    // The minted name is what the catalogue answers to and what a vendor would
+    // be claiming; the fold's pick is a count of whatever happens to be loaded.
+    const names = vendorNames(
+      { name: 'olegkapitonov', spellings: ['olegkapitonov', 'Oleg Kapitonov'] },
+      { name: 'Oleg Kapitonov', altLabels: ['olegkapitonov'] })
+    expect(names.name).toBe('Oleg Kapitonov')
+    expect(names.spellings[0]).toBe('Oleg Kapitonov')
+  })
+
+  it('keeps a spelling the identity has not met yet, and says it is stale', () => {
+    // A plugin accepted since the last derivation. Dropping its spelling would
+    // make the page go *backwards* when the identity layer arrived, which is a
+    // bad enough outcome to be worth a test of its own.
+    const names = vendorNames(
+      { name: 'danja', spellings: ['danja', 'danja audio'] },
+      { name: 'danja', altLabels: [] })
+    expect(names.spellings).toContain('danja audio')
+    expect(names.stale).toEqual(['danja audio'])
+  })
+
+  it('reports nothing stale when the identity has met every spelling', () => {
+    const names = vendorNames(folded, { name: 'danja', altLabels: ['Danja'] })
+    expect(names.stale).toEqual([])
+  })
+
+  it('lists each spelling once, however many sources use it', () => {
+    const names = vendorNames(
+      { name: 'danja', spellings: ['danja', 'Danja'] },
+      { name: 'danja', altLabels: ['Danja', 'danja'] })
+    expect(names.spellings).toEqual([...new Set(names.spellings)])
   })
 })
