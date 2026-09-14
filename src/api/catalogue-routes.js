@@ -13,6 +13,7 @@ import { TRUST, TIER } from '../auth/Accounts.js'
 import { vendorKey } from '../search/SearchService.js'
 import { renderWikiBlock } from '../wiki/render.js'
 import { billingPrices } from '../billing/routes.js'
+import { profileTurtle, profileFieldsFor, ProfileError } from '../contrib/ProfileDocument.js'
 
 /**
  * The catalogue itself: everything that answers a question about plugins.
@@ -33,6 +34,13 @@ const PATHS = new Set(['/', '/search', '/facets', '/plugins', '/vendors'])
 const VENDOR_PATH = /^\/vendor\/([a-z0-9-]+?)(\.json)?$/
 const CATEGORY_PATH = /^\/category\/([a-z0-9-]+?)(\.ttl|\.json)?$/
 const PLUGIN_PATH = /^\/plugin\/([A-Za-z0-9-]+?)(\.ttl|\.jsonld|\.json)?$/
+// The plugin's profile, as a file to host. Its own address rather than a fourth
+// representation of the plugin IRI, because it is a *different document*: the
+// `.ttl` above is everything the catalogue holds — provenance, ports,
+// measurements, the lot — and a profile is the short authored shape an author
+// puts beside their plugin. Negotiating between them on one address would make
+// `Accept: text/turtle` ambiguous.
+const PLUGIN_PROFILE_PATH = /^\/plugin\/([A-Za-z0-9-]+)\/profile\.ttl$/
 
 /**
  * What a `promoted` result is, said in the response rather than only on a page.
@@ -66,6 +74,9 @@ export async function catalogueRoutes (context) {
 
   const category = path.match(CATEGORY_PATH)
   if (category) return categoryPage(context, category[1], category[2])
+
+  const profile = path.match(PLUGIN_PROFILE_PATH)
+  if (profile) return pluginProfile(context, profile[1])
 
   const plugin = path.match(PLUGIN_PATH)
   if (plugin) return pluginPage(context, plugin[1], plugin[2])
@@ -320,6 +331,52 @@ async function categoryPage ({ request, response, viewer, search }, slug, suffix
  * and the checkout at `/plugin/<slug>/promote` — and both of those shipped
  * once with nothing linking to them, which is the failure in CLAUDE.md's table.
  */
+/**
+ * One plugin's profile, as a file to host.
+ *
+ * The same shape `/submit` hands back when somebody presses *Download profile*,
+ * built from what the catalogue already holds. An author who finds their plugin
+ * here should not have to fill in a form to get a profile they could have had:
+ * the facts are CC0, and giving them back as a file the author controls is the
+ * argument of `/about/profiles` applied to the one page where it will be read.
+ *
+ * Public, like every other representation of a plugin — no sign-in, because
+ * these are the same facts `/plugin/<slug>.ttl` already serves to anyone.
+ *
+ * **Not the same document as that `.ttl`.** That one is everything the
+ * catalogue holds, provenance and ports and measurements included. This is the
+ * short authored shape, and the difference is the point: one describes what we
+ * know, the other is what an author would publish.
+ */
+async function pluginProfile ({ response, search }, slug) {
+  const iri = `${NAMESPACES.pu}plugin/${slug}`
+  const doc = search.documents.get(iri)
+  if (!doc) {
+    send(response, 404, { error: 'No such plugin', iri })
+    return true
+  }
+  try {
+    // The plugin's own IRI as the subject where it has no homepage — three of
+    // the catalogue's plugins are in that position, and it dereferences through
+    // the PURL, so it is a better answer than refusing to produce a file.
+    const turtle = profileTurtle(profileFieldsFor(doc), { subject: doc.homepage || iri })
+    response.writeHead(200, {
+      'Content-Type': 'text/turtle; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${slug}-profile.ttl"`,
+      'X-Content-Type-Options': 'nosniff',
+      'Access-Control-Allow-Origin': '*'
+    })
+    response.end(turtle)
+  } catch (error) {
+    if (!(error instanceof ProfileError)) throw error
+    // A plugin with no name cannot be described. It should not be in the
+    // catalogue either — the shapes require `rdfs:label` — so this says what is
+    // wrong rather than serving an empty file.
+    send(response, 422, { error: error.message, plugin: iri })
+  }
+  return true
+}
+
 async function pluginPage ({
   request, response, viewer, auth, search, corrections, images, billing,
   wiki, navigationFor

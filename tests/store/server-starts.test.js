@@ -102,10 +102,44 @@ describe('bin/serve.js', () => {
     expect(response.status).toBe(status)
   })
 
+  it('serves a profile for a real plugin, as a file to host', async () => {
+    // A route is not reachable until a request has reached it. This one is
+    // regex-dispatched under /plugin/, so it sits in front of the plugin page's
+    // own pattern — get the order wrong and `/plugin/x/profile.ttl` is a
+    // 404 for a plugin called "x/profile.ttl", which looks like missing data.
+    const [first] = (await (await fetch(`${BASE}/plugins?limit=1`)).json()).results
+    const slug = first.iri.split('/').pop()
+    const response = await fetch(`${BASE}/plugin/${slug}/profile.ttl`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/turtle')
+    expect(response.headers.get('content-disposition')).toContain(`${slug}-profile.ttl`)
+
+    // Parsed, not merely received: a served file that does not parse is the
+    // defect this feature already had once.
+    const { parseTurtle } = await import('../../src/harvest/TurtleReader.js')
+    const dataset = await parseTurtle(await response.text())
+    expect(dataset.size).toBeGreaterThan(2)
+  })
+
+  it('404s a profile for a plugin that does not exist', async () => {
+    const response = await fetch(`${BASE}/plugin/no-such-plugin/profile.ttl`)
+    expect(response.status).toBe(404)
+  })
+
+  it('links the profile from the plugin page that offers it', async () => {
+    // Both directions: the route exists and the page points at it.
+    const [first] = (await (await fetch(`${BASE}/plugins?limit=1`)).json()).results
+    const slug = first.iri.split('/').pop()
+    const page = await (await fetch(`${BASE}/plugin/${slug}`, {
+      headers: { Accept: 'text/html' }
+    })).text()
+    expect(page).toContain(`/plugin/${slug}/profile.ttl`)
+  })
+
   it('sends an anonymous visitor to sign in rather than 500ing', async () => {
     // These live in three different route modules and all three depend on the
     // viewer being resolved before they are reached.
-    for (const path of ['/submit', '/account', '/contributions']) {
+    for (const path of ['/submit', '/submit/profile', '/account', '/contributions']) {
       const response = await fetch(`${BASE}${path}`, {
         headers: { Accept: 'text/html' }, redirect: 'manual'
       })

@@ -344,6 +344,13 @@ under [docs/entries/](docs/entries/) and what went wrong is in
 
 In one line each, most recent first:
 
+* **2026-09-14** — **Every plugin page offers its own profile.**
+  `/plugin/<slug>/profile.ttl` serves the same authored shape `/submit` hands back, built from
+  what the catalogue holds — so an author who finds their plugin already here can take the file
+  and host it rather than filling in a form for facts we already have. Its own address rather
+  than a fourth representation of the plugin IRI: the existing `.ttl` is everything the
+  catalogue knows, and negotiating between the two on one address would make
+  `Accept: text/turtle` ambiguous.
 * **2026-09-14** — **A picture with the submission.** `/submit` takes an upload before the
   Submit button, the same trusted-contributors-only rule the plugin page's upload applies, for
   the same reason: a picture is public the moment it is served, so there is no useful queued

@@ -174,6 +174,11 @@ export function renderPluginPage (
       : '',
     ttl: `${path}.ttl`,
     jsonld: `${path}.jsonld`,
+    // A different document from the `.ttl` above, not a fourth representation
+    // of the same one: that is everything the catalogue holds — provenance,
+    // ports, measurements — and this is the short authored shape an author
+    // publishes, the same file `/submit` hands back.
+    profileTtl: `${path}/profile.ttl`,
     // The <script> element is part of the value, not part of the template, for
     // the reason `layout` now keeps its <style> tags on this side: a
     // placeholder inside a script or style element sits in a language an editor

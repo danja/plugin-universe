@@ -80,10 +80,16 @@ intended outcome.
 
 ### The quickest way to get one
 
-Fill in the [submission form](/submit) and press **Download profile** instead of
-Submit. You get the file, and nothing is saved here. Put it beside your plugin
-as `profile.ttl`, commit it, and you are done — you never have to submit
-anything to this catalogue at all.
+**If your plugin is already here**, open its page and press **Download profile**.
+That is the file, built from what the catalogue holds — no form, nothing to fill
+in. Check it, correct anything we got wrong, and host it.
+
+**If it is not here yet**, fill in the [submission form](/submit) and press
+**Download profile** instead of Submit. You get the same kind of file and
+nothing is saved here.
+
+Either way: put it beside your plugin as `profile.ttl`, commit it, and you are
+done — you never have to submit anything to this catalogue at all.
 
 ### What it looks like
 

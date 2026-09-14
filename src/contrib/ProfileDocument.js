@@ -82,9 +82,14 @@ const FROM_PREDICATE = Object.freeze({
  * so a description containing a quote or a newline produces a valid file rather
  * than a broken one.
  */
-export function profileTurtle (fields = {}) {
+export function profileTurtle (fields = {}, { subject = null } = {}) {
   const homepage = String(fields.homepage ?? '').trim()
-  if (!homepage) {
+  // A subject may be given instead. The catalogue offers a profile for every
+  // plugin it holds, and three of the 645 have no homepage — for those the
+  // plugin's own minted IRI is the subject, which dereferences through the PURL
+  // and so is a better answer than refusing to produce a file at all.
+  const about = subject ?? homepage
+  if (!about) {
     throw new ProfileError(
       'A profile needs the homepage: it is the subject of the file and what identifies the plugin.')
   }
@@ -101,7 +106,10 @@ export function profileTurtle (fields = {}) {
   say('rdfs:label', literal(name))
   for (const value of list(fields.description)) say('rdfs:comment', literal(value))
   for (const value of list(fields.vendor)) say('trn:vendor', literal(value))
-  say('foaf:homepage', `<${homepage}>`)
+  // Always stated, even when it is also the subject: a consumer that has been
+  // handed the file on its own, with no idea where it came from, still learns
+  // the plugin's address from it.
+  if (homepage) say('foaf:homepage', `<${homepage}>`)
 
   // The vocabulary terms, in the order the form asks for them so that a person
   // comparing the two can follow.
@@ -130,9 +138,8 @@ export function profileTurtle (fields = {}) {
 # it with the plugin, and it stays correct because you control it.
 #
 # The subject below is the plugin's homepage, which is what identifies it here.
-# If you would rather use your own namespace, change that one IRI and add
-#   foaf:homepage <${homepage}> ;
-# so the two can still be joined up.
+# If you would rather use your own namespace, change that one IRI and keep the
+# foaf:homepage line, so the two can still be joined up.
 #
 # Terms: https://plugin-universe.com/ns   Guide: https://plugin-universe.com/about/profiles
 
@@ -141,7 +148,7 @@ export function profileTurtle (fields = {}) {
 @prefix rdfs: <${rdfs}> .
 @prefix foaf: <${foaf}> .
 
-<${homepage}>
+<${about}>
 ${lines.join(' ;\n')} .
 `
 }
@@ -149,6 +156,40 @@ ${lines.join(' ;\n')} .
 /** The local name of an IRI — `trn:AudioEffect` from the full term. */
 function localName (value) {
   return String(value).replace(/^.*[/#]/, '')
+}
+
+/**
+ * A plugin the catalogue holds, as the fields a profile is written from.
+ *
+ * So that every plugin page can offer the same file `/submit` produces. An
+ * author who finds their plugin already catalogued should not have to fill in a
+ * form to get a profile they could have had: the facts are here, they are CC0,
+ * and handing them back as a file the author can host is the whole argument of
+ * `/about/profiles` carried through to the one page where it matters most.
+ *
+ * The document's field names differ from the form's — `formats` against
+ * `format`, `cautions` against `caution`, `image` against `depiction` — because
+ * one is what a query returned and the other is what a person filled in. This
+ * is the one place that mapping lives.
+ */
+export function profileFieldsFor (doc = {}) {
+  return {
+    name: doc.name ?? '',
+    homepage: doc.homepage ?? '',
+    vendor: doc.vendor ?? '',
+    description: doc.description ?? '',
+    format: doc.formats ?? [],
+    role: doc.roles ?? [],
+    accepts: doc.accepts ?? [],
+    produces: doc.produces ?? [],
+    requires: doc.requires ?? [],
+    // One category, because `SUBMITTABLE` holds one and the shapes allow one.
+    // A harvested plugin may carry several; the first is the one the page leads
+    // with, and an author editing the file can say otherwise.
+    category: (doc.categories ?? [])[0] ?? '',
+    licenceId: doc.licenceId ?? '',
+    caution: doc.cautions ?? ''
+  }
 }
 
 /**

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { profileTurtle, readProfile, ProfileError } from '../../src/contrib/ProfileDocument.js'
+import {
+  profileTurtle, readProfile, profileFieldsFor, ProfileError
+} from '../../src/contrib/ProfileDocument.js'
 import { loadSubmittable } from '../../src/contrib/Submissions.js'
 import { parseTurtle } from '../../src/harvest/TurtleReader.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
@@ -201,5 +203,83 @@ describe('what a read profile does next', () => {
     const { validate } = await import('../../src/contrib/Submissions.js')
     const back = await readProfile(profileTurtle(GOOD), { submittable: FIELDS })
     expect(() => validate(back.fields, FIELDS)).not.toThrow()
+  })
+})
+
+/**
+ * A profile for a plugin the catalogue already holds.
+ *
+ * Every plugin page offers one, so an author who finds their plugin here can
+ * take the file and host it rather than filling in a form for facts we already
+ * have. The mapping is the interesting part: a document's field names are what
+ * a query returned (`formats`, `cautions`, `categories`) and the form's are what
+ * a person filled in (`format`, `caution`, `category`).
+ */
+describe('a profile built from a catalogue document', () => {
+  const DOC = {
+    iri: `${NAMESPACES.pu}plugin/tear-48b738e8`,
+    name: 'TeAr',
+    homepage: 'https://github.com/odoare/TeAr',
+    vendor: 'Olivier Doaré',
+    description: 'The Text Arpeggiator',
+    formats: ['VST3', 'AudioUnit'],
+    roles: ['Instrument', 'AudioInstrument'],
+    accepts: ['Midi'],
+    produces: ['Audio'],
+    requires: ['HostTransport'],
+    categories: ['midi', 'synth'],
+    licenceId: 'LGPL-3.0',
+    cautions: 'Loud at high feedback.'
+  }
+
+  it('parses, which is the only thing a served file must do', async () => {
+    const dataset = await parseTurtle(profileTurtle(profileFieldsFor(DOC)))
+    expect(dataset.size).toBeGreaterThan(8)
+  })
+
+  it('round trips back to the same facts', async () => {
+    const back = await readProfile(profileTurtle(profileFieldsFor(DOC)), { submittable: FIELDS })
+    expect(back.fields.name).toBe('TeAr')
+    expect(back.fields.vendor).toBe('Olivier Doaré')
+    expect(back.fields.format).toEqual(['VST3', 'AudioUnit'])
+    expect(back.fields.requires).toEqual(['HostTransport'])
+    expect(back.fields.caution).toBe('Loud at high feedback.')
+  })
+
+  it('maps the document\'s plural names onto the form\'s singular ones', () => {
+    // The mapping this function exists for. Getting it wrong produces a profile
+    // that is quietly missing half the plugin.
+    const fields = profileFieldsFor(DOC)
+    expect(fields.format).toEqual(DOC.formats)
+    expect(fields.role).toEqual(DOC.roles)
+    expect(fields.caution).toBe(DOC.cautions)
+  })
+
+  it('takes one category, because the shapes allow one', () => {
+    expect(profileFieldsFor(DOC).category).toBe('midi')
+  })
+
+  it('falls back to the plugin\'s own IRI when there is no homepage', async () => {
+    // Three of the catalogue's plugins have none, and that IRI dereferences
+    // through the PURL — a better answer than refusing to produce a file.
+    const bare = { name: 'No Home', formats: ['LV2'] }
+    const turtle = profileTurtle(profileFieldsFor(bare), { subject: DOC.iri })
+    const dataset = await parseTurtle(turtle)
+    for (const quad of dataset) expect(quad.subject.value).toBe(DOC.iri)
+    expect(turtle, 'an empty homepage would be an IRI of <>').not.toContain('foaf:homepage <>')
+  })
+
+  it('says nothing about fields the plugin does not have', async () => {
+    const dataset = await parseTurtle(
+      profileTurtle(profileFieldsFor({ name: 'Bare', homepage: 'https://example.org/b/' })))
+    const predicates = new Set([...dataset].map(quad => quad.predicate.value))
+    expect(predicates.has(`${NAMESPACES.trn}caution`)).toBe(false)
+    expect(predicates.has(`${NAMESPACES.pu}licenceId`)).toBe(false)
+  })
+
+  it('handles an empty document without throwing something unrecognisable', () => {
+    // A plugin with no name cannot be described, and the route turns this into
+    // a 422 rather than serving an empty file.
+    expect(() => profileTurtle(profileFieldsFor({}), { subject: DOC.iri })).toThrow(ProfileError)
   })
 })
