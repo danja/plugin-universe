@@ -461,7 +461,14 @@ code { font-size:.88em; background:color-mix(in srgb, var(--fg) 7%, transparent)
   table { display:block; overflow-x:auto; }
 }
 .correct button { background:var(--accent); color:var(--on-accent); border-color:transparent; cursor:pointer; }
-.correct button.secondary { background:none; color:var(--fg); border:1px solid var(--control); }
+/* A second action beside the first: outlined rather than filled, so the page
+   still says which one is the main thing to do. Scoped to `.correct` when this
+   was the only form with two buttons; the submit form now has them too, so the
+   rule is on the class rather than on where it happens to appear. */
+button.secondary { background:none; color:var(--fg); border:1px solid var(--control); }
+/* Two buttons on one row, wrapping to two rows rather than overflowing on a
+   phone. Vertical gap as well as horizontal, so a wrapped pair does not touch. */
+.form-actions { display:flex; flex-wrap:wrap; gap:.6rem; align-items:center; margin:.4rem 0 0; }
 .err { color:#b3261e; font-size:.9rem; }
 .ok { color:var(--accent); font-size:.9rem; font-weight:600; }
 @media (prefers-color-scheme: dark) { .err { color:#f2b8b5; } }

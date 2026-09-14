@@ -1,12 +1,13 @@
 import { send, sendText, redirect, needsSignIn, HTML } from '../api/respond.js'
 import { renderSubmitPage, renderPluginPage, renderFeedbackPage } from '../api/render.js'
-import { readForm, readMultipart, BodyError } from '../api/body.js'
+import { readForm, readMultipart, BodyError, MAX_BODY_BYTES } from '../api/body.js'
 import { ImageError } from '../api/ImageStore.js'
-import { IMAGE_CONFIG } from '../../config/preferences.js'
+import { IMAGE_CONFIG, CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import { TRUST } from '../auth/Accounts.js'
 import { CORRECTABLE, CorrectionError } from './Corrections.js'
 import { SUBMITTABLE, SubmissionError } from './Submissions.js'
+import { profileTurtle, readProfile, ProfileError } from './ProfileDocument.js'
 import { PageReadError } from './PageReader.js'
 import { FeedbackError } from './Feedback.js'
 
@@ -23,6 +24,13 @@ import { FeedbackError } from './Feedback.js'
  * `src/billing/routes.js` already marked, and answering the same contract:
  * `(context) => boolean`, true meaning the request was answered here.
  */
+
+/** A profile's filename, from the plugin's name. Never empty, never a path. */
+function profileFilename (name) {
+  const slug = String(name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '').slice(0, 60)
+  return slug ? `${slug}-profile.ttl` : 'profile.ttl'
+}
 
 const SUBMIT_PATH = '/submit'
 const FEEDBACK_PATH = '/feedback'
@@ -84,7 +92,11 @@ async function submitRoute ({
 
   let form
   try {
-    form = await readForm(request)
+    // Larger than the 16 KB default, because one field on this form is a whole
+    // profile document. The bound is `maxProfileLength` plus room for the rest
+    // of the form, so somebody who pastes something too long meets the message
+    // that names profiles rather than a body cap that says nothing about them.
+    form = await readForm(request, { limit: CONTRIBUTION_CONFIG.maxProfileLength + MAX_BODY_BYTES })
   } catch (error) {
     send(response, error.status ?? 400, { error: error.message })
     return true
@@ -99,6 +111,59 @@ async function submitRoute ({
   // once.
   const values = Object.fromEntries(Object.entries(SUBMITTABLE).map(([name, spec]) =>
     [name, spec.multiple ? form.getAll(name) : (form.get(name) ?? '')]))
+
+  // "Download the profile" — what has been typed, as a file to host.
+  //
+  // The point of the catalogue is not to be the place these facts live. A
+  // profile beside the author's own plugin is versioned with it, editable by
+  // them and readable by anything that speaks RDF; a row in somebody else's
+  // database is a copy going stale. So the form doubles as a way of writing the
+  // file, and this writes nothing to the store — it is a serialisation of the
+  // fields in front of them.
+  if (form.get('download')) {
+    try {
+      const turtle = profileTurtle(values)
+      response.writeHead(200, {
+        'Content-Type': 'text/turtle; charset=utf-8',
+        // Named from the plugin, so somebody downloading three profiles does
+        // not get three files called the same thing.
+        'Content-Disposition': `attachment; filename="${profileFilename(values.name)}"`,
+        'X-Content-Type-Options': 'nosniff'
+      })
+      response.end(turtle)
+    } catch (error) {
+      if (!(error instanceof ProfileError)) throw error
+      render({ error: error.message, values, status: 400 })
+    }
+    return true
+  }
+
+  // "Submit a profile" — a pasted Turtle or JSON-LD document, drafted into the
+  // form.
+  //
+  // Deliberately *not* a second way to write. It fills the form and the
+  // ordinary Submit button still saves, through the same validator, the same
+  // shapes and the same serialiser — which is the rule that has kept
+  // `SUBMITTABLE`, `vocabs/shapes.ttl` and the serialiser in step. A profile
+  // that wrote directly would be a second write path with its own opinions
+  // about what is valid, and the two would drift.
+  if (form.get('readProfile')) {
+    const profile = String(form.get('profile') ?? '')
+    try {
+      const draft = await readProfile(profile, { submittable })
+      render({
+        // Anything already typed that the profile does not mention is kept, so
+        // a half-filled form is not wiped by pasting.
+        values: { ...values, ...draft.fields },
+        draft,
+        profile
+      })
+    } catch (error) {
+      if (!(error instanceof ProfileError)) throw error
+      render({ error: error.message, values, profile, status: 400 })
+    }
+    return true
+  }
 
   // "Read the page" — one fetch, at this moderator's request, into a draft they
   // then check. It writes nothing: the draft comes back as a filled-in form and

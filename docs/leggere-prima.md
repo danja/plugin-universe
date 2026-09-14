@@ -2,7 +2,7 @@
 
 Un sito nuovo di zecca e in piena lavorazione. Buona parte del testo che si trova
 adesso sul sito è stata generata da un'IA per fare da impalcatura — chiedo venia
-per i claudismi. Sto rileggendo tutto e rendendolo più umano.
+per i Claude-lingua. Sto rileggendo tutto e rendendolo più umano.
 
 Per segnalare problemi o chiedere nuove funzioni, usa il
 [modulo di feedback](https://plugin-universe.com/feedback).

@@ -1,0 +1,11 @@
+<form method="post" action="/submit" class="submit-form submit-profile">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <label for="profile-text">Already have a profile? Paste it</label>
+  <p class="tags">Turtle or JSON-LD — whichever your file is, it is recognised by
+    looking at it. The fields it holds are drafted below for you to check, and
+    nothing is saved until you press Submit. Parameters and ports are read from a
+    bundle instead: see <a href="/about/profiles">plugin profiles</a>.</p>
+  <textarea id="profile-text" name="profile" rows="8" maxlength="{{maxLength}}"
+            placeholder="@prefix trn: &lt;http://purl.org/stuff/transmissions/&gt; . ...">{{value}}</textarea>
+  <button type="submit" name="readProfile" value="1">Read the profile</button>
+</form>

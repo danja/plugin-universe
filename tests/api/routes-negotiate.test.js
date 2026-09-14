@@ -196,7 +196,18 @@ describe('the submit form', () => {
     // own toggle is a checkbox too, and it used to fall outside this slice only
     // because the panel happened to be rendered before the form — which stopped
     // being true when the panel moved after the content to fix tab order.
-    const start = html.indexOf('<form method="post" action="/submit"')
+    //
+    // Anchored on the *main* form's exact class, not on the first form posting
+    // to /submit. Three now do: the profile paste, the moderator's page fetch,
+    // and this one. Matching the first found the paste panel and sliced to its
+    // </form>, which is the guard working — a slice that depends on rendering
+    // order is one that goes wrong when something is added above it.
+    const marker = '<form method="post" action="/submit" class="submit-form">'
+    const start = html.indexOf(marker)
+    // Asserted, because indexOf returning -1 would make slice(-1) the last
+    // character of the document and every toContain below fail for the wrong
+    // reason — or worse, a .not assertion pass for ever.
+    expect(start, 'the main submit form is not in the page').toBeGreaterThan(-1)
     const form = html.slice(start, html.indexOf('</form>', start))
     for (const format of PLUGIN_FORMATS) {
       expect(form, `no checkbox for ${format}`).toContain(`value="${format}"`)

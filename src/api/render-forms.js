@@ -70,9 +70,32 @@ export function imageForm (slug, { csrfToken, error = null, done = null } = {}) 
  * Whatever was typed comes back on an error. A form that empties itself when it
  * refuses is a form people fill in once.
  */
+/**
+ * Where each drafted field came from, as a list.
+ *
+ * One function rather than two copies, because a draft now arrives by two
+ * routes — a page a moderator fetched, and a profile somebody pasted — and the
+ * only thing that differs between them is the sentence above the list.
+ */
+function draftSources (draft, submittable) {
+  if (!draft || !Object.keys(draft.sources ?? {}).length) return ''
+  return `<ul class="draft-sources">${templates.each('submit-draft-source',
+    Object.entries(draft.sources), ([key, from]) => ({
+      label: submittable[key]?.label ?? key, from
+    }))}</ul>`
+}
+
+/** What the draft could not work out, or read and did not keep. */
+function draftNotes (draft) {
+  if (!draft?.notes?.length) return ''
+  return `<ul class="draft-notes">${templates.each('submit-draft-note',
+    draft.notes, text => ({ text }))}</ul>`
+}
+
 export function renderSubmitPage (submittable, {
   csrfToken, error = null, submitted = null, values = {}, viewer = {},
-  facetValues = {}, corpus = 0, mayRead = false, draft = null, pageUrl = ''
+  facetValues = {}, corpus = 0, mayRead = false, draft = null, pageUrl = '',
+  profile = ''
 }) {
   /** One field: a row of checkboxes where it takes several values, a box where it does not. */
   const field = ([name, spec]) => {
@@ -163,18 +186,25 @@ export function renderSubmitPage (submittable, {
     // Where each drafted field came from, shown rather than summarised: a page
     // that named itself in JSON-LD and one that had a <title> and nothing else
     // do not deserve the same trust, and only the moderator can weigh that.
-    draft: templates.when(Boolean(draft), 'submit-draft', {
+    // Anyone signed in, unlike the URL fetch: pasting a file makes this server
+    // issue no request at all, so none of the reasons that one is for
+    // moderators apply. Encouraging authors to *have* a profile is the point.
+    profileForm: templates.render('submit-profile', {
+      csrf: csrfToken ?? '',
+      value: profile,
+      maxLength: String(CONTRIBUTION_CONFIG.maxProfileLength)
+    }),
+    // Two draft notes, because they say different things: one names the page it
+    // fetched, the other the format it recognised. A single template would have
+    // to render an empty link for the pasted case.
+    draft: templates.when(Boolean(draft) && !draft?.url, 'submit-draft-pasted', {
+      format: draft?.format ?? '',
+      sources: draftSources(draft, submittable),
+      notes: draftNotes(draft)
+    }) + templates.when(Boolean(draft?.url), 'submit-draft', {
       url: draft?.url ?? '',
-      sources: draft && Object.keys(draft.sources ?? {}).length
-        ? `<ul class="draft-sources">${templates.each('submit-draft-source',
-            Object.entries(draft.sources), ([key, from]) => ({
-              label: submittable[key]?.label ?? key, from
-            }))}</ul>`
-        : '',
-      notes: draft?.notes?.length
-        ? `<ul class="draft-notes">${templates.each('submit-draft-note',
-            draft.notes, text => ({ text }))}</ul>`
-        : ''
+      sources: draftSources(draft, submittable),
+      notes: draftNotes(draft)
     }),
     // The same two columns the search pages carry. Somebody who has just
     // submitted a plugin, or been told theirs is already here, wants a way

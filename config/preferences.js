@@ -366,6 +366,14 @@ export const CONTRIBUTION_CONFIG = {
   // limit because each one writes a full revision that is kept forever.
   wikiEditsPerHour: 20,
 
+  // A plugin profile pasted into /submit, in characters. Generous because a
+  // real profile is generous: an LV2 plugin that describes forty ports with
+  // their ranges, units and scale points is several thousand characters before
+  // anybody has written a sentence. Only the fields the form holds are drafted
+  // out of it, but the whole document has to parse first, so the bound is on
+  // what is accepted rather than on what is kept.
+  maxProfileLength: 64000,
+
   // A message to the moderators. Long enough to describe a problem properly —
   // several paragraphs — and short enough that a moderator will read it and
   // that one paste cannot fill the store.

@@ -62,6 +62,84 @@ it is taken as helpfulness rather than as a flaw.
 The vocabulary behind all of it is `trn:`, shared with several other projects,
 and the terms are [published as RDF](/ns).
 
+## Hosting it yourself, which is better
+
+The best place for a profile is **next to your plugin**, not in this catalogue.
+
+A file you host is yours. It is versioned with the plugin, so it changes when
+the plugin does; it is editable by you without asking anybody; and it stays
+correct because you are the one who knows. A row in somebody else's database is
+a copy of the truth, kept somewhere you cannot reach, going stale from the
+moment it is saved. This catalogue would rather read your file than be the
+place your facts live.
+
+It is also not just for us. A profile is ordinary RDF in a vocabulary several
+projects share, so anything that speaks RDF can read it — including tools that
+do not exist yet, and including ones that compete with this site. That is the
+intended outcome.
+
+### The quickest way to get one
+
+Fill in the [submission form](/submit) and press **Download profile** instead of
+Submit. You get the file, and nothing is saved here. Put it beside your plugin
+as `profile.ttl`, commit it, and you are done — you never have to submit
+anything to this catalogue at all.
+
+### What it looks like
+
+```turtle
+@prefix trn:  <http://purl.org/stuff/transmissions/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+<https://example.org/plugins/ambo/>
+    a trn:PluginProfile ;
+    rdfs:label "Ambo" ;
+    rdfs:comment "Stereo ambient processor." ;
+    trn:vendor "danja" ;
+    foaf:homepage <https://example.org/plugins/ambo/> ;
+    trn:format trn:VST3, trn:LV2 ;
+    trn:role trn:AudioEffect ;
+    trn:accepts trn:Audio ;
+    trn:produces trn:Audio .
+```
+
+That is the whole thing. Every term in it is [published](/ns), and the fifty
+profiles in the [downspout](https://github.com/danja/downspout) repository are
+real examples of the same shape.
+
+**The subject is the plugin's homepage**, which is deliberate: it is an IRI you
+control, and it is what this catalogue identifies a plugin by, so a profile you
+write and a plugin we harvest describe the same thing rather than two copies of
+it. If you would rather use your own namespace, do — just keep the
+`foaf:homepage` line so the two can be joined up.
+
+**JSON-LD works too** if that is more comfortable. It is the same statements in
+a different syntax, and both are read here.
+
+### Where to put it
+
+Anywhere it can be fetched. Beside the plugin's download, in the repository, on
+the project page — `profile.ttl` next to `index.html` is the obvious choice. If
+your plugin is **LV2**, you have a bundle that already carries most of this, and
+that is better still: see below.
+
+Two conventions worth following, neither required. Serve it as `text/turtle` if
+you can, and keep it at a stable address, because a profile that moves is a
+profile that stops being read.
+
+### Telling us it exists
+
+Paste it into the **Already have a profile?** box on the [submission
+form](/submit). Turtle or JSON-LD — it is recognised by looking at the file, not
+by asking you which it is — and what it holds is drafted into the form for you
+to check before anything is saved.
+
+Nothing is written until you press Submit, and a pasted profile goes through
+exactly the same validation as a typed one. There is one way into this
+catalogue, and this is a convenient way of filling it in rather than a second
+door.
+
 ## What it does not ask for, and why
 
 **Parameters and ports.** A knob has a symbol, a range, a default, a unit and
@@ -85,6 +163,11 @@ Two things worth saying plainly. It is **read once, by a person** — nothing he
 crawls, and the fetch happens because a moderator asked for it. And it is
 **added, never substituted**: anything the catalogue already holds about your
 plugin stays as it is, and you are told what was left alone.
+
+This is the one part the paste box above does not cover. Pasting a profile fills
+in the fields the form holds; ports and parameters are read from the bundle
+itself, because that is where they already are and nobody should be retyping
+them. Paste the profile for the description, send the bundle URL for the knobs.
 
 **What goes before and after.** `trn:recommendedBefore` and its companions
 point at *other plugins*, so they need a way to pick one rather than a box to
