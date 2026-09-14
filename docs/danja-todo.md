@@ -7,6 +7,16 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 
 ## One-off
 
+- [ ] **Dismiss the GitHub secret-scanning alert on `tests/api/billing.test.js` as a false
+  positive** — no rotation needed, and nothing to revoke. The flagged string was a Stripe
+  webhook signing secret invented for that test file; it has never existed in any Stripe
+  account. *2026-09-14:* the fixture is gone from the working tree — every key-shaped string in
+  that file is now assembled at run time from its prefix, and
+  `tests/api/no-secret-shapes.test.js` fails on any line in the repository a scanner would
+  flag. **It is still in the git history**, so the alert will not close on its own; it wants a
+  "used in tests" dismissal on the Security tab. Rewriting the history to remove it would cost
+  more than it is worth for a string that was never a secret, but that is your call.
+
 
 
 - [ ] **A security review and pentest of the whole system**, including the rest of the server —

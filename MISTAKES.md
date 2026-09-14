@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Forty-eight entries is past the point where anyone reads them all, so what follows
+Fifty-seven entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index. Entries are consolidated when several
 turn out to be one lesson, and promoted into [CLAUDE.md](CLAUDE.md) when a
@@ -87,6 +87,39 @@ moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-14 — A test fixture that a secret scanner read as a leaked key
+
+**What happened.** `tests/api/billing.test.js` used
+`whsec_` followed by the words "test secret for testing only" as the endpoint
+secret for Stripe's `generateTestHeaderString`, so that the webhook tests
+exercise the real verification path. GitHub's push protection flagged it as a
+leaked Stripe webhook signing secret. Nothing had leaked: the string was
+invented in that file and is valid in no Stripe account anywhere.
+
+**Root cause.** A scanner matches a prefix and the run of characters after it.
+It has no way to tell an invention from a live credential, and there is no
+reason it should — the string was written to be readable by a person, which is
+exactly what makes it long enough to match. The mistake was thinking about the
+fixture's *meaning* rather than its *shape*.
+
+**Prevention.** The fixtures are assembled at run time now —
+`key('sk_test')` builds the string from a prefix that matches nothing on its
+own, so the code under test sees what it always saw and the file at rest
+contains no candidate. `tests/api/no-secret-shapes.test.js` walks every text
+file in the repository and fails on any line a scanner would flag, with the
+prefix-only forms (`'sk_test'` as a `not.toContain` argument, `cs_test_1`)
+explicitly still allowed — a guard that forbade the word rather than the shape
+would be worked around instead of obeyed. It caught its own first draft, which
+had quoted the offending string in a comment while claiming not to.
+
+The reason this is worth a guard rather than a dismissal: the alert costs
+nothing, but the *dismissal* does. Once somebody has waved one of these
+through, they read the next one less carefully — and the next one might be
+real. A credential warning is only worth having if every one of them is worth
+acting on.
 
 ---
 

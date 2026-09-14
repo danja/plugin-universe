@@ -306,6 +306,16 @@ change, and a long one rarely does.
 
 ## Working rules
 - API keys are sacred. They must not be shared.
+- **Nor may anything that merely *looks* like one be committed.** A scanner matches a prefix and
+  the run of characters after it; it cannot tell an invented fixture from a live credential, so
+  a test secret spelling out "test secret for testing only" raised a GitHub push-protection
+  alert on `tests/api/billing.test.js`. The cost is not the alert but the dismissal: once a
+  person has waved one of these through, they read the next one less carefully, and the next one
+  might be real. Write the fixture so it does not exist at rest — assemble it from its prefix at
+  run time, as `key('sk_test')` does in that file. Comments and prose count too.
+  `tests/api/no-secret-shapes.test.js` walks the whole repository and fails on any line a
+  scanner would flag; add a row to its `SHAPES` when a new provider's key could plausibly be
+  pasted into a fixture.
 - **Keep [docs/danja-todo.md](docs/danja-todo.md) current.** It is the user's own action list —
   anything needing server access, credentials, legal review or a decision that is theirs goes
   there and not into a chat message that scrolls away. Revise it at the end of any session that

@@ -17,6 +17,20 @@ import Stripe from 'stripe'
  * the webhook refusing anything it cannot verify.
  */
 
+/**
+ * No literal in this file reads as a Stripe key.
+ *
+ * A secret scanner matches a prefix and the run of characters after it; it
+ * cannot know that a signing secret was invented here and has never existed in
+ * any Stripe account. GitHub's push protection raised an alert on this file for
+ * exactly that, which costs a person a dismissal and — worse — teaches them that
+ * these warnings are noise. So the fixtures are assembled from their prefixes
+ * instead: `key('sk_test')` is the same string to the code under test and no
+ * match to a scanner at rest. `tests/api/no-secret-shapes.test.js` keeps it
+ * that way across the whole repository, this comment included.
+ */
+const key = (prefix, body = 'x') => `${prefix}_${body}`
+
 const KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_PUBLIC_KEY', 'STRIPE_WEBHOOK_SECRET']
 const saved = Object.fromEntries(KEYS.map(k => [k, process.env[k]]))
 afterEach(() => {
@@ -33,10 +47,10 @@ const withEnv = env => {
 
 describe('telling a test key from a live one', () => {
   it('reads the mode off the prefix', () => {
-    expect(keyMode('sk_test_abc')).toBe('test')
-    expect(keyMode('sk_live_abc')).toBe('live')
-    expect(keyMode('rk_test_abc')).toBe('test')
-    expect(keyMode('pk_live_abc')).toBe('live')
+    expect(keyMode(key('sk_test', 'abc'))).toBe('test')
+    expect(keyMode(key('sk_live', 'abc'))).toBe('live')
+    expect(keyMode(key('rk_test', 'abc'))).toBe('test')
+    expect(keyMode(key('pk_live', 'abc'))).toBe('live')
   })
 
   it('does not guess at something that is not a key', () => {
@@ -59,15 +73,15 @@ describe('configuration is complete or absent, never half', () => {
     // The state that looks like the one above and is not. /health has to be
     // able to tell them apart, or a broken payment system reads as a
     // deliberate read-only site.
-    expect(withEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }).reason).toMatch(/both be set/)
-    expect(withEnv({ STRIPE_PUBLIC_KEY: 'pk_test_x' }).reason).toMatch(/both be set/)
-    expect(withEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }).billing).toBeNull()
+    expect(withEnv({ STRIPE_SECRET_KEY: key('sk_test') }).reason).toMatch(/both be set/)
+    expect(withEnv({ STRIPE_PUBLIC_KEY: key('pk_test') }).reason).toMatch(/both be set/)
+    expect(withEnv({ STRIPE_SECRET_KEY: key('sk_test') }).billing).toBeNull()
   })
 
   it('refuses two keys from different modes', () => {
     // The failure worth most: a live publishable key on the page with a test
     // secret on the server. Checkout looks right and no money moves.
-    expect(() => withEnv({ STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLIC_KEY: 'pk_live_x' }))
+    expect(() => withEnv({ STRIPE_SECRET_KEY: key('sk_test'), STRIPE_PUBLIC_KEY: key('pk_live') }))
       .toThrow(/Mixing modes/)
   })
 
@@ -76,32 +90,32 @@ describe('configuration is complete or absent, never half', () => {
     // which is why the two variables get different checks. Left to the mode
     // check alone this passed startup and failed on the first API call, inside
     // a webhook, in production.
-    expect(() => withEnv({ STRIPE_SECRET_KEY: 'pk_test_x', STRIPE_PUBLIC_KEY: 'pk_test_x' }))
+    expect(() => withEnv({ STRIPE_SECRET_KEY: key('pk_test'), STRIPE_PUBLIC_KEY: key('pk_test') }))
       .toThrow(/does not look like a secret key/)
   })
 
   it('refuses a secret key rendered into a page', () => {
     // The reverse, and the worse direction: STRIPE_PUBLIC_KEY reaches the
     // browser by design.
-    expect(() => withEnv({ STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLIC_KEY: 'sk_test_x' }))
+    expect(() => withEnv({ STRIPE_SECRET_KEY: key('sk_test'), STRIPE_PUBLIC_KEY: key('sk_test') }))
       .toThrow(/does not look like a publishable key/)
   })
 
   it('accepts a matched test pair and says which mode it is in', () => {
-    const { billing } = withEnv({ STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLIC_KEY: 'pk_test_x' })
+    const { billing } = withEnv({ STRIPE_SECRET_KEY: key('sk_test'), STRIPE_PUBLIC_KEY: key('pk_test') })
     expect(billing.status().mode).toBe('test')
   })
 
   it('needs the site origin, because every return URL is built from it', () => {
     for (const k of KEYS) delete process.env[k]
-    Object.assign(process.env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLIC_KEY: 'pk_test_x' })
+    Object.assign(process.env, { STRIPE_SECRET_KEY: key('sk_test'), STRIPE_PUBLIC_KEY: key('pk_test') })
     expect(() => Billing.fromEnvironment({})).toThrow(/origin/)
   })
 })
 
 describe('a webhook is not believed until it is verified', () => {
   const billing = () =>
-    withEnv({ STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLIC_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_x' }).billing
+    withEnv({ STRIPE_SECRET_KEY: key('sk_test'), STRIPE_PUBLIC_KEY: key('pk_test'), STRIPE_WEBHOOK_SECRET: key('whsec') }).billing
 
   it('refuses a delivery with no signature', () => {
     expect(() => billing().verifyWebhook('{}', null)).toThrow(BillingError)
@@ -115,7 +129,7 @@ describe('a webhook is not believed until it is verified', () => {
   it('refuses everything when no signing secret is configured', () => {
     // Every delivery is an instruction to give something away, and the endpoint
     // is a public URL. Unverifiable must mean refused, not trusted.
-    const { billing: b } = withEnv({ STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLIC_KEY: 'pk_test_x' })
+    const { billing: b } = withEnv({ STRIPE_SECRET_KEY: key('sk_test'), STRIPE_PUBLIC_KEY: key('pk_test') })
     expect(() => b.verifyWebhook('{}', 't=1,v1=x')).toThrow(/cannot be verified/)
     expect(b.status().webhook).toMatch(/MISSING/)
   })
@@ -147,8 +161,8 @@ describe('the configuration is documented and cannot leak', () => {
 
   it('never puts a key in what /health publishes', () => {
     const { billing } = withEnv({
-      STRIPE_SECRET_KEY: 'sk_test_SECRETVALUE', STRIPE_PUBLIC_KEY: 'pk_test_PUBLICVALUE',
-      STRIPE_WEBHOOK_SECRET: 'whsec_SECRETVALUE'
+      STRIPE_SECRET_KEY: key('sk_test', 'SECRETVALUE'), STRIPE_PUBLIC_KEY: key('pk_test', 'PUBLICVALUE'),
+      STRIPE_WEBHOOK_SECRET: key('whsec', 'SECRETVALUE')
     })
     const published = JSON.stringify(billing.status())
     expect(published).not.toContain('SECRETVALUE')
@@ -235,9 +249,9 @@ describe('the webhook body cap', () => {
  * giving away a year of paid placement is the only kind of test worth having.
  */
 describe('a correctly signed delivery is accepted, and only that', () => {
-  const SECRET = 'whsec_testsecretfortestingonly'
+  const SECRET = key('whsec', 'testsecretfortestingonly')
   const billing = () => withEnv({
-    STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLIC_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: SECRET
+    STRIPE_SECRET_KEY: key('sk_test'), STRIPE_PUBLIC_KEY: key('pk_test'), STRIPE_WEBHOOK_SECRET: SECRET
   }).billing
 
   const signed = (payload, { secret = SECRET, timestamp } = {}) =>
@@ -255,7 +269,7 @@ describe('a correctly signed delivery is accepted, and only that', () => {
   })
 
   it('refuses the same payload signed with a different secret', () => {
-    expect(() => billing().verifyWebhook(body, signed(body, { secret: 'whsec_someoneelse' })))
+    expect(() => billing().verifyWebhook(body, signed(body, { secret: key('whsec', 'someoneelse') })))
       .toThrow(/did not verify/)
   })
 
