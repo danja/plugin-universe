@@ -1,0 +1,12 @@
+{
+  "about": "Vendors that are one maker under two names. A judgement, never a derivation: bin/mint-vendors.js folds spellings the characters agree about, and this is where a person says the rest. Read by that script; see data/curation/README.md.",
+  "merges": [
+    {
+      "into": "danja",
+      "keys": ["dannyayers"],
+      "name": "danja",
+      "why": "The same person. 'danja' is the handle on the plugins themselves and on the repositories they come from; 'Danny Ayers' is the same author spelled formally in a second source. Nothing in the two strings implies the other, which is why it is asserted here rather than derived.",
+      "decided": "2026-09-13"
+    }
+  ]
+}

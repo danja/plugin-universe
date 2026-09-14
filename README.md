@@ -2,8 +2,12 @@
 
 An open database of DAW plugins, live at **[plugin-universe.com](https://plugin-universe.com)**.
 
-754 plugins, 61,371 triples, 288 measurements taken by running the binaries.
+756 plugins, 63,297 triples, 288 measurements taken by running the binaries.
 The facts are **CC0**; user-authored prose is CC BY-SA.
+
+*Counted 2026-09-13 — plugins from `/health`, the rest from the published
+dataset, so every figure here is one query from being checked rather than
+taken on trust.*
 
 ## The method
 
@@ -74,7 +78,7 @@ latency". It cannot support "this plugin has no latency", and does not say so.
 | [downspout](https://github.com/danja/downspout) | 50 | CC0-1.0 | VST3, curated behaviour — roles, routing, cautions, CC mappings |
 | [flues](https://github.com/danja/flues) | 36 | MIT | LV2, machine-readable by design; ports map in untranslated |
 
-Plus 377 vendors, 28 categories, and plugins submitted through the site itself.
+Plus 376 vendors, 28 categories, and plugins submitted through the site itself.
 The public SPARQL copy is republished after each harvest, so it can lag the
 site by a plugin or two; `/health` is the live figure.
 

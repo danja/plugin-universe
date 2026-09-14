@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { vendorRecords, vendorTriples, identityTriples, vendorNames } from '../../src/catalogue/VendorIdentity.js'
+import {
+  vendorRecords, vendorTriples, identityTriples, vendorNames, validateMerges
+} from '../../src/catalogue/VendorIdentity.js'
 import { vendorKey, vendorSlug } from '../../src/search/documents.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
@@ -216,5 +218,133 @@ describe('the names a vendor page shows', () => {
       { name: 'danja', spellings: ['danja', 'Danja'] },
       { name: 'danja', altLabels: ['Danja', 'danja'] })
     expect(names.spellings).toEqual([...new Set(names.spellings)])
+  })
+})
+
+/**
+ * Curated merges: two vendors that are one maker.
+ *
+ * The fold groups spellings the *characters* agree about. This is the other
+ * half — a person saying "danja" and "Danny Ayers" are the same author, which
+ * nothing derivable from those strings will ever imply. It lives in
+ * `data/curation/vendor-merges.json` because `bin/mint-vendors.js` drops and
+ * rewrites the graph whole: anything asserted directly against the store
+ * survives exactly until the next derivation.
+ *
+ * The property worth defending hardest is not the merge itself. It is that a
+ * merged-away vendor's IRI **keeps answering** — it was minted, published,
+ * dereferenced and shipped in the CC0 dump, and retiring it silently would be
+ * this project publishing an identifier and then failing to resolve it.
+ */
+describe('curated vendor merges', () => {
+  const docs = [
+    doc('a', 'danja'), doc('b', 'danja'), doc('c', 'Danny Ayers')
+  ]
+  const merge = [{ into: 'danja', keys: ['dannyayers'] }]
+
+  it('folds two names into one vendor when a person says they are one', () => {
+    const records = vendorRecords(docs, undefined, merge)
+    expect(records).toHaveLength(1)
+    expect(records[0].count).toBe(3)
+    expect(records[0].key).toBe('danja')
+  })
+
+  it('leaves them as two vendors without the merge, because nothing implies it', () => {
+    expect(vendorRecords(docs)).toHaveLength(2)
+  })
+
+  it('keeps the retired spelling as an altLabel rather than discarding it', () => {
+    const [record] = vendorRecords(docs, undefined, merge)
+    expect(record.spellings).toContain('Danny Ayers')
+    expect(vendorTriples(record).join('\n')).toContain('altLabel')
+  })
+
+  it('keeps the retired IRI, pointing at the survivor', () => {
+    // The whole reason a merge is not just a regrouping: that IRI is published.
+    const [record] = vendorRecords(docs, undefined, merge)
+    const retiredIri = vendorRecords([doc('c', 'Danny Ayers')])[0].iri
+    expect(record.retired.map(r => r.iri)).toEqual([retiredIri])
+    expect(vendorTriples(record).join('\n'))
+      .toContain(`<${retiredIri}> <${NAMESPACES.owl}sameAs> <${record.iri}>`)
+  })
+
+  it('does not type the retired IRI as a vendor, or the merge undoes itself', () => {
+    // Typed, it would load as a second identity and split the fold again.
+    const [record] = vendorRecords(docs, undefined, merge)
+    const retiredIri = record.retired[0].iri
+    const typed = vendorTriples(record)
+      .filter(t => t.startsWith(`<${retiredIri}>`) && t.includes(`${NAMESPACES.pu}Vendor`))
+    expect(typed).toEqual([])
+  })
+
+  it('gives the survivor its own IRI unchanged, so the merge moves nobody else', () => {
+    const [merged] = vendorRecords(docs, undefined, merge)
+    const [unmerged] = vendorRecords([doc('a', 'danja'), doc('b', 'danja')])
+    expect(merged.iri).toBe(unmerged.iri)
+  })
+
+  it('points every plugin of both names at the surviving vendor', () => {
+    const [record] = vendorRecords(docs, undefined, merge)
+    const makers = vendorTriples(record).filter(t => t.includes(`${NAMESPACES.foaf}maker`))
+    expect(makers).toHaveLength(3)
+    for (const triple of makers) expect(triple).toContain(record.iri)
+  })
+
+  it('can be told which spelling to show, among those actually met', () => {
+    // A vendor buying a profile may want their formal name on it even though
+    // the handle is on more plugins.
+    const [record] = vendorRecords(docs, undefined,
+      [{ into: 'danja', keys: ['dannyayers'], name: 'Danny Ayers' }])
+    expect(record.name).toBe('Danny Ayers')
+    expect(record.spellings[0]).toBe('Danny Ayers')
+    expect(record.spellings).toContain('danja')
+  })
+})
+
+describe('checking a merge file before it is applied', () => {
+  const present = new Set(['danja', 'dannyayers', 'sfztools'])
+
+  it('accepts a merge naming keys that exist', () => {
+    expect(validateMerges([{ into: 'danja', keys: ['dannyayers'] }], present)).toEqual([])
+  })
+
+  it('refuses a misspelled key rather than doing nothing quietly', () => {
+    // The failure this exists for: the derivation reports the same vendor count
+    // whether a merge applied or not, so a typo would be invisible.
+    const problems = validateMerges([{ into: 'danja', keys: ['dannyayerz'] }], present)
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toContain('dannyayerz')
+  })
+
+  it('refuses a survivor that is not in the catalogue', () => {
+    expect(validateMerges([{ into: 'nobody', keys: ['danja'] }], present)[0]).toContain('nobody')
+  })
+
+  it('refuses one key claimed by two survivors, rather than picking by position', () => {
+    const problems = validateMerges([
+      { into: 'danja', keys: ['sfztools'] },
+      { into: 'dannyayers', keys: ['sfztools'] }
+    ], present)
+    expect(problems.join(' ')).toContain('both')
+  })
+
+  it('refuses a key that is both merged away and merged into', () => {
+    const problems = validateMerges([
+      { into: 'danja', keys: ['dannyayers'] },
+      { into: 'dannyayers', keys: ['sfztools'] }
+    ], present)
+    expect(problems.join(' ')).toContain('merged away and merged into')
+  })
+
+  it('refuses a merge that merges nothing, and one with no survivor', () => {
+    expect(validateMerges([{ into: 'danja', keys: [] }], present)[0]).toContain('nothing')
+    expect(validateMerges([{ keys: ['danja'] }], present)[0]).toContain('no "into"')
+  })
+
+  it('refuses a display name no source ever wrote', () => {
+    const spellings = new Map([['danja', new Set(['danja'])], ['dannyayers', new Set(['Danny Ayers'])]])
+    const problems = validateMerges(
+      [{ into: 'danja', keys: ['dannyayers'], name: 'Danjalicious' }], present, spellings)
+    expect(problems[0]).toContain('Danjalicious')
   })
 })

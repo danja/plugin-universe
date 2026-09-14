@@ -184,7 +184,10 @@ export class SearchService {
         iri: row.vendor,
         key: row.key,
         name: row.name,
-        altLabels: row.altLabels ? row.altLabels.split('|').filter(Boolean).sort() : []
+        altLabels: row.altLabels ? row.altLabels.split('|').filter(Boolean).sort() : [],
+        // IRIs of vendors merged into this one. Published identifiers that must
+        // keep resolving; they become aliases onto this vendor's page below.
+        retiredIris: row.retiredIris ? row.retiredIris.split('|').filter(Boolean) : []
       })
     }
 
@@ -249,11 +252,38 @@ export class SearchService {
       vendor.iri = vendor.iri ?? doc.vendorIri ?? null
     }
 
+    // Second pass: groups the curated merges say are one maker.
+    //
+    // The fold above groups by the *string*, so "danja" and "Danny Ayers" land
+    // in two groups however firmly a person has said they are one person. The
+    // merge is expressed in `data/curation/vendor-merges.json` and applied by
+    // `bin/mint-vendors.js`, which writes one `foaf:maker` per plugin — so every
+    // plugin of both spellings already points at the surviving vendor, and the
+    // merge arrives here as two groups sharing an identity IRI.
+    //
+    // Reading the merge file here as well would be a second copy of a list, and
+    // a list copied is a list that goes out of step: the graph would say one
+    // vendor and the site would show two. The store is the single source, and
+    // this is a regrouping of what it already said.
+    const byIdentity = new Map()
+    for (const vendor of byKey.values()) {
+      const groupBy = vendor.iri ?? vendor.key
+      const existing = byIdentity.get(groupBy)
+      if (!existing) { byIdentity.set(groupBy, vendor); continue }
+      for (const [name, count] of vendor.names) {
+        existing.names.set(name, (existing.names.get(name) ?? 0) + count)
+      }
+      existing.plugins.push(...vendor.plugins)
+      // The surviving key is whichever of them the identity layer kept, so ask
+      // it rather than guessing from counts: the retired key has no identity.
+      if (this.vendorIdentities.has(vendor.key)) existing.key = vendor.key
+    }
+
     this.vendors = new Map()
     // Every spelling's slug resolves to the same vendor, so a link built from
     // one plugin's spelling and a link built from another's arrive at one page.
     this.vendorAliases = new Map()
-    for (const vendor of byKey.values()) {
+    for (const vendor of byIdentity.values()) {
       // The spelling most of their plugins use. Ties go to the longer one,
       // which is how "SFZ Tools" wins over "SFZTools" and "Oleg Kapitonov" over
       // "olegkapitonov" — the separators are information, and the form with
@@ -291,6 +321,14 @@ export class SearchService {
       // that resolves to no route. `pu:vendor/danja-ba40c9e0` therefore reaches
       // the same page as `/vendor/danja`.
       if (vendor.iri) this.vendorAliases.set(vendor.iri.split('/').pop(), vendor.slug)
+      // And the IRIs of vendors merged into this one, for the same reason with
+      // more force: those were published, they are in the CC0 dump, and somebody
+      // may have written one down. A merge that silently retired them would be
+      // this project's own identifiers going dark — the exact defect the minted
+      // IRI above is aliased to avoid.
+      for (const retired of identity?.retiredIris ?? []) {
+        this.vendorAliases.set(retired.split('/').pop(), vendor.slug)
+      }
     }
 
     // Stamped on the document so every link the site builds is the canonical

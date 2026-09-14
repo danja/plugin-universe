@@ -277,6 +277,15 @@ Nothing here needs server access. The profiler runs on this machine.
   after any ingest that adds plugins, or their makers have no identity and their
   vendor pages show no identifier. `--dry-run` says what it would write. Safe to
   repeat: the IRIs are content hashes, so re-deriving produces the same ones.
+
+  **It now also applies `data/curation/vendor-merges.json`** — the vendors who
+  are one maker under two names. That file is the only record of a judgement
+  nothing in the data implies, and it is reapplied on every run because this
+  graph is dropped and rewritten whole. It reaches the container by the
+  `data/curation` bind mount, not in the image, so if that mount is ever missing
+  the derivation would quietly undo the merges — it refuses instead, and says
+  so. Your own entry is in there: `danja` and `Danny Ayers` are now one vendor
+  with 86 plugins.
 * **Vocabulary change:** `node bin/ingest.js --vocabs-only`, then restart the
   app. The store holds its own copy of `vocabs/*.ttl`, and it is that copy that
   tells a plugin page what `pu:OpenTimeCold` means.

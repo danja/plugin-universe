@@ -22,6 +22,7 @@
 # it up without needing to know which graph it landed in.
 SELECT ?vendor ?key ?name
        (GROUP_CONCAT(DISTINCT ?altLabel; separator="|") AS ?altLabels)
+       (GROUP_CONCAT(DISTINCT ?retired; separator="|") AS ?retiredIris)
 WHERE {
   GRAPH ?g {
     ?vendor a pu:Vendor ;
@@ -29,6 +30,11 @@ WHERE {
             foaf:name ?name .
   }
   OPTIONAL { GRAPH ?ag { ?vendor skos:altLabel ?altLabel } }
+  # Vendors merged into this one. They are deliberately not typed `pu:Vendor` —
+  # typing them would bring them back as separate identities and undo the merge —
+  # so they are reachable only this way. Their IRIs were published and are in the
+  # dump, so the site has to keep answering for them.
+  OPTIONAL { GRAPH ?rg { ?retired owl:sameAs ?vendor } }
 }
 GROUP BY ?vendor ?key ?name
 ORDER BY ?key

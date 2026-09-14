@@ -3,7 +3,7 @@ import Config from '../../src/Config.js'
 import SPARQLClient from '../../src/store/SPARQLClient.js'
 import GraphRegistry from '../../src/store/GraphRegistry.js'
 import QueryService from '../../src/store/QueryService.js'
-import { vendorRecords } from '../../src/catalogue/VendorIdentity.js'
+import { vendorRecords, loadMerges } from '../../src/catalogue/VendorIdentity.js'
 import VectorIndex from '../../src/vectors/VectorIndex.js'
 import EmbeddingService from '../../src/embeddings/EmbeddingService.js'
 import SearchService from '../../src/search/SearchService.js'
@@ -94,8 +94,13 @@ describe('the vendor identity layer', () => {
     // same query the script uses and compared with what is stored.
     const queries = new QueryService()
     const rows = await client.select(queries.get('vendor/strings', {}))
-    const expected = new Set(
-      vendorRecords(rows.map(row => ({ iri: row.plugin, vendor: row.vendor }))).map(r => r.iri))
+    // Through the same merge file the script reads. Re-deriving without it
+    // would compare the store against a derivation nobody performed, and fail
+    // for a reason that is not a defect — which is exactly what happened when
+    // merges were added and this test still folded on the strings alone.
+    const merges = await loadMerges()
+    const expected = new Set(vendorRecords(
+      rows.map(row => ({ iri: row.plugin, vendor: row.vendor })), undefined, merges).map(r => r.iri))
     const stored = new Set((await client.select(
       `SELECT DISTINCT ?v WHERE { GRAPH <${GRAPH}> { ?v a <${pu}Vendor> } }`)).map(r => r.v))
     expect(stored.size).toBe(expected.size)
@@ -203,5 +208,84 @@ describe('the identity reaching the vendor page', () => {
     const [slug] = [...search.vendors.keys()]
     expect(search.vendor(slug)).toBeTruthy()
     expect(search.vendor(slug).spellings.length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * A merged-away vendor's IRI must keep answering.
+ *
+ * This is the assertion the merge feature exists around rather than a detail of
+ * it. `/vendor/dannyayers-20fd5796` was minted, published, dereferenced and
+ * shipped in the CC0 dump before the merge; somebody may have written it down.
+ * A merge that dropped it would be this project retiring one of its own
+ * identifiers — the defect CLAUDE.md names about published URLs and routes,
+ * committed deliberately rather than by omission.
+ *
+ * Skipped, not failed, when the corpus holds no merge: a catalogue with nobody
+ * to merge is the ordinary case.
+ */
+describe('a curated merge, in the store', () => {
+  let search
+  let pairs = []
+
+  beforeAll(async () => {
+    if (!derived) return
+    const config = await Config.load()
+    const index = await VectorIndex.open({
+      dimension: config.get('embedding.dimension'),
+      path: config.get('index.path'),
+      model: config.get('embedding.model')
+    })
+    search = new SearchService({
+      client, index, embeddings: EmbeddingService.fromConfig(config)
+    })
+    await search.loadDocuments()
+    pairs = await client.select(
+      `SELECT ?retired ?survivor WHERE { GRAPH <${GRAPH}> { ` +
+      `?retired <${NAMESPACES.owl}sameAs> ?survivor } }`)
+  }, 120000)
+
+  it('keeps every retired IRI resolving to the surviving vendor\'s page', () => {
+    if (pairs.length === 0) return
+    for (const { retired, survivor } of pairs) {
+      // The route resolves by the IRI's last segment, which is what a reader
+      // following the published identifier actually arrives with.
+      const record = search.vendor(retired.split('/').pop())
+      expect(record, `${retired} no longer reaches a page`).toBeTruthy()
+      expect(record.iri, `${retired} reaches the wrong vendor`).toBe(survivor)
+    }
+  })
+
+  it('does not leave the retired vendor as a second identity', () => {
+    if (pairs.length === 0) return
+    for (const { retired } of pairs) {
+      const loaded = [...search.vendorIdentities.values()].map(identity => identity.iri)
+      expect(loaded, `${retired} is still loaded as its own vendor`).not.toContain(retired)
+    }
+  })
+
+  it('shows the merged-away name on the surviving page', () => {
+    if (pairs.length === 0) return
+    for (const { survivor } of pairs) {
+      const record = [...search.vendors.values()].find(vendor => vendor.iri === survivor)
+      expect(record).toBeTruthy()
+      // A merge whose second name vanished would have lost the thing a reader
+      // searching for the other spelling needs.
+      expect(record.spellings.length).toBeGreaterThan(1)
+    }
+  })
+
+  it('gathers both names\' plugins onto one page', async () => {
+    if (pairs.length === 0) return
+    for (const { survivor } of pairs) {
+      const [{ n }] = await client.select(
+        `SELECT (COUNT(DISTINCT ?p) AS ?n) WHERE { GRAPH <${GRAPH}> { ` +
+        `?p <${foaf}maker> <${survivor}> } }`)
+      const record = [...search.vendors.values()].find(vendor => vendor.iri === survivor)
+      // The point of the merge: one page holding what were two vendors' plugins.
+      // If the site's fold ignored the merge it would show two smaller pages and
+      // this count would come up short.
+      expect(record.count, `${survivor} has ${n} plugins by foaf:maker`).toBe(Number(n))
+    }
   })
 })

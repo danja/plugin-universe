@@ -12,10 +12,10 @@ Anything needing server access, credentials, legal review or a decision that is
 Danja's is in [docs/danja-todo.md](docs/danja-todo.md) instead.
 
 **Where things are.** Measured 2026-09-13 from `/health`, the public endpoint and
-`npm test`, not from memory: **756 plugins, 756 indexed, 50 measured, 1208 core
-tests over 56 files.** Phases 0, 1, 3 and 5 are complete and deployed. Phase 2 is
-running and is missing the measurement it exists for. Phase 4 is built and has
-never taken money.
+the suites, not from memory: **756 plugins, 756 indexed, 376 vendors all minted,
+50 measured; 1229 core tests over 56 files and 261 store tests over 24.**
+Phases 0, 1, 3 and 5 are complete and deployed. Phase 2 is running and is missing
+the measurement it exists for. Phase 4 is built and has never taken money.
 
 ---
 
@@ -24,50 +24,39 @@ never taken money.
 Small, unblocked, and each closes something that is already wrong. None is more
 than an hour.
 
-* **A curated merge file, now that a merge would show.** *2026-09-13: the
-  identity layer is wired into the vendor pages* — `sparql/queries/vendor/identities.sparql`
-  loads `foaf:name`, `pu:vendorKey` and `skos:altLabel`, and `vendorNames()` in
-  `src/catalogue/VendorIdentity.js` makes the graph the authority for a vendor's
-  names, unioned with the corpus fold so a plugin accepted since the last
-  derivation does not lose its spelling. The spellings, the `iri` and the
-  `altLabels` are on the page and in `/vendor/<slug>.json`.
+* **Deploy the vendor merge, and decide who else is one maker.** *2026-09-13:
+  built.* `data/curation/vendor-merges.json` is read by `bin/mint-vendors.js`,
+  and locally `danja` + `Danny Ayers` are now one vendor with **86 plugins**
+  (50 + 36) at one page. Needs the same two commands on the server as before:
+  `mint-vendors`, restart, `publish`.
 
-  **What that unblocks** is the one open defect from the original four: "danja"
-  (50 plugins) and "Danny Ayers" (36) are one person, nothing derivable from the
-  strings will ever say so, and until now there was nowhere to put the answer
-  where anything would read it. Now an `skos:altLabel` on the minted resource
-  shows up on the page — verified by asserting one by hand against the local
-  store and watching it appear, then removing it.
+  What it does, and why each part is there:
 
-  So the remaining work is the mechanism: **a curated merge file read by
-  `bin/mint-vendors.js`**, the way the GitHub sweep reads its reviewed-candidates
-  file. It needs to survive a re-derivation, which is the whole reason it is a
-  file rather than a one-off UPDATE — `mint-vendors` drops and rewrites the graph
-  whole, so anything asserted by hand is lost on the next run. That is worth
-  knowing before somebody merges thirty vendors by hand.
+  - **A merged-away IRI keeps answering.** `/vendor/dannyayers-20fd5796` was
+    minted, published and shipped in the CC0 dump. The merge writes
+    `<retired> owl:sameAs <survivor>` and the site aliases it, so all four of
+    `/vendor/danja`, `/vendor/danny-ayers`, `/vendor/danja-ba40c9e0` and
+    `/vendor/dannyayers-20fd5796` reach one page. The retired node is
+    deliberately **not** typed `pu:Vendor`: typing it would load it as a second
+    identity and undo the merge.
+  - **The merge file is read in exactly one place.** `mint-vendors` writes one
+    `foaf:maker` per plugin, so the site regroups from the graph rather than
+    reading the file a second time. A second reader would be a second list.
+  - **A misspelled key is refused**, because the run reports the same vendor
+    count either way and a typo would otherwise be invisible. So are two
+    survivors claiming one key, a key merged into itself, and a display-name
+    override naming a spelling no source wrote.
+  - **A missing file cannot silently un-merge.** `data/curation` reaches the
+    container by bind mount and is excluded from the image, so a run without it
+    would rewrite the graph unmerged and report success. It refuses when the
+    store holds merges and no file is found; an explicit `"merges": []` is
+    obeyed.
 
-  Also still open: `pu:claimsVendor` holds the folded key rather than the vendor
-  IRI. The two join on the fold, so nothing is broken, and moving it means
-  migrating claims — of which there are still none. Cheapest it will ever be.
-
-* **`docs/index.md` states the project is at Phase 1.** "Phase 0 is complete and
-  Phase 1 is nearly so — 645 plugins from three sources." Three phases and 111
-  plugins out of date, on the document whose job is orientation. It also needs
-  [plan-done.md](docs/plan-done.md) adding, and its worklog list is three entries
-  ending 2026-09-10.
-
-* **README says 754 plugins; there are 756.** Two accepted submissions of drift.
-  Every number in it was re-measured when it was rewritten and two were wrong on
-  the first pass, so the number is not the lesson — the lesson is that a
-  hand-copied count drifts the moment the catalogue does. Either state it as a
-  rounded floor ("750+"), or bind it with a live check as above.
-
-* **A misplaced JSDoc in `src/search/SearchService.js`.** The uncommitted
-  `unindexed()` was inserted between `measured()`'s doc comment and `measured()`,
-  so the comment now describes the wrong function and `measured()` has none.
-  Harmless to run and exactly the class CLAUDE.md names: **nothing in this
-  project parses a comment**, so no test, no `node --check` and no startup render
-  will ever report it.
+  **Still open:** `pu:claimsVendor` holds the folded key rather than the vendor
+  IRI, so a claim on a key that later gets merged away would break. There are
+  still no claims, so this is free today and stops being free with the first
+  paying vendor — which makes it the thing to do before selling a profile, not
+  after.
 
 * **The front page can claim recency again.** When the claim was removed, every
   plugin shared one `dcterms:created`, so `byRecency` fell through to `byName`
