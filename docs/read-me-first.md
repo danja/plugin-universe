@@ -18,7 +18,7 @@ Right now it is only possible to sign in via [GitHub](https://github.com). This 
 
 [Elsewhere](https://danja.github.io/transmission/) when trying to automically create plugin pipelines I ran into the requirement for having machine-readable plugin descriptions, this led to [Plugin Profiles](https://plugin-universe.com/about/profiles). This is also a way that vendors can extend the reach of their plugins - create and host profiles (and submit them here).
 
-I am currently working on tools to profile plugins' behaviour as well, by running them and taking measurements.
+I am currently working on tools to profile plugins' behaviour as well, by running them and taking measurements, to enrich the plugins.
 
 *Speaking of riches*, the intention here is not to make money but to provide a service that 
 until now was lacking. The plan is to allow plugin vendors to promote their products (push them up the search results) for a
