@@ -159,19 +159,43 @@ describe('one search, one URL', () => {
 describe('the submit form', () => {
   const render = extra => renderSubmitPage(FIELDS, { csrfToken: 'tok', ...extra })
 
-  it('has an input for every submittable field, and no others', () => {
-    const html = render({})
-    for (const name of Object.keys(SUBMITTABLE)) {
-      expect(html, `no input for ${name}`).toContain(`name="${name}"`)
+  it('has a control for every submittable field, and no others', () => {
+    // Rendered as an uploader sees it, because one field is drawn only for
+    // somebody allowed to upload — a picture is public the moment it is served,
+    // so the choice is to trust the uploader or not.
+    const html = render({ mayUpload: true })
+    // The picture is chosen, not typed: its control is a file input called
+    // `image`, and `depiction` carries the address of what was stored once
+    // there is one. So it is named here rather than scanned for.
+    const typed = Object.entries(SUBMITTABLE).filter(([, spec]) => !spec.upload).map(([name]) => name)
+    for (const name of typed) {
+      expect(html, `no control for ${name}`).toContain(`name="${name}"`)
     }
+    expect(html, 'no file input for the picture').toMatch(/<input[^>]*type="file"[^>]*name="image"/)
+
     // `<select>` as well as `<input>`: category became a dropdown on
     // 2026-09-14 and this scan, looking only for inputs, reported it missing —
     // which is the guard working. A control this cannot see is a field it would
-    // quietly stop checking, so both element names are matched here and a third
+    // quietly stop checking, so every element name is matched here and a new
     // way of drawing a field means teaching this in the same change.
-    const controls = [...html.matchAll(/<(?:input|select)[^>]*name="([a-zA-Z]+)"/g)].map(m => m[1])
-      .filter(name => name !== 'csrf')
-    expect(new Set(controls)).toEqual(new Set(Object.keys(SUBMITTABLE)))
+    const controls = [...html.matchAll(/<(?:input|select|textarea)[^>]*name="([a-zA-Z]+)"/g)]
+      .map(m => m[1]).filter(name => name !== 'csrf' && name !== 'image')
+    expect(new Set(controls)).toEqual(new Set(typed))
+  })
+
+  it('offers no picture control to somebody not trusted to upload', () => {
+    const html = render({ mayUpload: false })
+    expect(html).not.toMatch(/type="file"/)
+    expect(html, 'a submission without a picture is complete').toContain('Submit plugin')
+  })
+
+  it('is multipart, or the picture never arrives', () => {
+    // The form gained a file input, and a form-encoded POST drops files
+    // silently — the submission would succeed with no picture and nothing said.
+    const html = render({ mayUpload: true })
+    const start = html.indexOf('<form method="post" action="/submit" class="submit-form"')
+    expect(start).toBeGreaterThan(-1)
+    expect(html.slice(start, html.indexOf('>', start))).toContain('enctype="multipart/form-data"')
   })
 
   it('draws category and licence as dropdowns, each with its own blank option', () => {
@@ -202,7 +226,7 @@ describe('the submit form', () => {
     // and this one. Matching the first found the paste panel and sliced to its
     // </form>, which is the guard working — a slice that depends on rendering
     // order is one that goes wrong when something is added above it.
-    const marker = '<form method="post" action="/submit" class="submit-form">'
+    const marker = '<form method="post" action="/submit" class="submit-form"'
     const start = html.indexOf(marker)
     // Asserted, because indexOf returning -1 would make slice(-1) the last
     // character of the document and every toContain below fail for the wrong

@@ -27,6 +27,24 @@ import { FeedbackError } from './Feedback.js'
  * `(context) => boolean`, true meaning the request was answered here.
  */
 
+/**
+ * How many form fields the submission form can possibly send.
+ *
+ * Counted from the field table rather than guessed, because a checkbox group
+ * sends one field per ticked box: nine formats, eleven roles, ten signal types
+ * twice over. `readMultipart` allows twenty by default, which a thoroughly
+ * filled-in profile passes without trying — and busboy's answer to too many
+ * fields is to stop, so the submission would have been refused with a message
+ * about form size and nothing to connect it to the roles they ticked.
+ *
+ * The allowance covers the csrf token, the pressed button, and the file.
+ */
+export function countableFields (submittable) {
+  const fields = Object.values(submittable)
+    .reduce((total, spec) => total + (spec.multiple ? (spec.choices?.length ?? 1) : 1), 0)
+  return fields + 8
+}
+
 /** A profile's filename, from the plugin's name. Never empty, never a path. */
 function profileFilename (name) {
   const slug = String(name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
@@ -97,7 +115,7 @@ async function profilePasteRoute ({ request, response, viewer, auth, search, sub
  * Submitting a plugin, and — for a moderator — drafting one from a URL.
  */
 async function submitRoute ({
-  request, response, viewer, auth, search, submissions, submittable, pageReader
+  request, response, viewer, auth, search, submissions, submittable, pageReader, images
 }) {
   if (!submissions) {
     send(response, 404, { error: 'Submissions are not enabled on this instance' })
@@ -117,6 +135,11 @@ async function submitRoute ({
   // rule 8 — the request has to stay attributable to a named person, or it is
   // an open proxy.
   const mayRead = account.trustLevel === TRUST.MODERATOR
+  // A picture is public the moment it is served and cannot be un-seen, so there
+  // is no useful queued state for one: the choice is to trust the uploader or
+  // not. The same rule, and the same two places, as the plugin page's upload.
+  const mayUpload = Boolean(images) &&
+    (account.trustLevel === TRUST.TRUSTED || account.trustLevel === TRUST.MODERATOR)
   const render = extra => sendText(response, extra.status ?? 200,
     renderSubmitPage(submittable, {
       csrfToken: auth.session.csrfToken(account.iri),
@@ -124,6 +147,7 @@ async function submitRoute ({
       facetValues,
       corpus: search.documents.size,
       mayRead,
+      mayUpload,
       ...extra
     }), HTML)
 
@@ -132,14 +156,35 @@ async function submitRoute ({
     return true
   }
 
+  // Two content types reach this one route, and which one says what was sent.
+  //
+  // The main form carries a picture, so it is `multipart/form-data`. The two
+  // small forms that post here — the profile paste and the moderator's URL box
+  // — carry text and stay form-encoded, which is cheaper and is all they need.
+  // Both readers return the same `Form`, and only the multipart one has
+  // `.files`, so nothing below this has to care which arrived.
+  const multipart = String(request.headers['content-type'] ?? '')
+    .startsWith('multipart/form-data')
   let form
   try {
-    // Larger than the 16 KB default, because one field on this form is a whole
-    // profile document. The bound is `maxProfileLength` plus room for the rest
-    // of the form, so somebody who pastes something too long meets the message
-    // that names profiles rather than a body cap that says nothing about them.
-    form = await readForm(request, { limit: CONTRIBUTION_CONFIG.maxProfileLength + MAX_BODY_BYTES })
+    form = multipart
+      // Per *file*, not per request: busboy caps fields separately. Fields are
+      // counted rather than guessed — every checkbox is one, and the profile
+      // fields alone offer more than the twenty `readMultipart` allows by
+      // default, so a plugin with many roles ticked would have been refused
+      // with "that form has too many fields" and nothing to explain it.
+      ? await readMultipart(request, {
+        maxBytes: IMAGE_CONFIG.maxBytes,
+        maxFields: countableFields(submittable)
+      })
+      // Larger than the 16 KB default, because one field on this form is a
+      // whole profile document. The bound is `maxProfileLength` plus room for
+      // the rest of the form, so somebody who pastes something too long meets
+      // the message that names profiles rather than a body cap that says
+      // nothing about them.
+      : await readForm(request, { limit: CONTRIBUTION_CONFIG.maxProfileLength + MAX_BODY_BYTES })
   } catch (error) {
+    if (!(error instanceof BodyError)) throw error
     send(response, error.status ?? 400, { error: error.message })
     return true
   }
@@ -153,6 +198,34 @@ async function submitRoute ({
   // once.
   const values = Object.fromEntries(Object.entries(SUBMITTABLE).map(([name, spec]) =>
     [name, spec.multiple ? form.getAll(name) : (form.get(name) ?? '')]))
+
+  // A picture, if one was chosen.
+  //
+  // Stored before anything else happens, so that whatever the person pressed
+  // next — Submit, Download, or a refusal that hands the form back — the
+  // picture is attached and does not have to be chosen again. It is
+  // content-addressed, so choosing the same file twice costs nothing.
+  //
+  // The gate is the same one the plugin page's upload applies, and it is
+  // checked here as well as in the renderer: the field not being drawn is a
+  // decision about a page, and only this is a control.
+  const uploaded = form.files?.get('image')
+  if (uploaded && uploaded.bytes > 0) {
+    if (!mayUpload) {
+      send(response, 403, {
+        error: 'Pictures can be added by trusted contributors. Accepted contributions earn that.'
+      })
+      return true
+    }
+    try {
+      const stored = await images.store(uploaded.buffer)
+      values.depiction = stored.url
+    } catch (error) {
+      if (!(error instanceof ImageError)) throw error
+      render({ error: error.message, values, status: 400 })
+      return true
+    }
+  }
 
   // "Download the profile" — what has been typed, as a file to host.
   //

@@ -14,6 +14,8 @@ to the producer and developers communities to enrich the material.
 
 Anyone signed in can add plugins and suggest corrections to existing entries.
 
+Right now it is only possible to sign in via [GitHub](https://github.com). This will probably change later, but for now it is a feature, slightly favouring open source developers.
+
 [Elsewhere](https://danja.github.io/transmission/) when trying to automically create plugin pipelines I ran into the requirement for having machine-readable plugin descriptions, this led to [Plugin Profiles](https://plugin-universe.com/about/profiles). This is also a way that vendors can extend the reach of their plugins - create and host profiles (and submit them here).
 
 I am currently working on tools to profile plugins' behaviour as well, by running them and taking measurements.

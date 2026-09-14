@@ -7,41 +7,7 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 
 ## One-off
 
-- [ ] **Check a backup carries the images**, once there are any.
-  `node bin/backup.js --scope essential` should report "N image(s)". They ride
-  in `essential` and `full`, not in `measurements`. Nothing has been uploaded
-  yet, so this is untested against real files.
 
-- [ ] **Decide what uploading a picture means, in the contributor terms.** §2 covers facts
-  (CC0) and authored prose (CC BY-SA). An image is neither — a screenshot of a plugin is
-  usually the *plugin author's* copyright, not the uploader's. Nothing wrong is being claimed:
-  the caption under a hosted picture says it is its author's and not the catalogue's. But the
-  terms should say what the upload form means before there are many pictures, and that is a
-  legal call rather than a coding one. It pairs with the review trigger in §4 below.
-
-- [ ] **Try promoting a plugin**, and tell me if the ranking feels wrong. Sign in as a
-  moderator, open `/admin`, and the promotion panel is below the moderation queue — paste a
-  plugin slug and press *Promote for a year*. Search for something that plugin genuinely
-  matches and it should come first with a **Promoted** label; search for something it does not
-  match and it should not appear at all.
-
-  A placement can take first place, per your call — `maxPromotedRank: 1`. It is *permitted*
-  first place rather than given it: the boost is a 1.25× multiplier, so a much better match
-  still wins. If a vendor ever complains that they paid and are second, that is why, and
-  `boostFactor` is the number that would change.
-
-- [x] **purl.org was down on 2026-09-12 — and is back.** Confirmed 2026-09-13: the live test
-  that follows the PURL chain passes, so a plugin IRI dereferences again. Nothing was ever
-  broken here; the outage was theirs. **Left on this list, unticked in spirit, for the
-  paragraph below** — the dates are the point.
-
-  **If it happens repeatedly, there is a decision behind it.** The minting base was chosen so
-  IRIs survive a change of serving domain, and that reasoning is sound — but it makes a third
-  party's uptime load-bearing for the catalogue's identifiers. `w3id.org` is the usual
-  alternative and is configured through a public GitHub repository rather than a web form,
-  which makes it easier to fix when it breaks. Moving would mean either re-minting every IRI or
-  carrying `owl:sameAs` for ever, so it is not worth doing over one outage — only over a
-  pattern. Worth noting the dates if you see it again.
 
 - [ ] **A security review and pentest of the whole system**, including the rest of the server —
   your idea from the inbox, and the right time is before the announcement rather than after the
@@ -102,18 +68,6 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   now entitles nothing. `/admin` counts claims it cannot resolve and says so in the Vendor claims
   panel — if that warning appears, withdraw the claim and confirm it again in the same panel.
   Nothing else changes: you type the vendor's name or slug exactly as before.
-
-- [x] **Vendor identity on the server — done, 2026-09-13.** `bin/mint-vendors.js` had never run
-  there; you ran it and published. Verified: **376 `pu:Vendor` and 756 `foaf:maker` on the
-  public endpoint**, and `/vendor/danja-ba40c9e0` resolves where it answered 404. All 60 live
-  tests pass.
-
-  Worth knowing, because it cost you an extra round trip: I first told you this was an
-  unpublished graph and that publishing would fix it. It was not, and it did not — publish moved
-  the plugins and left the vendors at zero, which is what showed the diagnosis was wrong. I had
-  confirmed the graph was registered and dump-eligible by querying *my* store, and treated that
-  as evidence about *yours*. It is in MISTAKES.md. The check that caught it stays in the live
-  suite, so this particular thing cannot go quiet again.
 
 - [ ] **Before any real money: talk to a commercialista about a partita IVA.** You are in Italy
   with a codice fiscale and no VAT registration. A codice fiscale is a personal tax identifier

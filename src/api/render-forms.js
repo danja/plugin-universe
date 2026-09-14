@@ -124,7 +124,8 @@ export function renderProfilePastePage ({
 
 export function renderSubmitPage (submittable, {
   csrfToken, error = null, submitted = null, values = {}, viewer = {},
-  facetValues = {}, corpus = 0, mayRead = false, draft = null, pageUrl = ''
+  facetValues = {}, corpus = 0, mayRead = false, mayUpload = false,
+  draft = null, pageUrl = ''
 }) {
   /** One field: a row of checkboxes where it takes several values, a box where it does not. */
   const field = ([name, spec]) => {
@@ -144,6 +145,31 @@ export function renderSubmitPage (submittable, {
           value,
           checked: chosen.has(value) ? ' checked' : ''
         }))
+      })
+    }
+    // A picture: an upload, not a URL box.
+    //
+    // Drawn only for somebody allowed to upload, which is a trusted contributor
+    // or a moderator — the same rule the plugin page's own upload applies, for
+    // the same reason. A picture is public the moment it is served and cannot
+    // be un-seen, so there is no useful queued state: the choice is to trust
+    // the uploader or not, and this site already measures that.
+    //
+    // When the field is not drawn it is simply absent, and a submission without
+    // one is complete. That is why it is optional.
+    if (spec.upload) {
+      if (!mayUpload) return ''
+      return templates.render('submit-image', {
+        label: spec.label,
+        help: spec.help,
+        required: spec.required ? '' : ' (optional)',
+        maxKb: String(Math.round(IMAGE_CONFIG.maxBytes / 1024)),
+        // What is already attached, carried in a hidden field so that an error
+        // elsewhere on the form does not throw the picture away and ask for it
+        // again — the same reason every other value is handed back.
+        attached: templates.when(Boolean(values[name]), 'submit-image-attached', {
+          url: values[name] ?? ''
+        })
       })
     }
     // One value chosen from a closed list: a select, not a text box.

@@ -124,6 +124,20 @@ export const SUBMITTABLE = Object.freeze({
     vocabulary: 'categories', choices: null,
     help: 'Which kind of plugin it is. Pick the closest — a moderator can refine it.'
   },
+  depiction: {
+    predicate: `${foaf}depiction`, label: 'Picture', kind: 'url', required: false,
+    // Uploaded, never typed. `Corrections` marks this predicate `viaForm: false`
+    // for the same reason: a URL box would invite a link to somebody else's
+    // server, and a hotlinked screenshot is a picture that can vanish, change,
+    // or refuse to load for half the readers. The catalogue stores what it
+    // shows, content-addressed and same-origin.
+    //
+    // So the form draws an upload rather than an input, and this field carries
+    // the address of what was stored. `sh:nodeKind sh:IRI` and `sh:maxCount 1`
+    // in vocabs/shapes.ttl are what actually hold the line.
+    upload: true,
+    help: 'A screenshot or the plugin\'s own artwork. Stored here rather than linked, so it keeps working.'
+  },
   licenceId: {
     // `licence`, not `text`: the value is normalised through the same function
     // the harvesters use, so a submission cannot introduce a spelling the

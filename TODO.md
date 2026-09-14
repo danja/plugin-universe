@@ -205,7 +205,11 @@ needs new foundations.
   hand-written downspout profiles that cannot be supplied through the site.
 
 * **Uploads have no size story beyond the per-file cap.** 2 MB each, no
-  per-account quota and no total. Content-addressing means duplicates cost
+  per-account quota and no total. **Sharper since 2026-09-14**, when `/submit`
+  gained an upload: a picture is stored as soon as it is chosen, so a submission
+  that is abandoned leaves the image behind. Content-addressing means a repeat
+  costs nothing and only trusted accounts can upload at all, so this is a slow
+  leak rather than a hole — but it is now reachable without completing anything. Content-addressing means duplicates cost
   nothing, but nothing stops one trusted account filling the disk.
 
 * **The Resources page is curated prose, and the next step is the store.**
@@ -281,6 +285,13 @@ stated in [docs/backups.md](docs/backups.md):
 
 ## 6. Smaller things, not blocking
 
+* **`src/api/render-forms.js` is 606 lines and `src/contrib/routes.js` 592**, both past the
+  point CLAUDE.md says to look. The seam in each is the same one: **the submission flow**.
+  `renderSubmitPage` plus `renderProfilePastePage` and the field renderer are one subject;
+  `submitRoute` plus `profilePasteRoute` and the upload handling are its other half. A
+  `src/api/render-submit.js` and a `src/contrib/submit-routes.js`, with the old modules
+  re-exporting as `render.js` already does, would leave every caller alone. Worth doing before
+  the next thing lands in either.
 * **`SearchService.js` is 651 lines and past the point CLAUDE.md says to look.** It was 545
   after the last split; `unindexed()` and the vendor identity loading took it over. **The seam
   is the vendor fold** — `vendorIdentities`, the grouping in `loadDocuments`, `vendor()`,
@@ -333,6 +344,13 @@ under [docs/entries/](docs/entries/) and what went wrong is in
 
 In one line each, most recent first:
 
+* **2026-09-14** — **A picture with the submission.** `/submit` takes an upload before the
+  Submit button, the same trusted-contributors-only rule the plugin page's upload applies, for
+  the same reason: a picture is public the moment it is served, so there is no useful queued
+  state. `foaf:depiction` became a `SUBMITTABLE` field — uploaded rather than typed, so no URL
+  box invites a hotlink — and the form became multipart, which needed the field allowance
+  counted from the field table: a fully ticked form sends 44 fields against the default cap of
+  20, and busboy's answer to too many is to stop.
 * **2026-09-14** — **Self-hosted plugin profiles.** `/submit` has a *Download profile* button
   beside Submit, producing a `profile.ttl` an author hosts beside their own plugin.
   **`/submit/profile`** is the page for one they have already written — Turtle or JSON-LD,

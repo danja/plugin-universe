@@ -56,7 +56,9 @@ describe('who is offered the URL box', () => {
   it('leaves the ordinary form exactly as it was', () => {
     // Everyone else's experience of /submit must not change.
     const before = page({ mayRead: false })
-    for (const spec of Object.values(SUBMITTABLE)) {
+    for (const [, spec] of Object.entries(SUBMITTABLE)) {
+      // Except the picture, which is drawn only for somebody trusted to upload.
+      if (spec.upload) continue
       expect(before).toContain(spec.label)
     }
     expect(before).toContain('Submit plugin')

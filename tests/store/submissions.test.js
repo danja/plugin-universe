@@ -214,3 +214,50 @@ describe('who may do what', () => {
     }
   })
 })
+
+/**
+ * A picture submitted with the plugin.
+ *
+ * `/submit` gained an upload on 2026-09-14, so a submission can now carry
+ * `foaf:depiction`. This asserts the half that has been broken before in
+ * exactly this feature: the plugin page's upload once had 22 passing tests
+ * covering bytes, types, refusals and rendering, and **none covering the
+ * write** — which is the half that was broken, for as long as the route
+ * existed. Storing the file is not the feature; writing the fact is.
+ */
+describe('a submitted picture', () => {
+  const PICTURE = 'https://plugin-universe.com/image/0123456789abcdef.png'
+  let proposed
+
+  beforeAll(async () => {
+    proposed = await submissions.submit({
+      account: contributor,
+      fields: {
+        name: 'Pictured',
+        homepage: 'https://example.org/pictured/',
+        vendor: 'Acme',
+        format: ['LV2'],
+        depiction: PICTURE
+      }
+    }, tick())
+  })
+
+  it('is written as an IRI, not a string, when the submission is accepted', async () => {
+    await submissions.review({
+      submissionIri: proposed.iri, moderator, accept: true, accounts
+    }, tick())
+    const written = await anywhere(proposed.plugin)
+    const depiction = written.find(row => row.p === `${NAMESPACES.foaf}depiction`)
+    expect(depiction, 'the picture reached no graph — the fact was never written').toBeTruthy()
+    expect(depiction.o).toBe(PICTURE)
+  })
+
+  it('satisfies the shapes, which require exactly one and require an IRI', async () => {
+    // `sh:nodeKind sh:IRI` and `sh:maxCount 1` on foaf:depiction. A submission
+    // that failed these would be refused at the write, after the person had
+    // filled the form in.
+    const written = await anywhere(proposed.plugin)
+    const depictions = written.filter(row => row.p === `${NAMESPACES.foaf}depiction`)
+    expect(depictions).toHaveLength(1)
+  })
+})
