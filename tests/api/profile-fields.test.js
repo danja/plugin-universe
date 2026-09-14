@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
-import { SUBMITTABLE, withProfileVocabulary, validate, valueTerm, profileLabels, SubmissionError } from '../../src/contrib/Submissions.js'
+import CategoryScheme from '../../src/rdf/CategoryScheme.js'
+import { SELECTABLE_LICENCES, LICENCE_IDS, NOASSERTION } from '../../src/harvest/Licensing.js'
+import { SUBMITTABLE, withProfileVocabulary, validate, valueTerm, profileLabels, SubmissionError, loadSubmittable} from '../../src/contrib/Submissions.js'
 import { FIELD_KINDS } from '../../src/contrib/Corrections.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 import { renderSubmitPage, renderPluginPage } from '../../src/api/render.js'
@@ -23,7 +25,10 @@ import { PAGES } from '../../src/api/pages.js'
  */
 
 const vocabulary = await loadProfileVocabulary()
-const FIELDS = withProfileVocabulary(vocabulary)
+// The whole field table, every vocabulary filled — the same one the server
+// builds. `vocabulary` above is kept for the tests that are about the profile
+// vocabulary itself rather than about the form.
+const FIELDS = await loadSubmittable()
 const GOOD = { name: 'X', homepage: 'https://example.org/', vendor: 'V', format: ['LV2'] }
 
 describe('the vocabulary is read, not copied', () => {
@@ -62,8 +67,32 @@ describe('the vocabulary is read, not copied', () => {
 describe('the form offers exactly what the vocabulary defines', () => {
   it('fills every profile field from its named list', () => {
     for (const [name, spec] of Object.entries(FIELDS)) {
-      if (!spec.vocabulary) continue
+      if (!spec.vocabulary || !vocabulary[spec.vocabulary]) continue
       expect(spec.choices, name).toEqual(vocabulary[spec.vocabulary].map(t => t.value))
+    }
+  })
+
+  it('fills the category field from the scheme, not from JavaScript', async () => {
+    // The same rule one vocabulary further out. Category was a free-text box
+    // until 2026-09-14, checked only against `^[a-z0-9-]+$` — so "revrb" was
+    // accepted and minted `pu:category/revrb`, a concept the scheme does not
+    // define and which a store test then reports as undescribed.
+    const scheme = await CategoryScheme.load()
+    expect(FIELDS.category.choices).toEqual(
+      [...scheme.concepts.values()]
+        .map(concept => ({ value: concept.slug, label: concept.prefLabel }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .map(concept => concept.value))
+    expect(FIELDS.category.choices.length).toBeGreaterThan(20)
+  })
+
+  it('leaves category out of the trn: term labels', () => {
+    // `profileLabels` is keyed by bare local name and read when rendering a
+    // `trn:` term. A category slug in it would be a second namespace sharing
+    // one lookup.
+    const labels = profileLabels(FIELDS)
+    for (const slug of FIELDS.category.choices) {
+      expect(labels.has(slug), `${slug} is a category, not a trn: term`).toBe(false)
     }
   })
 
@@ -228,5 +257,63 @@ describe('a term is spelled the same way on the form and on the page', () => {
       formats: [], categories: [], tags: [], parameters: [], sameAs: [], cautions: null
     }, {}, null, null, '', { labels })
     expect(page).toContain('>NotInTheVocabulary</a>')
+  })
+})
+
+/**
+ * The two fields that became dropdowns on 2026-09-14.
+ *
+ * Both were free text checked loosely, and both are enumerated somewhere the
+ * form did not consult: `pu:category` against `vocabs/categories.ttl`, and
+ * `pu:licenceId` against `sh:in` in `vocabs/shapes.ttl`. A typed value that is
+ * not on the list fails *after* somebody has filled the form in, and the
+ * licence enumeration exists precisely because 23 spellings had become 19
+ * licences — the one path a person controls was the one that could still split
+ * a facet.
+ */
+describe('the fields a person chooses from a list', () => {
+  it('offers licences from the identifiers, not a second list', () => {
+    expect(FIELDS.licenceId.choices).toEqual(SELECTABLE_LICENCES)
+    for (const id of FIELDS.licenceId.choices) {
+      expect(LICENCE_IDS.has(id), `${id} is offered and is not a known identifier`).toBe(true)
+    }
+  })
+
+  it('offers every known licence except NOASSERTION', () => {
+    // The one exclusion, and it is about forms rather than licences: it means
+    // "a licence exists and we could not determine which", which is what a
+    // harvester concludes. A person who does not know leaves it blank, and the
+    // field is optional so they can.
+    const offered = new Set(FIELDS.licenceId.choices)
+    for (const id of LICENCE_IDS) {
+      if (id === NOASSERTION) continue
+      expect(offered.has(id), `${id} is a known licence and is not offered`).toBe(true)
+    }
+    expect(offered.has(NOASSERTION)).toBe(false)
+  })
+
+  it('accepts every offered licence through the validator it will meet', () => {
+    // The assertion that binds the form to the write path. Offering a value the
+    // validator then refuses would be a form that fails on its own options.
+    for (const id of FIELDS.licenceId.choices) {
+      expect(() => validate({ ...GOOD, licenceId: id }, FIELDS), id).not.toThrow()
+    }
+  })
+
+  it('accepts every offered category through the same validator', () => {
+    for (const slug of FIELDS.category.choices) {
+      expect(() => validate({ ...GOOD, category: slug }, FIELDS), slug).not.toThrow()
+    }
+  })
+
+  it('refuses a category that is merely shaped like one', () => {
+    // What the free-text box accepted: lowercase and hyphens, so "revrb" passed
+    // and minted a concept the scheme does not define.
+    expect(() => validate({ ...GOOD, category: 'revrb' }, FIELDS))
+      .toThrow(/not a category this catalogue has/)
+  })
+
+  it('refuses a licence that is merely shaped like one', () => {
+    expect(() => validate({ ...GOOD, licenceId: 'GPL-4.0' }, FIELDS)).toThrow(/not a licence/)
   })
 })

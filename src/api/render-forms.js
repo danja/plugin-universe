@@ -94,6 +94,41 @@ export function renderSubmitPage (submittable, {
         }))
       })
     }
+    // One value chosen from a closed list: a select, not a text box.
+    //
+    // Category was typed until 2026-09-14, checked only against
+    // `^[a-z0-9-]+$`, so "revrb" was accepted and minted a concept the scheme
+    // does not define — reported as undescribed by a store test long after the
+    // person who could have fixed it had gone. A list the vocabulary supplies
+    // cannot be misspelled, and it also *shows* somebody what the catalogue
+    // has, which a free-text box never did.
+    if (spec.choices) {
+      if (!spec.choices.length) {
+        throw new Error(`${name} is chosen from a list and declares no choices to offer.`)
+      }
+      const label = new Map((spec.labels ?? []).map(term => [term.value, term.label]))
+      return templates.render('submit-select', {
+        name,
+        label: spec.label,
+        help: spec.help,
+        // An optional field needs a way to choose nothing, and it has to be the
+        // default — otherwise the first option silently becomes the answer for
+        // everybody who does not look.
+        //
+        // Named from the field rather than written out: this said "No category"
+        // for every select, so the licence dropdown offered "No category" as
+        // its blank option. Nothing would have caught that — it is page text,
+        // and the test suite is not a proofreader.
+        blank: spec.required ? 'Choose one' : `No ${spec.label.toLowerCase()}`,
+        required: spec.required ? '' : ' (optional)',
+        requiredAttr: spec.required ? ' required' : '',
+        options: templates.each('submit-option', spec.choices, value => ({
+          value,
+          label: label.get(value) ?? value,
+          selected: values[name] === value ? ' selected' : ''
+        }))
+      })
+    }
     return templates.render('submit-field', {
       name,
       label: spec.label,
@@ -334,7 +369,14 @@ export function renderAdminPage (pending, {
         csrf: csrfToken,
         summary: claims.count === 0
           ? 'No accounts have a confirmed vendor.'
-          : `${claims.count} account${claims.count === 1 ? '' : 's'} with a confirmed vendor.`
+          : `${claims.count} account${claims.count === 1 ? '' : 's'} with a confirmed vendor.`,
+        // Said plainly and only when true. An unresolvable claim entitles
+        // nothing and says nothing, so the one place it can surface is here.
+        warning: templates.when(Boolean(claims.unresolved), 'claim-warning', {
+          count: String(claims.unresolved ?? 0),
+          plural: claims.unresolved === 1 ? '' : 's',
+          verb: claims.unresolved === 1 ? 'names a vendor' : 'name vendors'
+        })
       })
       : ''
   })

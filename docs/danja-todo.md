@@ -91,6 +91,18 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   should show a visible ring in both light and dark. If anything traps focus or hides it, that
   is worth knowing before the traffic arrives rather than after.
 
+- [ ] **Re-confirm any vendor claim after the next deploy.** *2026-09-14:* a claim now names
+  the vendor's minted IRI rather than their folded name. It had to, before anyone pays: the fold
+  comes from the spelling, so merging "Danny Ayers" into "danja" changed which key those plugins
+  folded to and the Pro entitlement stopped matching them — a subscriber refused on their own 36
+  plugins, silently, because a check that does not match has nothing to report.
+
+  **Nothing migrates automatically**, because the accounts graph is not published and I cannot
+  see from here whether any claim exists on the server. If one does, it holds the old value and
+  now entitles nothing. `/admin` counts claims it cannot resolve and says so in the Vendor claims
+  panel — if that warning appears, withdraw the claim and confirm it again in the same panel.
+  Nothing else changes: you type the vendor's name or slug exactly as before.
+
 - [x] **Vendor identity on the server — done, 2026-09-13.** `bin/mint-vendors.js` had never run
   there; you ran it and published. Verified: **376 `pu:Vendor` and 756 `foaf:maker` on the
   public endpoint**, and `/vendor/danja-ba40c9e0` resolves where it answered 404. All 60 live
@@ -288,7 +300,9 @@ Nothing here needs server access. The profiler runs on this machine.
   with 86 plugins.
 * **Vocabulary change:** `node bin/ingest.js --vocabs-only`, then restart the
   app. The store holds its own copy of `vocabs/*.ttl`, and it is that copy that
-  tells a plugin page what `pu:OpenTimeCold` means.
+  tells a plugin page what `pu:OpenTimeCold` means. **Needed on the next
+  deploy**: `pu:claimsVendor` changed from a string to a vendor IRI on
+  2026-09-14.
 * **Profiler run:** build the image once with
   `docker build -f docker/profiler.Dockerfile -t plugin-universe-profiler .`, then
   `node bin/profile.js --path <dir of built plugins> --tool pluginval` — `--dry-run` shows the

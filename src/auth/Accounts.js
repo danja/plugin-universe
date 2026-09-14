@@ -265,18 +265,30 @@ export class Accounts {
    * both the obvious abuse and the one that would be hardest to notice, since
    * a promoted result looks the same however it was authorised.
    *
-   * The value is the folded vendor key, the same one `/vendor/<slug>` groups
-   * on, so a vendor whose name is spelled two ways is one claim.
+   * **The value is the vendor's minted IRI, not the folded name.** It was the
+   * fold once, and the fold is derived from the spelling: merging "Danny Ayers"
+   * into "danja" changes which key a plugin folds to, so a claim keyed on
+   * "danja" stopped matching the 36 plugins the merge had just gathered onto
+   * that vendor's page. The entitlement failed closed and silently, on exactly
+   * the plugins the claimant most obviously owned.
+   *
+   * The identity does not move like that: `bin/mint-vendors.js` repoints
+   * `foaf:maker` at the surviving vendor, so a claim on the IRI follows the
+   * merge instead of being broken by it. A vendor with no minted identity
+   * cannot be claimed at all, which is the honest answer — there is nothing yet
+   * to attach the claim to.
    */
-  async claimVendor (accountIri, vendorKey, moderator) {
+  async claimVendor (accountIri, vendorIri, moderator) {
     if (!moderator || moderator.trustLevel !== TRUST.MODERATOR) {
       throw new AccountError('Only a moderator can confirm a vendor claim.')
     }
-    if (!/^[a-z0-9]+$/.test(String(vendorKey ?? ''))) {
+    if (!String(vendorIri ?? '').startsWith(pu + 'vendor/')) {
       throw new AccountError(
-        `"${vendorKey}" is not a vendor key. It is the vendor's name folded to lower-case letters and digits.`)
+        `"${vendorIri}" is not a vendor IRI. A claim names the minted identity ` +
+        `(${pu}vendor/<name>-<hash>), not a vendor's name — a name folds differently once ` +
+        'two vendors are merged, and the claim would stop matching.')
     }
-    await this.#replace(accountIri, pu + 'claimsVendor', literal(vendorKey))
+    await this.#replace(accountIri, pu + 'claimsVendor', iri(vendorIri))
     await this.#replace(accountIri, pu + 'claimConfirmedBy', iri(moderator.iri))
     return true
   }

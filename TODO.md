@@ -11,9 +11,9 @@ them. The *design intent* of what is unbuilt is in
 Anything needing server access, credentials, legal review or a decision that is
 Danja's is in [docs/danja-todo.md](docs/danja-todo.md) instead.
 
-**Where things are.** Measured 2026-09-13 from `/health`, the public endpoint and
+**Where things are.** Measured 2026-09-14 from `/health`, the public endpoint and
 the suites, not from memory: **756 plugins, 756 indexed, 376 vendors all minted,
-50 measured; 1229 core tests over 56 files and 261 store tests over 24.**
+50 measured; 1244 core tests over 56 files and 263 store tests over 24.**
 Phases 0, 1, 3 and 5 are complete and deployed. Phase 2 is running and is missing
 the measurement it exists for. Phase 4 is built and has never taken money.
 
@@ -52,11 +52,20 @@ than an hour.
     store holds merges and no file is found; an explicit `"merges": []` is
     obeyed.
 
-  **Still open:** `pu:claimsVendor` holds the folded key rather than the vendor
-  IRI, so a claim on a key that later gets merged away would break. There are
-  still no claims, so this is free today and stops being free with the first
-  paying vendor — which makes it the thing to do before selling a profile, not
-  after.
+  **`pu:claimsVendor` now holds the vendor IRI** *(2026-09-14)*, which it had to
+  before a vendor could pay. It held the folded name, and the fold is derived
+  from the spelling — so the merge above changed which key a plugin folded to
+  and the entitlement check stopped matching exactly the plugins the merge had
+  just gathered. A Pro subscriber claiming `danja` would have been refused on
+  their own 36 "Danny Ayers" plugins, silently, because the check simply does
+  not match and there is nothing to report. `foaf:maker` points every plugin of
+  both spellings at the surviving vendor, so the claim now follows a merge
+  instead of breaking on one.
+
+  Also: `/admin` refuses to claim a vendor with no minted identity (there is
+  nothing to attach to, and it names the command), and the claims panel counts
+  claims the catalogue cannot resolve — a claim confirmed under the old scheme
+  reads that way, and it would otherwise entitle nothing while looking fine.
 
 * **The front page can claim recency again.** When the claim was removed, every
   plugin shared one `dcterms:created`, so `byRecency` fell through to `byName`
@@ -324,6 +333,12 @@ under [docs/entries/](docs/entries/) and what went wrong is in
 
 In one line each, most recent first:
 
+* **2026-09-14** — `pu:claimsVendor` holds the vendor IRI rather than the folded name, so a
+  Pro entitlement survives a vendor merge instead of silently failing on the plugins the merge
+  gathered. **Category and Licence on `/submit` are dropdowns**, their options read from
+  `vocabs/categories.ttl` and from `LICENCE_IDS` — the list `vocabs/shapes.ttl` enumerates — so
+  neither can produce a value the shapes would then refuse. `loadSubmittable()` is now the one
+  way to build the field table; six callers were each composing it.
 * **2026-09-13** — `/health` compares its two counts and reports `degraded` with a named remedy;
   the *Read a bundle* panel on `/admin`; vendor identity derived by `bin/mint-vendors.js`,
   **and carried to the server**, where it had never been run — 376 vendors and 756 `foaf:maker`

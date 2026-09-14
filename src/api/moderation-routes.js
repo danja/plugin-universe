@@ -232,10 +232,21 @@ async function vendorClaim (form, { auth, search }, moderator) {
       await auth.accounts.releaseVendor(target.iri, moderator)
       return `${login} no longer speaks for any vendor.`
     }
-    const key = vendorKey(String(form.get('vendor') ?? ''))
-    const vendor = search.vendor(key)
-    if (!vendor) return `No vendor in the catalogue folds to "${key}".`
-    await auth.accounts.claimVendor(target.iri, vendor.key ?? key, moderator)
+    // A moderator may type the name, the page slug or the key; `search.vendor`
+    // resolves all three through the same alias table the routes use, so what
+    // reaches the claim is whatever `/vendor/<...>` would have shown.
+    const typed = String(form.get('vendor') ?? '').trim()
+    const vendor = search.vendor(typed) ?? search.vendor(vendorKey(typed))
+    if (!vendor) return `No vendor in the catalogue matches "${typed}".`
+    // A vendor with no minted identity cannot be claimed. The claim names the
+    // IRI precisely so that it survives a later merge, and there is nothing to
+    // name until the identity layer has been derived — so this says which
+    // command produces one rather than storing something that would break.
+    if (!vendor.iri) {
+      return `${vendor.name} has no minted identity yet, so there is nothing to attach a claim ` +
+        'to. Run bin/mint-vendors.js and restart, then try again.'
+    }
+    await auth.accounts.claimVendor(target.iri, vendor.iri, moderator)
     return `${login} now speaks for ${vendor.name} — ` +
       `${vendor.count} plugin${vendor.count === 1 ? '' : 's'}, promotable on a Pro subscription.`
   } catch (error) {
@@ -379,7 +390,16 @@ async function adminPage ({
   const claimState = async () => {
     if (!billing) return null
     const all = await auth.accounts.list()
-    return { count: all.filter(a => a?.claimsVendor).length }
+    const claims = all.filter(a => a?.claimsVendor)
+    // A claim naming something the catalogue cannot resolve to a vendor grants
+    // nothing, and grants it *silently*: the entitlement check simply does not
+    // match, so a paid subscriber is refused their own plugins with no error
+    // anywhere. Claims held the folded name before they held the IRI, so a
+    // claim confirmed under the old scheme is exactly this. Counted here
+    // because a moderator is the only person positioned to notice.
+    const unresolved = claims.filter(account =>
+      ![...search.vendors.values()].some(vendor => vendor.iri === account.claimsVendor))
+    return { count: claims.length, unresolved: unresolved.length }
   }
 
   return renderAdminPage(await corrections.pending(), {

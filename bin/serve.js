@@ -13,8 +13,7 @@ import Feedback from '../src/contrib/Feedback.js'
 import BundleReader from '../src/contrib/BundleReader.js'
 import Promotions from '../src/catalogue/Promotions.js'
 import Billing from '../src/billing/Billing.js'
-import Submissions, { withProfileVocabulary } from '../src/contrib/Submissions.js'
-import { loadProfileVocabulary } from '../src/rdf/ProfileVocabulary.js'
+import Submissions, { loadSubmittable } from '../src/contrib/Submissions.js'
 import ImageStore from '../src/api/ImageStore.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import Wiki from '../src/wiki/Wiki.js'
@@ -57,13 +56,15 @@ console.log(`Loaded ${loaded} plugins, ${index.size} vectors from ${index.path}`
 // legitimate thing to run and does not need an OAuth App.
 const accounts = new Accounts(client)
 const { routes: auth, reason: authProblem } = AuthRoutes.fromEnvironment({ accounts, origin })
-// The roles and signal types the submission form offers, read from
-// vocabs/trn-profile.ttl once rather than copied into JavaScript. A failure
-// here is fatal on purpose: a form offering nothing to tick in a required group
-// looks like it should work.
-const submittable = withProfileVocabulary(await loadProfileVocabulary())
-console.log(`Profile vocabulary loaded: ${submittable.role.choices.length} roles, ` +
-  `${submittable.accepts.choices.length} signal types`)
+// The choices the submission form offers, read from the vocabularies once
+// rather than copied into JavaScript: roles and signal types from
+// vocabs/trn-profile.ttl, categories from vocabs/categories.ttl. A failure here
+// is fatal on purpose — a form offering nothing to choose from looks like it
+// should work.
+const submittable = await loadSubmittable()
+console.log(`Vocabularies loaded: ${submittable.role.choices.length} roles, ` +
+  `${submittable.accepts.choices.length} signal types, ` +
+  `${submittable.category.choices.length} categories`)
 
 let corrections = null
 let feedback = null

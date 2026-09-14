@@ -7,7 +7,9 @@ import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 import ensureContributorGraphs from './ContributorGraphs.js'
 import QueryService from '../store/QueryService.js'
 import { STATUS } from './Corrections.js'
-import { toKnownSpdx } from '../harvest/Licensing.js'
+import { toKnownSpdx, SELECTABLE_LICENCES } from '../harvest/Licensing.js'
+import { loadProfileVocabulary } from '../rdf/ProfileVocabulary.js'
+import CategoryScheme from '../rdf/CategoryScheme.js'
 
 /**
  * Submissions: a person proposing a plugin the catalogue does not have.
@@ -109,14 +111,35 @@ export const SUBMITTABLE = Object.freeze({
   },
   category: {
     predicate: `${pu}category`, label: 'Category', kind: 'category', required: false,
-    help: 'One of the catalogue\'s categories, such as reverb or synth.'
+    // Chosen from the scheme, not typed. It was a text box checked only against
+    // `^[a-z0-9-]+$`, so "revrb" or "Reverb" or an invented category passed and
+    // became `pu:category/revrb` — a concept with no definition, which
+    // `tests/store/categories.test.js` then reports as undescribed, long after
+    // the person who could have corrected it has gone.
+    //
+    // `choices` is null here and filled from `vocabs/categories.ttl` at
+    // startup, the same arrangement the profile fields use. A list of
+    // categories in JavaScript would be a copy of the scheme, which is exactly
+    // the mistake the scheme was moved out of JavaScript to undo.
+    vocabulary: 'categories', choices: null,
+    help: 'Which kind of plugin it is. Pick the closest — a moderator can refine it.'
   },
   licenceId: {
     // `licence`, not `text`: the value is normalised through the same function
     // the harvesters use, so a submission cannot introduce a spelling the
     // catalogue already has under another name.
     predicate: `${pu}licenceId`, label: 'Licence', kind: 'licence', required: false,
-    help: 'An SPDX identifier such as GPL-3.0 or MIT, if you know it.'
+    // Chosen, not typed. `pu:licenceId` is enumerated by `sh:in` in
+    // vocabs/shapes.ttl, so a typed value that is not on the list fails
+    // validation *after* somebody has filled the form in — and the whole reason
+    // the enumeration exists is that 23 spellings had become 19 licences. A
+    // form offering the list cannot produce a twentieth.
+    //
+    // Derived from `LICENCE_IDS` rather than written out here: the identifiers,
+    // the SHACL enumeration and this list are one list, which is the arrangement
+    // that stopped this class of defect recurring.
+    choices: SELECTABLE_LICENCES,
+    help: 'The licence it is released under, if you know it. Leave blank if not.'
   },
 
   // ── What the plugin does, which only its author really knows ─────────────
@@ -165,13 +188,50 @@ export const SUBMITTABLE = Object.freeze({
  */
 export function withProfileVocabulary (vocabulary) {
   return Object.freeze(Object.fromEntries(
-    Object.entries(SUBMITTABLE).map(([name, spec]) => [
-      name,
-      spec.vocabulary
-        ? { ...spec, choices: vocabulary[spec.vocabulary].map(term => term.value), terms: vocabulary[spec.vocabulary] }
-        : spec
-    ])
+    Object.entries(SUBMITTABLE).map(([name, spec]) => {
+      if (!spec.vocabulary) return [name, spec]
+      const terms = vocabulary[spec.vocabulary]
+      if (!terms) {
+        throw new Error(
+          `${name} takes its choices from the "${spec.vocabulary}" vocabulary, which was not supplied.`)
+      }
+      // `terms` carries the label a reader sees and is kept only for the
+      // profile fields, because `profileLabels` turns it into the `trn:` term
+      // lookup used across the site. Categories have their own scheme, their
+      // own pages and their own labels; folding them into that map would put
+      // two namespaces in one lookup keyed by bare local name.
+      return [name, spec.kind === 'profileTerm'
+        ? { ...spec, choices: terms.map(term => term.value), terms }
+        : { ...spec, choices: terms.map(term => term.value), labels: terms }]
+    })
   ))
+}
+
+/**
+ * The field table with every vocabulary filled in — the one way to build it.
+ *
+ * `withProfileVocabulary` takes the vocabularies as an argument because the
+ * composition has to be testable without IO. This is the composition itself,
+ * and it exists so there is exactly one of it: the moment categories joined
+ * roles and signal types, six places were each assembling
+ * `withProfileVocabulary(await loadProfileVocabulary())` and every one of them
+ * would have had to learn about the new vocabulary separately. Five were tests,
+ * which is the good case — they failed. A seventh caller would not have.
+ *
+ * Categories are sorted by the label a reader sees, because this becomes a
+ * dropdown and slug order is not the order anybody scans.
+ */
+export async function loadSubmittable () {
+  const [profile, scheme] = await Promise.all([
+    loadProfileVocabulary(),
+    CategoryScheme.load()
+  ])
+  return withProfileVocabulary({
+    ...profile,
+    categories: [...scheme.concepts.values()]
+      .map(concept => ({ value: concept.slug, label: concept.prefLabel }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  })
 }
 
 /**
@@ -195,6 +255,11 @@ export function withProfileVocabulary (vocabulary) {
 export function profileLabels (submittable) {
   const labels = new Map()
   for (const spec of Object.values(submittable)) {
+    // Profile terms only. This map is keyed by bare local name and read when
+    // rendering a `trn:` term, so a category slug in it would be a second
+    // namespace sharing one lookup — and `reverb` the category and a `trn:`
+    // term of the same name would be indistinguishable.
+    if (spec.kind !== 'profileTerm') continue
     for (const term of spec.terms ?? []) labels.set(term.value, term.label)
   }
   return labels
@@ -283,8 +348,25 @@ export function validate (fields = {}, submittable = SUBMITTABLE) {
         throw new SubmissionError(`${spec.label} must be an http or https URL.`)
       }
     }
-    if (spec.kind === 'category' && !/^[a-z0-9-]+$/.test(raw)) {
-      throw new SubmissionError('A category is lowercase letters, digits and hyphens, like "reverb".')
+    if (spec.kind === 'category') {
+      if (!/^[a-z0-9-]+$/.test(raw)) {
+        throw new SubmissionError('A category is lowercase letters, digits and hyphens, like "reverb".')
+      }
+      // Checked against the scheme, not just the shape of the string.
+      //
+      // The regex alone accepted "revrb", "delayy" or anything else spelled
+      // plausibly, and minted `pu:category/<that>` — a concept with no
+      // definition, which `tests/store/categories.test.js` reports as
+      // undescribed long after the person who could have corrected it has gone.
+      // The same list the form offers, so the two cannot disagree.
+      if (!spec.choices) {
+        throw new SubmissionError(
+          `${spec.label} cannot be checked: the category scheme was not loaded.`)
+      }
+      if (!spec.choices.includes(raw)) {
+        throw new SubmissionError(
+          `"${raw}" is not a category this catalogue has. Known: ${spec.choices.join(', ')}.`)
+      }
     }
     if (spec.kind === 'format' && !/^[A-Za-z0-9]+$/.test(raw)) {
       throw new SubmissionError('A format is a name like VST3, LV2 or CLAP.')

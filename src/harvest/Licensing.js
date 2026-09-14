@@ -112,6 +112,30 @@ export const LICENCE_IDS = Object.freeze(
 )
 
 /**
+ * The identifiers a person may pick from on a form.
+ *
+ * Derived from {@link LICENCE_IDS} rather than written out, because a second
+ * list of licences is exactly how this project once produced 136 SHACL
+ * violations — and the form is the one path a person controls, which makes it
+ * the one most worth keeping in step.
+ *
+ * `NOASSERTION` is the single exclusion, and it is a statement about forms
+ * rather than about licences. It means "a licence exists and we could not
+ * determine which", which is what a *harvester* concludes when a source is
+ * unclear. A person filling in a form who does not know the licence leaves the
+ * field blank, and the field is optional precisely so they can. Offering both
+ * would be offering the same answer twice, one of them in SPDX jargon.
+ *
+ * Sorted case-insensitively so the dropdown reads in the order somebody scans
+ * it rather than in set-insertion order.
+ */
+export const SELECTABLE_LICENCES = Object.freeze(
+  [...LICENCE_IDS]
+    .filter(id => id !== NOASSERTION)
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+)
+
+/**
  * Spellings of a licence that are not its identifier.
  *
  * Only entries whose meaning is unambiguous. `GPLv3` is GPL-3.0 because there

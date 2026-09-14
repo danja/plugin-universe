@@ -417,15 +417,21 @@ describe('the Pro entitlement is bounded by ownership', () => {
   it('requires all three of tier, claim and match', () => {
     expect(entitlement).toContain('TIER.PRO')
     expect(entitlement).toContain('claimsVendor')
-    expect(entitlement).toContain('vendorKey(doc.vendor)')
+    expect(entitlement).toContain('doc.vendorIri')
   })
 
-  it('compares by the folded key, so two spellings of a vendor are one', () => {
-    // The same key /vendor/<slug> groups on. Comparing raw strings would let
-    // "SFZ Tools" and "SFZTools" be different vendors for this purpose and the
-    // same one everywhere else.
-    expect(entitlement).not.toMatch(/doc\.vendor\s*===/)
-    expect(entitlement).toContain('vendorKey(')
+  it('compares the vendor identity, not a folded name', () => {
+    // This compared `vendorKey(doc.vendor)` until 2026-09-14, and the fold is
+    // derived from the spelling: once "Danny Ayers" was merged into "danja",
+    // those plugins still carried their own string and folded to their own key,
+    // so they matched no claim. A Pro subscriber was refused on the 36 plugins
+    // most plainly theirs, with no error anywhere — the check just failed.
+    //
+    // `foaf:maker` points every plugin of both spellings at the surviving
+    // vendor, so comparing identities follows a merge instead of breaking on
+    // one. Asserted positively: a `.not.toContain` here would pass for ever if
+    // the comparison moved somewhere this slice no longer covers.
+    expect(entitlement).toMatch(/doc\.vendorIri\s*===\s*viewer\.account\.claimsVendor/)
   })
 
   it('reads the effective tier, so a lapsed subscription entitles nothing', () => {

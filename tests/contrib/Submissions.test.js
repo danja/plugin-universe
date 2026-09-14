@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import URIMinter from '../../src/rdf/URIMinter.js'
 import { readFileSync } from 'fs'
-import { validate, valueTerm, SUBMITTABLE, PLUGIN_FORMATS, SubmissionError, Submissions, withProfileVocabulary } from '../../src/contrib/Submissions.js'
+import { validate, valueTerm, SUBMITTABLE, PLUGIN_FORMATS, SubmissionError, Submissions, withProfileVocabulary, loadSubmittable} from '../../src/contrib/Submissions.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 import { FIELD_KINDS } from '../../src/contrib/Corrections.js'
 
@@ -18,6 +18,13 @@ import { FIELD_KINDS } from '../../src/contrib/Corrections.js'
  * of one thing. `IngestPipeline` refuses that for harvesters; a form that did
  * not would reintroduce the defect it cost 21 of 57 flues plugins to find.
  */
+
+// The field table as the server builds it, every vocabulary filled. `validate`
+// deliberately defaults to the bare table — a caller who forgets gets a refusal
+// naming the cause rather than an unchecked value reaching the store — so the
+// tests supply what the server supplies.
+const FIELDS = await loadSubmittable()
+const check = fields => validate(fields, FIELDS)
 
 const GOOD = {
   name: 'Moka',
@@ -57,43 +64,43 @@ describe('what may be submitted', () => {
 
 describe('validating a submission', () => {
   it('accepts a complete one and trims it', () => {
-    const clean = validate({ ...GOOD, name: '  Moka  ' })
+    const clean = check({ ...GOOD, name: '  Moka  ' })
     expect(clean.name).toBe('Moka')
     expect(clean.category).toBe('midi')
   })
 
   it('names the missing field and says what it is for', () => {
-    expect(() => validate({ ...GOOD, homepage: '' })).toThrow(/Homepage is needed/)
-    expect(() => validate({ ...GOOD, homepage: '' })).toThrow(/identifies the plugin/)
+    expect(() => check({ ...GOOD, homepage: '' })).toThrow(/Homepage is needed/)
+    expect(() => check({ ...GOOD, homepage: '' })).toThrow(/identifies the plugin/)
   })
 
   it('refuses a homepage that is not a URL, and one that is not the web', () => {
-    expect(() => validate({ ...GOOD, homepage: 'danja.github.io' })).toThrow(/full URL/)
-    expect(() => validate({ ...GOOD, homepage: 'javascript:alert(1)' })).toThrow(/http or https/)
-    expect(() => validate({ ...GOOD, homepage: 'file:///etc/passwd' })).toThrow(/http or https/)
+    expect(() => check({ ...GOOD, homepage: 'danja.github.io' })).toThrow(/full URL/)
+    expect(() => check({ ...GOOD, homepage: 'javascript:alert(1)' })).toThrow(/http or https/)
+    expect(() => check({ ...GOOD, homepage: 'file:///etc/passwd' })).toThrow(/http or https/)
   })
 
   it('refuses a category that is not shaped like one', () => {
-    expect(() => validate({ ...GOOD, category: 'Reverb!' })).toThrow(/lowercase/)
+    expect(() => check({ ...GOOD, category: 'Reverb!' })).toThrow(/lowercase/)
   })
 
   it('refuses a format the catalogue does not know, and lists the ones it does', () => {
     // Not a shape rule — a membership one. "VST 3" and "VST4" are both
     // plausible typings and neither is a format, and a typo here would create
     // a facet value that silently matches nothing.
-    expect(() => validate({ ...GOOD, format: ['VST 3'] })).toThrow(/not a format this catalogue knows/)
-    expect(() => validate({ ...GOOD, format: ['VST3', 'VST4'] })).toThrow(/VST4/)
-    expect(() => validate({ ...GOOD, format: ['VST3', 'VST4'] })).toThrow(/Known: VST3/)
+    expect(() => check({ ...GOOD, format: ['VST 3'] })).toThrow(/not a format this catalogue knows/)
+    expect(() => check({ ...GOOD, format: ['VST3', 'VST4'] })).toThrow(/VST4/)
+    expect(() => check({ ...GOOD, format: ['VST3', 'VST4'] })).toThrow(/Known: VST3/)
   })
 
   it('leaves out what was not filled in, rather than writing empty values', () => {
-    const clean = validate({ ...GOOD, description: '', category: '', licenceId: '' })
+    const clean = check({ ...GOOD, description: '', category: '', licenceId: '' })
     expect(clean).not.toHaveProperty('description')
     expect(clean).not.toHaveProperty('category')
   })
 
   it('caps the length of anything typed', () => {
-    expect(() => validate({ ...GOOD, description: 'x'.repeat(5000) })).toThrow(/longer than/)
+    expect(() => check({ ...GOOD, description: 'x'.repeat(5000) })).toThrow(/longer than/)
   })
 })
 
@@ -112,19 +119,19 @@ describe('identity', () => {
 
   it('mints the same IRI for the same plugin proposed twice', () => {
     // This is the whole reason the homepage is required.
-    expect(submissions.pluginIriFor(validate(GOOD)))
-      .toBe(submissions.pluginIriFor(validate({ ...GOOD, description: 'different words' })))
+    expect(submissions.pluginIriFor(check(GOOD)))
+      .toBe(submissions.pluginIriFor(check({ ...GOOD, description: 'different words' })))
   })
 
   it('mints a different IRI for a different plugin at a different address', () => {
-    const other = submissions.pluginIriFor(validate({ ...GOOD, homepage: 'https://example.com/other' }))
-    expect(other).not.toBe(submissions.pluginIriFor(validate(GOOD)))
+    const other = submissions.pluginIriFor(check({ ...GOOD, homepage: 'https://example.com/other' }))
+    expect(other).not.toBe(submissions.pluginIriFor(check(GOOD)))
   })
 
   it('mints under the catalogue namespace, not the serving domain', () => {
     // Never under the serving domain: the PURL redirects to whatever host
     // serves the site, so IRIs survive a change of domain.
-    expect(submissions.pluginIriFor(validate(GOOD))).toMatch(
+    expect(submissions.pluginIriFor(check(GOOD))).toMatch(
       new RegExp(`^${NAMESPACES.pu}plugin/`))
   })
 })
@@ -132,7 +139,7 @@ describe('identity', () => {
 describe('the triples an accepted submission becomes', () => {
   const submissions = new Submissions({ select: async () => [], update: async () => {} },
     { minter: new URIMinter() })
-  const clean = validate(GOOD)
+  const clean = check(GOOD)
   const triples = submissions.triplesFor(submissions.pluginIriFor(clean), clean, new Date('2026-09-11T12:00:00Z'))
   const joined = triples.join('\n')
 
@@ -150,7 +157,7 @@ describe('the triples an accepted submission becomes', () => {
   })
 
   it('writes nothing for a field that was left blank', () => {
-    const sparse = validate({ ...GOOD, description: '', category: '', licenceId: '' })
+    const sparse = check({ ...GOOD, description: '', category: '', licenceId: '' })
     const some = submissions.triplesFor('http://x/p', sparse, new Date()).join('\n')
     expect(some).not.toContain(`<${NAMESPACES.pu}category>`)
     expect(some).not.toContain(`<${NAMESPACES.rdfs}comment>`)
@@ -163,7 +170,7 @@ describe('refusing to write', () => {
   it('refuses a plugin the catalogue already holds, and says which', async () => {
     const submissions = new Submissions(
       { select: async query => (query.includes('?p ?o') ? [{ g: 'graph:source/x' }] : []), update: async () => {} },
-      { minter: new URIMinter() })
+      { minter: new URIMinter(), submittable: FIELDS })
     await expect(submissions.submit({ account, fields: GOOD })).rejects.toThrow(/already has this plugin/)
     await submissions.submit({ account, fields: GOOD }).catch(error => {
       expect(error.existing).toContain(`${NAMESPACES.pu}plugin/`)
@@ -210,27 +217,27 @@ describe('formats', () => {
   })
 
   it('accepts several, and keeps them all', () => {
-    expect(validate({ ...GOOD, format: ['VST3', 'LV2', 'CLAP'] }).format)
+    expect(check({ ...GOOD, format: ['VST3', 'LV2', 'CLAP'] }).format)
       .toEqual(['VST3', 'LV2', 'CLAP'])
   })
 
   it('accepts one, given as a bare string, because that is what one checkbox sends', () => {
-    expect(validate({ ...GOOD, format: 'LV2' }).format).toEqual(['LV2'])
+    expect(check({ ...GOOD, format: 'LV2' }).format).toEqual(['LV2'])
   })
 
   it('drops a repeat rather than stating it twice', () => {
-    expect(validate({ ...GOOD, format: ['LV2', 'LV2'] }).format).toEqual(['LV2'])
+    expect(check({ ...GOOD, format: ['LV2', 'LV2'] }).format).toEqual(['LV2'])
   })
 
   it('still insists on at least one', () => {
-    expect(() => validate({ ...GOOD, format: [] })).toThrow(/Formats are needed/)
-    expect(() => validate({ ...GOOD, format: '' })).toThrow(/Formats are needed/)
+    expect(() => check({ ...GOOD, format: [] })).toThrow(/Formats are needed/)
+    expect(() => check({ ...GOOD, format: '' })).toThrow(/Formats are needed/)
   })
 
   it('becomes one triple per format', () => {
     const submissions = new Submissions({ select: async () => [], update: async () => {} },
       { minter: new URIMinter() })
-    const clean = validate({ ...GOOD, format: ['VST3', 'LV2'] })
+    const clean = check({ ...GOOD, format: ['VST3', 'LV2'] })
     const joined = submissions.triplesFor('http://x/p', clean, new Date()).join('\n')
     expect(joined).toContain(`<${NAMESPACES.trn}format> <${NAMESPACES.trn}VST3>`)
     expect(joined).toContain(`<${NAMESPACES.trn}format> <${NAMESPACES.trn}LV2>`)
@@ -239,15 +246,15 @@ describe('formats', () => {
 
 describe('a submitted licence is normalised, not merely accepted', () => {
   it('records the identifier for a spelling of it', () => {
-    expect(validate({ ...GOOD, licenceId: 'GPLv3' }).licenceId).toBe('GPL-3.0')
+    expect(check({ ...GOOD, licenceId: 'GPLv3' }).licenceId).toBe('GPL-3.0')
   })
 
   it('refuses one it does not recognise, and says what to type', () => {
-    expect(() => validate({ ...GOOD, licenceId: 'whatever you like' })).toThrow(/SPDX/)
+    expect(() => check({ ...GOOD, licenceId: 'whatever you like' })).toThrow(/SPDX/)
   })
 
   it('still treats blank as "not stated", which is not an error', () => {
-    expect(validate({ ...GOOD, licenceId: '' }).licenceId).toBeUndefined()
+    expect(check({ ...GOOD, licenceId: '' }).licenceId).toBeUndefined()
   })
 
   it('draws every field kind from the one exported list', () => {

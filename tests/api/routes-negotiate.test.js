@@ -5,11 +5,11 @@ import {
   renderLandingPage, renderSearchPage, renderBrowsePage, pager,
   renderSubmitPage, renderAdminPage
 } from '../../src/api/render.js'
-import { SUBMITTABLE, PLUGIN_FORMATS, withProfileVocabulary } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, PLUGIN_FORMATS, withProfileVocabulary, loadSubmittable} from '../../src/contrib/Submissions.js'
 import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 
 /** Choices filled from the vocabulary, exactly as bin/serve.js does it. */
-const FIELDS = withProfileVocabulary(await loadProfileVocabulary())
+const FIELDS = await loadSubmittable()
 import { ACTIONS } from '../../src/api/AdminActions.js'
 
 /**
@@ -164,9 +164,30 @@ describe('the submit form', () => {
     for (const name of Object.keys(SUBMITTABLE)) {
       expect(html, `no input for ${name}`).toContain(`name="${name}"`)
     }
-    const inputs = [...html.matchAll(/<input[^>]*name="([a-zA-Z]+)"/g)].map(m => m[1])
+    // `<select>` as well as `<input>`: category became a dropdown on
+    // 2026-09-14 and this scan, looking only for inputs, reported it missing —
+    // which is the guard working. A control this cannot see is a field it would
+    // quietly stop checking, so both element names are matched here and a third
+    // way of drawing a field means teaching this in the same change.
+    const controls = [...html.matchAll(/<(?:input|select)[^>]*name="([a-zA-Z]+)"/g)].map(m => m[1])
       .filter(name => name !== 'csrf')
-    expect(new Set(inputs)).toEqual(new Set(Object.keys(SUBMITTABLE)))
+    expect(new Set(controls)).toEqual(new Set(Object.keys(SUBMITTABLE)))
+  })
+
+  it('draws category and licence as dropdowns, each with its own blank option', () => {
+    // Both were text boxes until 2026-09-14. The blank label is asserted
+    // because it was wrong the first time — one hardcoded string meant the
+    // licence dropdown offered "No category" — and page text is checked by a
+    // person or by nothing.
+    const html = render({})
+    for (const [name, blank] of [['category', 'No category'], ['licenceId', 'No licence']]) {
+      const select = html.match(new RegExp(`<select name="${name}"[\\s\\S]*?</select>`))
+      expect(select, `${name} is not a select`).toBeTruthy()
+      expect(select[0]).toContain(`<option value="">${blank}<`)
+      // The empty option must be first, or the first real one becomes the
+      // silent default for everybody who does not open the list.
+      expect(select[0].match(/<option[^>]*>/)[0]).toBe('<option value="">')
+    }
   })
 
   it('offers every format as a checkbox, because a plugin is built for several', () => {

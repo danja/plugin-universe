@@ -6,7 +6,7 @@ import {
   renderCategoryPage, renderVendorPage, renderVendorsPage, renderSubmitPage,
   renderDocPage, renderAdminPage, renderContributionsPage, renderVocabularies
 } from '../../src/api/render.js'
-import { SUBMITTABLE, withProfileVocabulary } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, withProfileVocabulary, loadSubmittable} from '../../src/contrib/Submissions.js'
 import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 import { CORRECTABLE } from '../../src/contrib/Corrections.js'
 import { ACTIONS } from '../../src/api/AdminActions.js'
@@ -37,7 +37,7 @@ const DOC = {
  * renderer refuses to draw a multi-choice group with nothing to tick — so a
  * test that renders the form has to fill it exactly as `bin/serve.js` does.
  */
-const FIELDS = withProfileVocabulary(await loadProfileVocabulary())
+const FIELDS = await loadSubmittable()
 
 /** One of every page type a visitor can reach. */
 const PAGES = {

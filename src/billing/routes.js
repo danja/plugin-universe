@@ -149,9 +149,17 @@ export default async function billingRoutes (request, response, {
     // Without the third, €99 would buy the right to promote anybody's work,
     // which is both the obvious abuse and the one hardest to notice — a
     // promoted result looks the same however it was authorised.
+    //
+    // The third condition compares **identities**, not folded names. It folded
+    // names once, and the fold is derived from the spelling: after "Danny
+    // Ayers" was merged into "danja" those plugins still carried their own
+    // string, folded to their own key, and matched no claim — so a Pro
+    // subscriber was refused on the plugins most plainly theirs. `foaf:maker`
+    // points at the surviving vendor, so this follows a merge rather than
+    // breaking on one.
     const entitled = viewer.account.tier === TIER.PRO &&
       viewer.account.claimsVendor &&
-      doc.vendor && vendorKey(doc.vendor) === viewer.account.claimsVendor
+      doc.vendorIri && doc.vendorIri === viewer.account.claimsVendor
 
     if (entitled) {
       try {

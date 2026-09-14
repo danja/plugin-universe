@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import { renderSubmitPage } from '../../src/api/render.js'
-import { SUBMITTABLE, withProfileVocabulary } from '../../src/contrib/Submissions.js'
+import { SUBMITTABLE, withProfileVocabulary, loadSubmittable} from '../../src/contrib/Submissions.js'
 import { draftFrom } from '../../src/contrib/PageReader.js'
 import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 
@@ -37,7 +37,7 @@ const draftOf = () => ({
  * renderer refuses to draw a multi-choice group with nothing to tick — so a
  * test that renders the form has to fill it exactly as `bin/serve.js` does.
  */
-const FIELDS = withProfileVocabulary(await loadProfileVocabulary())
+const FIELDS = await loadSubmittable()
 
 const page = extra => renderSubmitPage(FIELDS, { csrfToken: 't', ...extra })
 

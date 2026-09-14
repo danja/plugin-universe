@@ -3,6 +3,7 @@
     without paying per plugin, so confirm one only when you are satisfied the account
     speaks for the vendor — a plugin's <code>foaf:homepage</code> is on a domain you can
     check, and the catalogue did not get that URL from the claimant.</p>
+{{{warning}}}
   <form method="post" action="/admin" class="promote-form">
     <input type="hidden" name="csrf" value="{{csrf}}">
     <label for="claim-login">Account</label>
@@ -10,7 +11,8 @@
     <input type="text" id="claim-login" name="login" required>
     <label for="claim-vendor">Vendor</label>
     <span class="field-help">The vendor's name, or the slug from the end of their
-      <code>/vendor/…</code> page. Folded the same way either works.</span>
+      <code>/vendor/…</code> page — either resolves. The claim is stored as that vendor's
+      minted IRI, so it follows them through a rename or a merge.</span>
     <input type="text" id="claim-vendor" name="vendor">
     <button type="submit" name="claim" value="1">Confirm claim</button>
     <button type="submit" name="unclaim" value="1" class="secondary">Withdraw</button>

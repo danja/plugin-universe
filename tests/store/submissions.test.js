@@ -5,7 +5,7 @@ import GraphRegistry from '../../src/store/GraphRegistry.js'
 import ShapeValidator from '../../src/store/ShapeValidator.js'
 import Accounts, { TRUST } from '../../src/auth/Accounts.js'
 import { STATUS } from '../../src/contrib/Corrections.js'
-import Submissions, { SubmissionError } from '../../src/contrib/Submissions.js'
+import Submissions, { SubmissionError, loadSubmittable } from '../../src/contrib/Submissions.js'
 import { iri } from '../../src/store/SPARQLHelper.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
@@ -74,7 +74,12 @@ beforeAll(async () => {
   submissions = new Submissions(client, {
     registry,
     queueGraph: GraphRegistry.graphIri('system', 'test-submissions'),
-    validator: await ShapeValidator.load()
+    validator: await ShapeValidator.load(),
+    // The field table as the server builds it. Category and licence are chosen
+    // from the vocabularies now, so the bare table cannot check them — it
+    // refuses rather than letting an unchecked value through, which is what
+    // brought these tests down and is the right behaviour.
+    submittable: await loadSubmittable()
   })
   await cleanup()
   await accounts.ensureGraph()

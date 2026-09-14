@@ -5,6 +5,12 @@ import GraphRegistry from '../../src/store/GraphRegistry.js'
 import Accounts, { TIER, TRUST, AccountError, effectiveTier } from '../../src/auth/Accounts.js'
 import Promotions, { PromotionError } from '../../src/catalogue/Promotions.js'
 import { vendorKey } from '../../src/search/SearchService.js'
+import { vendorRecords } from '../../src/catalogue/VendorIdentity.js'
+
+// Acme's minted identity, derived rather than written out: the claim stores
+// what `bin/mint-vendors.js` would mint, so hard-coding the hash here would let
+// the test and the minter drift apart silently.
+const ACME_IRI = vendorRecords([{ iri: 'urn:seed', vendor: 'Acme Audio' }])[0].iri
 
 /**
  * "Promote as many of your plugins as you like" — and what **your** means.
@@ -66,13 +72,28 @@ describe('a vendor claim is a moderator\'s decision', () => {
   })
 
   it('is recorded when a moderator confirms it', async () => {
-    await accounts.claimVendor(subject.iri, vendorKey('Acme Audio'), moderator)
-    expect((await accounts.find(subject.iri)).claimsVendor).toBe('acmeaudio')
+    await accounts.claimVendor(subject.iri, ACME_IRI, moderator)
+    expect((await accounts.find(subject.iri)).claimsVendor).toBe(ACME_IRI)
   })
 
-  it('refuses a value that is not a folded key', async () => {
-    for (const bad of ['Acme Audio', 'acme-audio', '', null]) {
+  it('refuses a folded name, which is what it used to store', async () => {
+    // The change this test exists for. A claim held `"acmeaudio"` until
+    // 2026-09-14, and the fold is derived from the spelling — so merging two
+    // vendors changed which key a plugin folded to and the claim quietly
+    // stopped matching the plugins the merge had just gathered. Accepting a key
+    // here would let that back in through the one door a moderator uses.
+    for (const bad of ['acmeaudio', 'Acme Audio', 'acme-audio', '', null]) {
       await expect(accounts.claimVendor(subject.iri, bad, moderator), String(bad))
+        .rejects.toThrow(AccountError)
+    }
+  })
+
+  it('refuses an IRI that is not a vendor', async () => {
+    for (const bad of [
+      'http://purl.org/stuff/plugin-universe/plugin/acme-1234abcd',
+      'https://example.com/vendor/acme'
+    ]) {
+      await expect(accounts.claimVendor(subject.iri, bad, moderator), bad)
         .rejects.toThrow(AccountError)
     }
   })
@@ -83,7 +104,7 @@ describe('a vendor claim is a moderator\'s decision', () => {
     await accounts.releaseVendor(subject.iri, moderator)
     expect((await accounts.find(subject.iri)).claimsVendor).toBeNull()
     // Re-confirmed for the entitlement tests below.
-    await accounts.claimVendor(subject.iri, 'acmeaudio', moderator)
+    await accounts.claimVendor(subject.iri, ACME_IRI, moderator)
   })
 })
 
@@ -170,19 +191,36 @@ describe('the three conditions the route checks', () => {
   it('all hold for the claimant and their own vendor', async () => {
     const account = await accounts.find(subject.iri)
     expect(account.tier).toBe(TIER.PRO)
-    expect(account.claimsVendor).toBe('acmeaudio')
-    expect(vendorKey('Acme Audio')).toBe(account.claimsVendor)
+    expect(account.claimsVendor).toBe(ACME_IRI)
+    // The route compares a plugin's `foaf:maker` with this, so the value has to
+    // be what the identity layer mints — not a name the plugin happens to carry.
+    expect(vendorRecords([{ iri: 'urn:p', vendor: 'Acme Audio' }])[0].iri).toBe(ACME_IRI)
+  })
+
+  it('survives a merge, which folding on the name did not', async () => {
+    // A vendor merged into Acme keeps Acme's IRI, and `bin/mint-vendors.js`
+    // repoints every merged plugin's `foaf:maker` at it — so the claim still
+    // matches. Folding on the name, the merged-in plugins kept their own
+    // spelling, folded to their own key, and matched nothing.
+    const [merged] = vendorRecords(
+      [{ iri: 'urn:a', vendor: 'Acme Audio' }, { iri: 'urn:b', vendor: 'Acme Ltd' }],
+      undefined, [{ into: 'acmeaudio', keys: ['acmeltd'] }])
+    const account = await accounts.find(subject.iri)
+    expect(merged.iri).toBe(account.claimsVendor)
+    expect(merged.count).toBe(2)
+    expect(vendorKey('Acme Ltd')).not.toBe(account.claimsVendor)
   })
 
   it('fail for somebody else\'s vendor', async () => {
     const account = await accounts.find(subject.iri)
-    expect(vendorKey('Some Other Maker')).not.toBe(account.claimsVendor)
+    expect(vendorRecords([{ iri: 'urn:p', vendor: 'Some Other Maker' }])[0].iri)
+      .not.toBe(account.claimsVendor)
   })
 
   it('fail once the tier lapses, even with the claim intact', async () => {
     await accounts.grantTier(subject.iri, { tier: TIER.PRO, endsAt: new Date(Date.now() - 1000) })
     const account = await accounts.find(subject.iri)
-    expect(account.claimsVendor).toBe('acmeaudio')
+    expect(account.claimsVendor).toBe(ACME_IRI)
     expect(effectiveTier(account.paidTier, account.tierEndsAt)).toBe(TIER.REGISTERED)
   })
 })

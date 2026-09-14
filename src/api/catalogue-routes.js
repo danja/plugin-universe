@@ -376,11 +376,13 @@ async function pluginPage ({
           proLabel: promoteOffer.proLabel,
           // The same three conditions the route enforces. This decides what a
           // page *offers*; the route decides what it grants, and both check
-          // independently.
+          // independently. They compare the vendor **identity**, because a
+          // folded name changes when two vendors are merged and the claim would
+          // stop matching — see the note on the route.
           promoteIncluded: Boolean(
             viewer.account?.tier === TIER.PRO &&
             viewer.account?.claimsVendor &&
-            doc.vendor && vendorKey(doc.vendor) === viewer.account.claimsVendor)
+            doc.vendorIri && doc.vendorIri === viewer.account.claimsVendor)
         }
       : null,
     search.measured(iri),
