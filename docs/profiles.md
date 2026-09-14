@@ -130,15 +130,22 @@ profile that stops being read.
 
 ### Telling us it exists
 
-Paste it into the **Already have a profile?** box on the [submission
-form](/submit). Turtle or JSON-LD — it is recognised by looking at the file, not
-by asking you which it is — and what it holds is drafted into the form for you
-to check before anything is saved.
+Two ways, and both end in the same place.
 
-Nothing is written until you press Submit, and a pasted profile goes through
-exactly the same validation as a typed one. There is one way into this
-catalogue, and this is a convenient way of filling it in rather than a second
-door.
+**Paste it** at [Submit a profile](/submit/profile). Turtle or JSON-LD — it is
+recognised by looking at the file, not by asking you which it is — and what it
+holds is drafted into the submission form for you to check.
+
+**Or send us the URL**, and a moderator reads it once. The *Read a page or
+profile* box takes the address of the profile itself as readily as the address
+of a plugin's page, and decides which it has by what comes back rather than by
+the extension — so a `.ttl` served as `text/plain`, which is what most static
+hosts and GitHub's raw view do, still reads as a profile. Send it through
+[contact](/about/contact) or the [feedback form](/feedback).
+
+Nothing is written until somebody presses Submit, and a profile goes through
+exactly the same validation as a typed submission. There is one way into this
+catalogue; these are convenient ways of filling it in rather than second doors.
 
 ## What it does not ask for, and why
 
@@ -164,10 +171,11 @@ crawls, and the fetch happens because a moderator asked for it. And it is
 **added, never substituted**: anything the catalogue already holds about your
 plugin stays as it is, and you are told what was left alone.
 
-This is the one part the paste box above does not cover. Pasting a profile fills
-in the fields the form holds; ports and parameters are read from the bundle
+This is the one part a profile does not cover, however it reaches us. A profile
+carries what the plugin *is*; ports and parameters are read from the bundle
 itself, because that is where they already are and nobody should be retyping
-them. Paste the profile for the description, send the bundle URL for the knobs.
+them. Send the profile for the description, and the bundle's `.ttl` for the
+knobs — they are different files and they are read by different means.
 
 **What goes before and after.** `trn:recommendedBefore` and its companions
 point at *other plugins*, so they need a way to pick one rather than a box to

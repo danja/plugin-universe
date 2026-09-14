@@ -92,10 +92,39 @@ function draftNotes (draft) {
     draft.notes, text => ({ text }))}</ul>`
 }
 
+/**
+ * The page for a profile somebody has already written.
+ *
+ * Its own address because it is a different act from filling in a form: the
+ * work is done, and putting twelve fields in front of that person first asks
+ * them to do it twice. It is also the thing to link an author to.
+ *
+ * The form posts to `/submit`, which drafts it and renders the filled-in form.
+ * Nothing about writing lives here.
+ */
+export function renderProfilePastePage ({
+  csrfToken, error = null, profile = '', viewer = {}, facetValues = {}, corpus = 0
+}) {
+  const body = templates.render('submit-profile-page', {
+    heading: templates.render('page-heading', { title: 'Submit a profile' }),
+    error: templates.when(Boolean(error), 'error', { text: error }),
+    csrf: csrfToken ?? '',
+    value: profile,
+    maxLength: String(CONTRIBUTION_CONFIG.maxProfileLength),
+    side: sidebar(facetValues, corpus),
+    links: templates.render('site-links', {})
+  })
+  return layout('Submit a profile — Plugin Universe', body, {
+    description: 'Submit a plugin profile you already have, in Turtle or JSON-LD.',
+    canonical: '/submit/profile',
+    ...viewer,
+    footer: false
+  })
+}
+
 export function renderSubmitPage (submittable, {
   csrfToken, error = null, submitted = null, values = {}, viewer = {},
-  facetValues = {}, corpus = 0, mayRead = false, draft = null, pageUrl = '',
-  profile = ''
+  facetValues = {}, corpus = 0, mayRead = false, draft = null, pageUrl = ''
 }) {
   /** One field: a row of checkboxes where it takes several values, a box where it does not. */
   const field = ([name, spec]) => {
@@ -186,14 +215,6 @@ export function renderSubmitPage (submittable, {
     // Where each drafted field came from, shown rather than summarised: a page
     // that named itself in JSON-LD and one that had a <title> and nothing else
     // do not deserve the same trust, and only the moderator can weigh that.
-    // Anyone signed in, unlike the URL fetch: pasting a file makes this server
-    // issue no request at all, so none of the reasons that one is for
-    // moderators apply. Encouraging authors to *have* a profile is the point.
-    profileForm: templates.render('submit-profile', {
-      csrf: csrfToken ?? '',
-      value: profile,
-      maxLength: String(CONTRIBUTION_CONFIG.maxProfileLength)
-    }),
     // Two draft notes, because they say different things: one names the page it
     // fetched, the other the format it recognised. A single template would have
     // to render an empty link for the pasted case.

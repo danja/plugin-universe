@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import { renderSubmitPage } from '../../src/api/render.js'
 import { SUBMITTABLE, withProfileVocabulary, loadSubmittable} from '../../src/contrib/Submissions.js'
-import { draftFrom } from '../../src/contrib/PageReader.js'
+import { draftFrom, PageReader } from '../../src/contrib/PageReader.js'
 import { loadProfileVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 
 /**
@@ -43,14 +43,14 @@ const page = extra => renderSubmitPage(FIELDS, { csrfToken: 't', ...extra })
 
 describe('who is offered the URL box', () => {
   it('shows it to a moderator', () => {
-    expect(page({ mayRead: true })).toContain('Read a page instead')
+    expect(page({ mayRead: true })).toContain('Read a page or profile instead')
   })
 
   it('does not show it to anyone else', () => {
-    expect(page({ mayRead: false })).not.toContain('Read a page instead')
+    expect(page({ mayRead: false })).not.toContain('Read a page or profile instead')
     // The default is closed: a caller that forgets to pass mayRead gets the
     // ordinary form, not the privileged one.
-    expect(page({})).not.toContain('Read a page instead')
+    expect(page({})).not.toContain('Read a page or profile instead')
   })
 
   it('leaves the ordinary form exactly as it was', () => {
@@ -150,5 +150,100 @@ describe('the gate is a control, not a hidden button', () => {
     const reader = fs.readFileSync('src/contrib/PageReader.js', 'utf8')
     expect(reader.match(/fetchText\(/g) ?? []).toHaveLength(1)
     expect(server.match(/pageReader\.read\(/g) ?? []).toHaveLength(1)
+  })
+})
+
+/**
+ * Reading an address that turns out to be a profile.
+ *
+ * "Read a page" became "Read a page or profile", so the same one fetch now
+ * answers with either — and the choice is made from the body rather than from
+ * `Content-Type`. That looks like the obvious mechanism and is the wrong one:
+ * static hosts serve `.ttl` as `text/plain`, GitHub's raw view serves
+ * everything as `text/plain`, and an author told to publish a profile is very
+ * likely to put it on exactly those.
+ */
+describe('telling a page from a profile', () => {
+  const PROFILE = `@prefix trn: <http://purl.org/stuff/transmissions/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+<https://93.184.216.34/df/> a trn:PluginProfile ;
+  rdfs:label "Dragonfly Reverb" ; trn:vendor "Michael Willis" ;
+  foaf:homepage <https://93.184.216.34/df/> ; trn:format trn:LV2 .`
+
+  // A bare IP, not a hostname. `read()` vets the address first, and
+  // `dns.lookup` resolves a numeric address without asking the network — which
+  // is why every address in `PageReader.test.js` is one too. A hostname here
+  // would put a DNS query in the core suite, which is supposed to need no
+  // services at all.
+  /** A reader whose one fetch returns whatever this test says it does. */
+  const readerFor = body => new PageReader({
+    http: { fetchText: async () => body }
+  })
+
+  it('reads a profile served as plain text, which is how most hosts serve one', async () => {
+    const draft = await readerFor(PROFILE).read('https://93.184.216.34/df/profile.ttl')
+    expect(draft.kind).toBe('profile')
+    expect(draft.fields.name).toBe('Dragonfly Reverb')
+    expect(draft.fields.format).toEqual(['LV2'])
+  })
+
+  it('still reads an HTML page as a page', async () => {
+    const draft = await readerFor(PAGE).read('https://93.184.216.34/df/')
+    expect(draft.kind).toBe('page')
+    expect(draft.fields.name).toBe('Dragonfly Reverb')
+  })
+
+  it('reads a page that opens with a comment rather than a doctype', async () => {
+    // Recognition is positive — `<html`, `<head` or `<body` anywhere in the
+    // opening kilobyte — because a Turtle file has no comparable marker: it may
+    // open with a comment, a @prefix, a @base, or straight into a subject IRI.
+    const draft = await readerFor(`<!-- built by hand -->\n${PAGE}`).read('https://93.184.216.34/df/')
+    expect(draft.kind).toBe('page')
+  })
+
+  it('reads a profile that opens with comments, not a prefix', async () => {
+    const draft = await readerFor(`# a profile\n# hosted by its author\n${PROFILE}`)
+      .read('https://93.184.216.34/df/p.ttl')
+    expect(draft.kind).toBe('profile')
+  })
+
+  it('reads JSON-LD served at a URL', async () => {
+    const jsonld = JSON.stringify({
+      '@context': { trn: 'http://purl.org/stuff/transmissions/', rdfs: 'http://www.w3.org/2000/01/rdf-schema#' },
+      '@id': 'https://93.184.216.34/df/', '@type': 'trn:PluginProfile', 'rdfs:label': 'Dragonfly Reverb'
+    })
+    const draft = await readerFor(jsonld).read('https://93.184.216.34/df/profile.jsonld')
+    expect(draft.kind).toBe('profile')
+    expect(draft.format).toBe('JSON-LD')
+  })
+
+  it('says it is a broken profile, not a page with no title', async () => {
+    // Reporting a parse failure as a page whose metadata was thin would hide
+    // the real reason from whoever has to fix the file.
+    await expect(readerFor('@prefix trn: <http://x/> .\n<a> trn:b')
+      .read('https://93.184.216.34/df/p.ttl')).rejects.toThrow(/not a page, and.*parse/)
+  })
+
+  it('asks for both, so a server that negotiates can offer the profile', async () => {
+    let asked = null
+    const reader = new PageReader({
+      http: { fetchText: async (url, options) => { asked = options.accept; return PROFILE } }
+    })
+    await reader.read('https://93.184.216.34/df/')
+    expect(asked).toContain('text/turtle')
+    expect(asked).toContain('application/ld+json')
+    expect(asked).toContain('text/html')
+  })
+
+  it('still makes exactly one request, whichever branch it takes', async () => {
+    // The bound docs/sources.md §4 rule 8 actually sets. Two content types must
+    // not become two fetches.
+    let calls = 0
+    const reader = new PageReader({
+      http: { fetchText: async () => { calls++; return PROFILE } }
+    })
+    await reader.read('https://93.184.216.34/df/profile.ttl')
+    expect(calls).toBe(1)
   })
 })

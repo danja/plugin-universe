@@ -1,5 +1,7 @@
 import { send, sendText, redirect, needsSignIn, HTML } from '../api/respond.js'
-import { renderSubmitPage, renderPluginPage, renderFeedbackPage } from '../api/render.js'
+import {
+  renderSubmitPage, renderProfilePastePage, renderPluginPage, renderFeedbackPage
+} from '../api/render.js'
 import { readForm, readMultipart, BodyError, MAX_BODY_BYTES } from '../api/body.js'
 import { ImageError } from '../api/ImageStore.js'
 import { IMAGE_CONFIG, CONTRIBUTION_CONFIG } from '../../config/preferences.js'
@@ -33,6 +35,10 @@ function profileFilename (name) {
 }
 
 const SUBMIT_PATH = '/submit'
+// The paste box, on a page of its own. A GET page holding a form that posts to
+// `/submit`: the drafting, the validation and the write all stay where they
+// were, and this adds an address rather than a second way in.
+const PROFILE_PATH = '/submit/profile'
 const FEEDBACK_PATH = '/feedback'
 const IMAGE_PATH = /^\/plugin\/([A-Za-z0-9-]+)\/image$/
 const CORRECT_PATH = /^\/plugin\/([A-Za-z0-9-]+)\/correct$/
@@ -40,6 +46,7 @@ const CORRECT_PATH = /^\/plugin\/([A-Za-z0-9-]+)\/correct$/
 export async function contributionRoutes (context) {
   const { path } = context
   if (path === SUBMIT_PATH) return submitRoute(context)
+  if (path === PROFILE_PATH) return profilePasteRoute(context)
   if (path === FEEDBACK_PATH) return feedbackRoute(context)
 
   const picturing = path.match(IMAGE_PATH)
@@ -49,6 +56,41 @@ export async function contributionRoutes (context) {
   if (correcting) return correctionRoute(context, correcting[1])
 
   return false
+}
+
+/**
+ * The paste box for a profile somebody already has.
+ *
+ * A page of its own because it is a different act from filling in a form:
+ * somebody arriving here has written the file already, and putting a
+ * twelve-field form in front of them first is asking them to do the work twice.
+ * It is also the page to send an author to — an address that says what it is
+ * for, rather than "scroll down on /submit".
+ *
+ * **GET only.** The form on it posts to `/submit`, which drafts it and renders
+ * the filled-in form exactly as before. Nothing about writing moved: one
+ * validator, one set of shapes, one serialiser, and the ordinary Submit button
+ * is still what saves.
+ */
+async function profilePasteRoute ({ request, response, viewer, auth, search, submissions }) {
+  if (!submissions) {
+    send(response, 404, { error: 'Submissions are not enabled on this instance' })
+    return true
+  }
+  if (!viewer.account) {
+    needsSignIn(request, response, {
+      returnTo: PROFILE_PATH,
+      message: 'Sign in to submit a profile'
+    })
+    return true
+  }
+  sendText(response, 200, renderProfilePastePage({
+    csrfToken: auth.session.csrfToken(viewer.account.iri),
+    viewer,
+    facetValues: await search.facets(),
+    corpus: search.documents.size
+  }), HTML)
+  return true
 }
 
 /**
@@ -160,7 +202,18 @@ async function submitRoute ({
       })
     } catch (error) {
       if (!(error instanceof ProfileError)) throw error
-      render({ error: error.message, values, profile, status: 400 })
+      // Back to the page they pasted on, with the text still in the box. The
+      // form is on `/submit/profile` now, so reporting the error on `/submit`
+      // would show the message beside no textarea and lose what they pasted —
+      // and a profile is not something anybody retypes.
+      sendText(response, 400, renderProfilePastePage({
+        csrfToken: auth.session.csrfToken(account.iri),
+        viewer,
+        facetValues,
+        corpus: search.documents.size,
+        error: error.message,
+        profile
+      }), HTML)
     }
     return true
   }

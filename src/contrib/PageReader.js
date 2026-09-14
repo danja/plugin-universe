@@ -4,6 +4,7 @@ import HttpSource from '../harvest/HttpSource.js'
 import { SUBMITTABLE, PLUGIN_FORMATS } from './Submissions.js'
 import { toKnownSpdx } from '../harvest/Licensing.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
+import { readProfile, ProfileError } from './ProfileDocument.js'
 
 /**
  * Read one page, at a moderator's request, into a draft submission.
@@ -336,17 +337,26 @@ export class PageReader {
   }
 
   /**
-   * Fetch one page and draft a submission from it.
+   * Fetch one address and draft a submission from whatever is there.
    *
-   * The whole of the network activity in this feature. There is no second
-   * request anywhere below it.
+   * A page, or a profile. The whole of the network activity in this feature:
+   * there is no second request anywhere below it, whichever branch is taken.
+   *
+   * **Which it is, is decided by the body rather than by `Content-Type`.** That
+   * header is the obvious answer and the wrong one: static hosts serve `.ttl`
+   * as `text/plain`, GitHub's raw view serves everything as `text/plain`, and
+   * an author told to publish a profile is very likely to put it on exactly
+   * those. Sniffing the first bytes is honest about what arrived, and an HTML
+   * document announces itself unambiguously in a way RDF does not need to.
    */
   async read (raw) {
     const url = await checkFetchable(raw)
-    let html
+    let body
     try {
-      html = await this.http.fetchText(url.href, {
-        accept: 'text/html, application/xhtml+xml',
+      body = await this.http.fetchText(url.href, {
+        // Both, in preference order. A server that content-negotiates gets to
+        // offer the profile; one that does not is sniffed below regardless.
+        accept: 'text/turtle, application/ld+json, text/html, application/xhtml+xml',
         maxBytes: this.maxBytes,
         // Reported, not followed: the address vetted above is not the address
         // a redirect leads to, and re-vetting it here would be the second
@@ -356,9 +366,45 @@ export class PageReader {
     } catch (error) {
       throw new PageReadError(`Could not read ${url.href}: ${error.message}`)
     }
-    const draft = draftFrom(html, url.href)
-    return { ...draft, url: url.href }
+
+    if (!looksLikeHtml(body)) {
+      try {
+        const draft = await readProfile(body)
+        return { ...draft, url: url.href, kind: 'profile' }
+      } catch (error) {
+        if (!(error instanceof ProfileError)) throw error
+        // Said as a profile failure rather than retried as a page. Something
+        // that is not HTML and does not parse as RDF is not a page whose
+        // `<title>` is worth scraping, and reporting it that way would hide the
+        // real reason from whoever has to fix the file.
+        throw new PageReadError(`${url.href} is not a page, and ${lower(error.message)}`)
+      }
+    }
+    const draft = draftFrom(body, url.href)
+    return { ...draft, url: url.href, kind: 'page' }
   }
+}
+
+/**
+ * Whether what came back is an HTML document.
+ *
+ * Positive recognition of HTML rather than of RDF, because HTML declares itself
+ * — a doctype, an `<html>`, or the `<head>` a page without either still has —
+ * and a Turtle file has no comparable marker: it may open with a comment, a
+ * `@prefix`, a `@base`, a `PREFIX`, or straight into a subject IRI.
+ */
+/** A sentence fragment: "... and that does not parse as Turtle". */
+function lower (message) {
+  return message.charAt(0).toLowerCase() + message.slice(1)
+}
+
+function looksLikeHtml (body) {
+  const start = String(body ?? '').trimStart().slice(0, 1000).toLowerCase()
+  if (start.startsWith('<!doctype html')) return true
+  // One of the three elements every HTML document has, anywhere in the opening
+  // kilobyte. A Turtle document can contain a `<` — every IRI starts with one —
+  // but `<html`, `<head` and `<body` are not IRIs.
+  return /<(html|head|body)[\s>]/.test(start)
 }
 
 export default PageReader

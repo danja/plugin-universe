@@ -7,7 +7,6 @@
 {{{done}}}
 <div class="columns">
 <div class="submit-main">
-{{{profileForm}}}
 {{{fetch}}}
 {{{draft}}}
 <form method="post" action="/submit" class="submit-form">
@@ -15,7 +14,8 @@
   {{{fields}}}
   <div class="form-actions">
     <button type="submit">Submit plugin</button>
-    <button type="submit" name="download" value="1" class="secondary">Download profile</button>
+    <button type="submit" name="download" value="1" class="secondary"
+            data-no-navigate>Download profile</button>
   </div>
   <p class="tags">The homepage is what identifies the plugin here, so it needs to be
     the project's real address. If the catalogue already has it, you will be told
@@ -25,6 +25,8 @@
     is yours: versioned with the plugin, editable by you, and readable by this
     catalogue and anything else that speaks RDF. See
     <a href="/about/profiles">plugin profiles</a>.</p>
+  <p class="tags">Already written one? <a href="/submit/profile">Submit a profile</a>
+    instead of filling this in.</p>
 </form>
 </div>
 {{{side}}}

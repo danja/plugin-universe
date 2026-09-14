@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync} from 'fs'
 import { renderSearchPage, renderPluginPage, renderDocPage } from '../../src/api/render.js'
 
 /**
@@ -210,6 +210,49 @@ describe('the browse panel', () => {
     const script = readFileSync('templates/site.js', 'utf8')
     expect(script).not.toMatch(/\.disabled\s*=|setAttribute\(\s*['"]disabled/)
     expect(script).toContain('aria-busy')
+  })
+
+  it('leaves a form usable after a button that downloads rather than navigates', () => {
+    // The defect this exists for. The spinner is cleared by the page being
+    // replaced, which every POST here did until Download profile: a download
+    // answers with an attachment and leaves the document alone, so the spinner
+    // never stopped — and the form stayed latched, which meant the *Submit*
+    // button silently did nothing afterwards.
+    const script = readFileSync('templates/site.js', 'utf8')
+    expect(script).toContain('data-no-navigate')
+    // The exemption has to be taken before the form is latched, or the form is
+    // still dead and only the spinner is fixed.
+    expect(script.indexOf('data-no-navigate'))
+      .toBeLessThan(script.indexOf("setAttribute('data-busy'"))
+  })
+
+  it('marks every downloading button, so none of them latches its form', () => {
+    // Both directions, because a script that knows about the attribute and a
+    // button that does not carry it is exactly as broken as neither.
+    const templates = readdirSync('templates').filter(name => name.endsWith('.html'))
+    let checked = 0
+    for (const name of templates) {
+      const html = readFileSync(`templates/${name}`, 'utf8')
+      for (const button of html.match(/<button[^>]*>/g) ?? []) {
+        // A download is recognisable here by the action it posts; the route
+        // answers those with Content-Disposition.
+        if (!/name="download"/.test(button)) continue
+        checked++
+        expect(button, `${name}: a downloading button must declare data-no-navigate`)
+          .toMatch(/data-no-navigate/)
+      }
+    }
+    expect(checked, 'no downloading button found — has the marker been renamed?')
+      .toBeGreaterThan(0)
+  })
+
+  it('unlatches a form restored from the browser cache', () => {
+    // Submit, then Back. The browser may restore this document with data-busy
+    // still set, leaving the form dead for a reason nobody could guess.
+    const script = readFileSync('templates/site.js', 'utf8')
+    expect(script).toContain('pageshow')
+    expect(script).toContain('persisted')
+    expect(script).toMatch(/removeAttribute\(['"]data-busy/)
   })
 
   it('keeps the toggle reachable by keyboard', () => {

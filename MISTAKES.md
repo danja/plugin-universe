@@ -90,6 +90,47 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-14 — A spinner that never stopped, and a Submit button it killed
+
+**What happened.** *Download profile* was added beside Submit on `/submit`. Its
+spinner span for ever, which is what got reported. The part nobody could see was
+worse: pressing it left the form marked `data-busy`, so **every later press of
+Submit was silently refused**. One button broke the other, and the page said
+nothing.
+
+**Root cause.** `templates/site.js` latches a form on submit and clears nothing,
+because it never had to: every POST on this site ends in a navigation, the
+document is discarded, and the spinner goes with it. That assumption was true of
+all seven forms it was written for and is invisible in the code — there is no
+line saying "a response replaces the page". A download answers with
+`Content-Disposition: attachment`, downloads the file, and leaves the document
+exactly where it was.
+
+So the defect was not in the new button. It was in an old assumption that the
+new button was the first thing to break.
+
+**Prevention.** The button now declares `data-no-navigate` and the script takes
+that exemption **before** latching the form — declared on the button rather than
+recognised by name, so the script does not have to know what `name="download"`
+means and the next such button only has to say so.
+
+The wider lesson is about how this file was tested. `templates/site.js` had two
+guards, and both read its *text*: it contains `aria-busy`, it does not contain
+`.disabled`. Nothing about the text was wrong here, so nothing could have
+caught it. `tests/api/site-script.test.js` now runs the script against a DOM
+stub small enough to reason about and asks what it does — pressing Download must
+leave the form usable, Submit must still post afterwards, and a double click
+must still be refused. Removing the one-line fix fails three of them, which is
+how the test was checked.
+
+It also found a second latch with the same shape, pre-existing and never
+reported: submit, then press Back, and the browser may restore the document with
+`data-busy` still set — a dead form, for a reason nobody could guess. A
+`pageshow` handler clears it when `persisted` says the page was restored rather
+than loaded.
+
+---
+
 ## 2026-09-13 — Diagnosed a missing graph as unpublished when it had never been derived
 
 **What happened.** The public SPARQL endpoint held no vendor identity at all: no

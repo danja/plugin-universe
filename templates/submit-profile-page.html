@@ -1,0 +1,28 @@
+{{{heading}}}
+<p class="meta">You have written the profile; this reads it. Turtle or JSON-LD —
+  whichever your file is, it is recognised by looking at it rather than by asking
+  you. What it holds is drafted into the submission form for you to check, and
+  nothing is saved until you press Submit there.</p>
+{{{error}}}
+<div class="columns">
+<div class="submit-main">
+<form method="post" action="/submit" class="submit-form submit-profile">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <label for="profile-text">Your profile</label>
+  <span class="field-help">Paste the whole file.</span>
+  <textarea id="profile-text" name="profile" rows="16" maxlength="{{maxLength}}"
+            placeholder="@prefix trn: &lt;http://purl.org/stuff/transmissions/&gt; . ...">{{value}}</textarea>
+  <button type="submit" name="readProfile" value="1">Read the profile</button>
+</form>
+<p class="tags">Haven't got one? Fill in the <a href="/submit">submission form</a>
+  and press <strong>Download profile</strong> — you get the file to host beside your
+  plugin, and nothing is saved here. <a href="/about/profiles">What a profile is for,
+  and where to put it</a>.</p>
+<p class="tags">Parameters and ports are not read from here. They live in your
+  plugin's own bundle, in the vocabulary this catalogue already uses, so they are
+  read from the bundle rather than retyped — see
+  <a href="/about/profiles">plugin profiles</a>.</p>
+</div>
+{{{side}}}
+{{{links}}}
+</div>

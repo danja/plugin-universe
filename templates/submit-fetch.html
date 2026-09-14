@@ -1,10 +1,13 @@
 <form method="post" action="/submit" class="submit-form submit-fetch">
   <input type="hidden" name="csrf" value="{{csrf}}">
-  <label for="page-url">Read a page instead</label>
-  <p class="tags">Paste the plugin's own page and its details will be drafted below
-    for you to check. One page, fetched once — this is not the crawler, and nothing
-    is saved until you press Submit.</p>
+  <label for="page-url">Read a page or profile instead</label>
+  <p class="tags">Paste the plugin's own page, or the address of a profile it
+    publishes — a <code>.ttl</code> or JSON-LD file. Which one it is is decided by
+    what comes back rather than by the extension, so a profile served as plain text
+    still reads as a profile. Its details are drafted below for you to check. One
+    address, fetched once — this is not the crawler, and nothing is saved until you
+    press Submit.</p>
   <input type="url" id="page-url" name="pageUrl" value="{{value}}"
-         placeholder="https://example.org/my-plugin/" maxlength="{{maxLength}}">
-  <button type="submit" name="read" value="1">Read the page</button>
+         placeholder="https://example.org/my-plugin/ or .../profile.ttl" maxlength="{{maxLength}}">
+  <button type="submit" name="read" value="1">Read it</button>
 </form>

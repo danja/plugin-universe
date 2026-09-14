@@ -334,13 +334,18 @@ under [docs/entries/](docs/entries/) and what went wrong is in
 In one line each, most recent first:
 
 * **2026-09-14** — **Self-hosted plugin profiles.** `/submit` has a *Download profile* button
-  beside Submit, producing a `profile.ttl` an author hosts beside their own plugin, and an
-  *Already have a profile?* box that reads Turtle or JSON-LD back in — recognised by looking at
-  the document rather than by asking which it is. A pasted profile is **drafted into the form**
-  and saved by the ordinary Submit button, so there is still one write path through one
-  validator. `/about/profiles` gained the guidance: why hosting it yourself is better, what the
-  file looks like, where to put it. The round trip is what found the bug: `pu:category/reverb`
-  is not a legal prefixed name, so every generated profile with a category was unparseable.
+  beside Submit, producing a `profile.ttl` an author hosts beside their own plugin.
+  **`/submit/profile`** is the page for one they have already written — Turtle or JSON-LD,
+  recognised by looking at the document rather than by asking. And *Read a page* became **Read a
+  page or profile**: the moderator's one fetch now takes a profile URL as readily as a plugin's
+  page, deciding which it has **from the body rather than from `Content-Type`**, because static
+  hosts and GitHub raw serve `.ttl` as `text/plain`.
+
+  A profile always **drafts into the form** and is saved by the ordinary Submit button, so there
+  is one write path through one validator whichever way it arrived. `/about/profiles` carries
+  the guidance: why hosting it yourself is better, what the file looks like, where to put it,
+  and the two ways to tell us. The round trip found the bug: `pu:category/reverb` is not a legal
+  prefixed name, so every generated profile with a category was unparseable.
 * **2026-09-14** — `pu:claimsVendor` holds the vendor IRI rather than the folded name, so a
   Pro entitlement survives a vendor merge instead of silently failing on the plugins the merge
   gathered. **Category and Licence on `/submit` are dropdowns**, their options read from
