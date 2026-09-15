@@ -497,7 +497,8 @@ Referenced by `docs/local-references.md`; useful as seed data and as prior art:
 
 - `~/github/transmission` — the `trn:` vocabulary (`vocabs/profile.ttl`), an rdf-ext profile parser
   (`src/rdf/PluginProfileRdf.js`) and the profile spec (`docs/plugin-profiles.md`)
-- `~/github/downspout` — 50 VST3 plugins with hand-written `profile.ttl` files
+- `~/github/downspout` — 52 VST3 plugins with hand-written `profile.ttl` files (a moving count:
+  it was 50 when this line was written and the repository is actively developed)
 - `~/github/flues` — 37 LV2 bundles, 88 `.ttl` files; the reference for LV2-shaped metadata
 - `~/github/valis` — RDF loaded at runtime; the precedent for describing parameters with `lv2:port`
 - `~/github/semem` — the SPARQL / embedding / FAISS core is extracted from here (see

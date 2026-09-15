@@ -6,13 +6,20 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import { FREE } from './Licensing.js'
 
 const trn = NAMESPACES.trn
+const pu = NAMESPACES.pu
 const rdfs = NAMESPACES.rdfs
 const foaf = NAMESPACES.foaf
 const doap = NAMESPACES.doap
 
 /**
  * Harvests the curated behaviour profiles from the downspout repository:
- * one profile.ttl per plugin directory, 50 of them.
+ * one profile.ttl per plugin directory, 52 of them as of 2026-09-15.
+ *
+ * The count is a moving one and is here only as a sense of scale — the
+ * repository is actively developed, and a re-harvest on 2026-09-15 picked up
+ * two plugins (moka and magneto, added 2026-09-09 and 2026-09-12) that the
+ * deployed catalogue did not have. Nothing reports a source that has grown
+ * since it was last read.
  *
  * These are hand-authored, which is why this harvester tolerates the two
  * spellings of min/max and the stray typos — it reads what is there and the
@@ -40,7 +47,7 @@ export class DownspoutHarvester extends Harvester {
   /**
    * Read one profile.ttl into a raw record.
    *
-   * Two shapes occur. 49 files are trn:PluginProfile as documented; one
+   * Two shapes occur. All but one are trn:PluginProfile as documented; one
    * (plugins/worms) is LV2/DOAP-shaped instead. A hand-maintained corpus drifts,
    * so the harvester reads whichever shape is present rather than rejecting the
    * odd one out — a plugin silently missing from the catalogue is worse than a
@@ -92,6 +99,18 @@ export class DownspoutHarvester extends Harvester {
       recommendedAfter: view.values(subject, `${trn}recommendedAfter`),
       cautions: view.values(subject, `${trn}caution`),
       genres: view.values(subject, `${trn}genre`),
+      // What the author says it runs on. Read from the profile rather than
+      // stated for the repository in `#repositoryTerms` below, because unlike
+      // the licence and the pricing this is a property of the plugin: they are
+      // all built together today and that is a fact about the build script, not
+      // a promise about every plugin that will ever be in this repository.
+      //
+      // Adding the statement to the 52 files and not reading it here would have
+      // been the write path without the read — the failure this project has
+      // written down four times. `Normaliser` filters the values against
+      // `PLATFORMS`, so a typo in a hand-edited file is dropped rather than
+      // minting a fourth platform.
+      platforms: view.values(subject, `${pu}supportedPlatform`),
       ccMappings,
       parameters
     }
@@ -123,6 +142,10 @@ export class DownspoutHarvester extends Harvester {
       bundleName: `${path.basename(path.dirname(file))}.vst3`,
       formats: [`${trn}VST3`],
       lv2Classes: view.values(subject, `${NAMESPACES.rdf}type`),
+      // Read in this shape too. It is one plugin out of fifty-two and the one
+      // most likely to be forgotten, which is the whole reason the odd shape
+      // gets a fallback reader rather than a rejection.
+      platforms: view.values(subject, `${pu}supportedPlatform`),
       roles: [],
       parameters: [],
       ccMappings: []

@@ -307,6 +307,22 @@ stated in [docs/backups.md](docs/backups.md):
   `SearchService.js` re-exporting as it already does for ranking, facets and documents, so no
   caller moves. Not urgent, and the longer it waits the more of the vendor-profile work lands
   in the wrong file.
+* **Nothing reports a source that has grown since it was last read.** Re-harvesting downspout on
+  2026-09-15 for an unrelated reason read 52 profiles where the store held 50: `moka` and
+  `magneto` had been added upstream on 2026-09-09 and 2026-09-12 and were absent from the
+  catalogue, silently, for days. `/health` counts what is *in* the store, and there is no number
+  anywhere for what is in the sources — so a plugin added upstream stays missing until somebody
+  happens to harvest for another reason. The two local repositories are cheap to check (a
+  directory listing) and the GitHub candidates are a conditional request each. A count in
+  `/health` or `/admin` of "plugins the last harvest saw" against "plugins the source has now"
+  would make it visible; a nightly harvest would make it moot, and is probably the real answer
+  for the two local sources.
+* **A harvest that adds a plugin leaves the derived vendor layer stale.** `foaf:maker` lives in
+  `graph:curated/vendors` and only `bin/mint-vendors.js` writes it, so the two new downspout
+  plugins had a vendor string and no vendor identity until it was re-run — caught by
+  `tests/store/vendor-identity.test.js`, which is the good outcome, but only because a test
+  happened to assert the two counts match. `bin/ingest.js` knows it has written plugins and
+  could say so on the way out, or run it.
 * **Embedding staleness**: `--only-new` embeds plugins with no vector, but cannot see a plugin
   whose *text* changed upstream — the IRI is unchanged, so the stale vector stays. Storing
   `pu:composedTextHash` beside each vector would close it and make a nightly refresh cheap.
@@ -336,11 +352,16 @@ stated in [docs/backups.md](docs/backups.md):
   If it is ever revisited it wants a separate predicate with its own provenance, not
   `pu:supportedPlatform`.
 
-  The route that *is* open is asking whoever knows. flues is done — `bin/ingest.js` states Linux
-  for that repository beside its licence, vendor and pricing, which is where a per-repository
-  fact belongs, and `tests/harvest/harvesters.test.js` asserts the harvester stays silent
-  without it. downspout is the same shape and still open; its README names all four builds. That
-  leaves the ~90 GitHub repositories, where the only honest mechanism is a release asset — see
+  The route that *is* open is asking whoever knows, and both local repositories have now been
+  asked. flues states Linux in `bin/ingest.js`, beside its licence, vendor and pricing, which is
+  where a per-repository fact belongs. downspout states all three in its own 52 `profile.ttl`
+  files, which is better still — the fact travels with the plugin — and `DownspoutHarvester` and
+  the shared LV2 bundle reader both read the predicate now, so any author who writes it into
+  their own manifest is believed. `tests/harvest/harvesters.test.js` asserts both halves: that
+  the readers pick it up, and that neither invents it from the format.
+
+  That leaves the ~90 GitHub repositories, where the only honest mechanism is a release asset,
+  and the ~68 source-only ones among them publish none. Deploying the three re-harvests is in
   [docs/danja-todo.md](docs/danja-todo.md).
 * **Tooltips where they earn their place.** Measurement metrics already carry labels and units
   from the vocabulary, which is the case that most wants one. Two cautions: a tooltip is

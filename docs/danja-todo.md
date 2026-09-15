@@ -7,74 +7,41 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 
 ## One-off
 
-- [ ] **After the next deploy, run the platform backfill on the server.** The catalogue now has
-  a Platforms field — `pu:supportedPlatform`, with `pu:Windows` / `pu:MacOS` / `pu:Linux` — on
-  the plugin itself, a `?platform=` facet, a row on every plugin page, and the field on
-  `/submit`. New harvests write it; the 757 plugins already in the store do not have it until
-  this is run:
+
+- [ ] **Commit the downspout profile edits, then re-harvest downspout on the server.**
+  *2026-09-15:* `pu:supportedPlatform pu:Windows, pu:MacOS, pu:Linux` is now in all 52
+  `plugins/*/profile.ttl` files in `~/github/downspout`, with the `pu:` prefix added to each.
+  **They are edited and not committed** — that repository is yours and I do not run git in it.
+  Every file was parsed before and after and gained exactly three triples on the subject it
+  already described, including `plugins/worms/profile.ttl`, which is LV2/DOAP-shaped rather
+  than `trn:PluginProfile` and needed the same care.
+
+  `DownspoutHarvester` did not read that predicate — it returned a fixed set of fields — so the
+  edits on their own would have changed nothing in the catalogue. It reads it now, in both
+  shapes, and so does the shared LV2 bundle reader, which means an author who puts
+  `pu:supportedPlatform` in their own `.lv2` manifest is believed by the disk harvester and the
+  GitHub one alike.
 
   ```sh
-  docker compose exec app node bin/ingest.js --vocabs-only    # the three individuals and their labels
-  docker compose exec app node bin/backfill-platforms.js      # dry run: reports what would change
-  docker compose exec app node bin/backfill-platforms.js --apply
-  docker compose restart app                                  # the facet is built at startup
+  docker compose run --rm app node bin/ingest.js --source downspout
+  docker compose run --rm app node bin/mint-vendors.js   # see below — do not skip this
+  docker compose restart app
   ```
 
-  It is a recomputation, not a re-harvest: it derives from `pu:operatingSystem` and download
-  URLs already in the store, so it costs no source any traffic, is idempotent, and is a no-op
-  after a source is next harvested. Then re-publish, or the public SPARQL copy and the dumps
-  keep the old shape.
+  **This will add two plugins you are currently missing.** The local re-harvest read 52
+  profiles where the deployed catalogue holds 50: `moka` and `magneto`, added to the repository
+  on 2026-09-09 and 2026-09-12, are not on the site. Nothing reports a source that has grown
+  since it was last read, which is worth knowing on its own.
 
-  **Expect roughly 580 of 757 plugins to gain platforms** — 559 from the Open Audio Stack
-  manifests and about 21 from GitHub release asset names. On the local store it was 559 of 645
-  and the facet came out 478 Windows, 421 macOS, 360 Linux; the server's numbers will be higher
-  and I have not measured them. The other ~176 are source-only GitHub repositories, the 50
-  downspout plugins and the 36 flues bundles, none of which publish a package the catalogue can
-  read a platform from. They stay silent, which is your decision from 2026-09-15 and the right
-  one — except where you know the answer, which is the next two items: flues is settled and
-  needs a re-harvest to land, downspout still needs you.
+  `bin/mint-vendors.js` is not optional after a harvest that adds a plugin. Two store tests went
+  red locally until it was run: a new plugin carries a vendor *string* and the minted `foaf:maker`
+  lives in a derived graph that only that script rebuilds, so until it runs those plugins have no
+  vendor identity and your `danja` vendor page is missing them.
 
-- [ ] **Say what the downspout plugins run on.** All 50 of them are in the catalogue with no
-  platforms, and `README.md` in that repository already says the answer: the release ships
-  `linux-x86_64`, `macos-arm64`, `macos-x86_64` and `windows-x86_64` VST3 zips. Nothing in the
-  `profile.ttl` files says so, and the harvester reads those files rather than the release, so
-  it cannot know. Two ways to fix it, and the first is better for everyone:
-  add `pu:supportedPlatform pu:Windows, pu:MacOS, pu:Linux .` to each `plugins/*/profile.ttl`
-  in `~/github/downspout` — it is a one-line addition per file, it is a fact you control, and it
-  travels with the plugin wherever the profile goes. Failing that, tell me and I will have
-  `DownspoutHarvester` assert it. **The README also says the macOS and Windows builds are
-  untested** — if that is still true, it belongs in `trn:caution` rather than being a reason to
-  leave the field blank.
-
-- [ ] **Re-harvest flues on the server, so the 36 bundles get their Linux.** *2026-09-15:* you
-  said Linux only, and `bin/ingest.js` now states it beside the repository's licence, vendor and
-  pricing — the same place every other per-repository fact is declared, and verified rather than
-  inferred: `Lv2Harvester` itself still says nothing, because an LV2 bundle declares no platform
-  and several repositories in this catalogue build for Windows and macOS too. Applied locally;
-  all 36 now carry `pu:supportedPlatform pu:Linux` and nothing else.
-
-  The backfill above **cannot** do this one — it derives from packages, and a flues bundle has
-  none — so it needs a real harvest:
-
-  ```sh
-  docker compose run --rm app node bin/ingest.js --source flues --skip-embeddings
-  ```
-
-  It takes about five seconds and needs `SEED_DIR` to hold the `flues` checkout; without it the
-  run reports the source as skipped and changes nothing. Order does not matter: the backfill
-  skips a plugin whose harvester stated its platforms and says so in its report, so neither can
-  undo the other.
-
-- [ ] **Dismiss the GitHub secret-scanning alert on `tests/api/billing.test.js` as a false
-  positive** — no rotation needed, and nothing to revoke. The flagged string was a Stripe
-  webhook signing secret invented for that test file; it has never existed in any Stripe
-  account. *2026-09-14:* the fixture is gone from the working tree — every key-shaped string in
-  that file is now assembled at run time from its prefix, and
-  `tests/api/no-secret-shapes.test.js` fails on any line in the repository a scanner would
-  flag. **It is still in the git history**, so the alert will not close on its own; it wants a
-  "used in tests" dismissal on the Security tab. Rewriting the history to remove it would cost
-  more than it is worth for a string that was never a secret, but that is your call.
-
+  **The README says the macOS and Windows builds are untested.** You have stated all three
+  platforms and that is your call — but if it is still true, it belongs in `trn:caution` on the
+  affected plugins, which is a field the profiles already carry and the plugin page already
+  shows. Worth a pass while the files are open.
 
 
 - [ ] **A security review and pentest of the whole system**, including the rest of the server —
@@ -103,8 +70,8 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 
 - [ ] **Read `/about/profiles` as a plugin author would**, and fill one in for one of your own.
   `/submit` now asks for roles, what a plugin accepts and produces, what it requires of the host,
-  which platforms it runs on, and any caution worth stating — the fields the fifty downspout
-  profiles already carry, plus the platforms they do not — and
+  which platforms it runs on, and any caution worth stating — the fields the downspout profiles
+  already carry, platforms included since 2026-09-15 — and
   that page is what has to persuade a stranger those fields are worth their ten minutes. It
   That page used to promise something that did not exist — *"send us the URL of your bundle"*
   for ports and parameters. **It exists now:** `/admin` has a *Read a bundle* panel, and the

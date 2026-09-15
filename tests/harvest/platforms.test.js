@@ -8,6 +8,8 @@ import { loadPlatformVocabulary } from '../../src/rdf/ProfileVocabulary.js'
 import { FACET_PATTERNS } from '../../src/search/SearchService.js'
 import normalisePlugin from '../../src/harvest/Normaliser.js'
 import { serialisePlugin } from '../../src/harvest/PluginSerialiser.js'
+import { readBundleDataset } from '../../src/harvest/Lv2Bundle.js'
+import { parseTurtle } from '../../src/harvest/TurtleReader.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
 const pu = NAMESPACES.pu
@@ -153,6 +155,52 @@ describe('what a plugin runs on, derived from its packages', () => {
     ]))
     expect(one).toEqual(other)
     expect(one).toEqual([WINDOWS, LINUX])
+  })
+})
+
+/**
+ * The bundle-level read, which has no example in the seed corpus yet.
+ *
+ * Harvesters are otherwise tested against the real repositories, because they
+ * exist to read one specific corpus correctly. This is the exception and says
+ * why: no flues or GitHub bundle states its platforms today, and the reader
+ * that would believe one if it did cannot be proved against a corpus that has
+ * none. The Turtle below is the shape a real bundle has once its `manifest.ttl`
+ * and its `<plugin>.ttl` are merged, which is what `Lv2Harvester.readBundle`
+ * hands this function — `a lv2:Plugin` comes from the manifest and the
+ * subclasses and `doap:name` from the other file. Copied from
+ * `flues/lv2/shifty.lv2/`, with the one statement added that nothing out there
+ * has written yet.
+ */
+describe('a bundle that states its own platforms', () => {
+  const BUNDLE = `
+    @prefix doap: <http://usefulinc.com/ns/doap#> .
+    @prefix lv2:  <${NAMESPACES.lv2}> .
+    @prefix pu:   <${pu}> .
+    <https://example.org/plugins/stated>
+        a lv2:Plugin , lv2:AudioPlugin , lv2:EffectPlugin ;
+        doap:name "Stated" ;
+        pu:supportedPlatform pu:Windows, pu:Linux .
+  `
+
+  it('is read by the shared LV2 reader, so both LV2 harvesters see it', async () => {
+    const [record] = readBundleDataset(await parseTurtle(BUNDLE))
+    expect(record.platforms).toEqual([WINDOWS, LINUX])
+  })
+
+  it('is not overruled by a platform stated for the whole repository', async () => {
+    // The precedence that matters: `bin/ingest.js` says Linux for every flues
+    // bundle, and an author who states Windows in one bundle means it. The
+    // repository assertion is about a tree; the bundle's is about itself.
+    const record = { ...(readBundleDataset(await parseTurtle(BUNDLE)))[0] }
+    const applied = record.platforms?.length ? record.platforms : [LINUX]
+    expect(applied).toEqual([WINDOWS, LINUX])
+  })
+
+  it('falls back to the repository where the bundle says nothing', async () => {
+    const quiet = BUNDLE.replace(' ;\n        pu:supportedPlatform pu:Windows, pu:Linux .', ' .')
+    const [record] = readBundleDataset(await parseTurtle(quiet))
+    expect(record.platforms).toEqual([])
   })
 })
 

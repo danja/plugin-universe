@@ -69,7 +69,7 @@ const FROM_PREDICATE = Object.freeze({
  *
  * Prefixed names and a readable layout, because this is a file a person will
  * open, edit and commit — not a serialisation for a machine. It is the shape
- * the fifty downspout profiles already use, which is the shape this catalogue
+ * the downspout profiles already use, which is the shape this catalogue
  * reads without translation.
  *
  * **The subject is the plugin's homepage.** A profile needs a subject IRI and

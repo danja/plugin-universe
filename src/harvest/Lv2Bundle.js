@@ -21,6 +21,7 @@ const rdfs = NAMESPACES.rdfs
 const doap = NAMESPACES.doap
 const foaf = NAMESPACES.foaf
 const trn = NAMESPACES.trn
+const pu = NAMESPACES.pu
 const atom = NAMESPACES.atom
 const midi = NAMESPACES.midi
 const time = NAMESPACES.time
@@ -116,6 +117,14 @@ export function readBundleDataset (dataset, { vendor = null, homepage = null } =
       accepts,
       produces,
       requires: requiresTransport ? [`${trn}HostTransport`] : [],
+      // Platforms, where the bundle's author states them. Nothing in LV2 says
+      // this — it is read here so that an author who adds
+      // `pu:supportedPlatform` to their own manifest is believed, by both the
+      // disk harvester and the GitHub one, which is the whole argument of
+      // /about/profiles. Empty otherwise: an .lv2 directory is not evidence of
+      // an operating system, and inferring one from the format would be wrong
+      // for every bundle that ships a Windows build.
+      platforms: view.values(subject, `${pu}supportedPlatform`),
       parameters: ports.map(port => readPort(view, port)).filter(Boolean)
     })
   }

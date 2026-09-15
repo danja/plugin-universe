@@ -57,7 +57,7 @@ edit behaviour without invalidating measurements.
 
 **Extend `trn:` (`http://purl.org/stuff/transmissions/`) rather than mint a new ontology.** It
 already exists at `/home/danny/github/transmission/vocabs/profile.ttl`, it is already emitted by
-50 downspout plugins and by valis, it has a working parser
+every downspout plugin and by valis, it has a working parser
 (`/home/danny/github/transmission/src/rdf/PluginProfileRdf.js`) and a normative spec
 (`/home/danny/github/transmission/docs/plugin-profiles.md`). Reuse established vocabularies wherever
 one fits, and let the open-audio-stack manifest model inform the packaging layer.

@@ -22,7 +22,7 @@ first.
 
 ### 2. Generate profiles; stop hand-writing them
 
-Right now `profile.ttl` files are authored by hand across 50 downspout plugin directories, and
+Right now `profile.ttl` files are authored by hand across every downspout plugin directory, and
 `/home/danny/github/transmission/profiles/downspout.ttl` is a manually synced consolidated copy that
 has already drifted. That is three copies of the same facts (per-plugin TTL, consolidated TTL, and
 49 Jekyll front-matter files under `docs/pages/_products/`) with nothing keeping them equal.

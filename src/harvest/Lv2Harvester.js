@@ -76,15 +76,23 @@ export class Lv2Harvester extends Harvester {
       const parsed = await parseTurtleFile(path.join(bundleDir, file))
       dataset = dataset ? dataset.merge(parsed) : parsed
     }
-    // What the repository says, as against what the bundle says. Both are
-    // added only when there is something to add, so a caller that names neither
-    // gets records exactly as the bundle described them.
-    const repository = {
+    // What the repository says, as against what the bundle says. Added only
+    // when there is something to add, so a caller that names neither gets
+    // records exactly as the bundle described them.
+    //
+    // **The bundle wins on platforms**, where it states any: the repository
+    // assertion is a statement about a tree of bundles and the bundle's own is
+    // about itself, so the more specific one is the better answer. It is the
+    // same precedence `DownspoutHarvester` applies to a licence
+    // (`record.licence ?? 'MIT'`), and it means an author who adds
+    // `pu:supportedPlatform` to one bundle is not overruled by a flag set for
+    // the whole checkout. Nothing in the corpus does this yet; the ordering
+    // costs nothing and the reverse would be a trap waiting for the first one.
+    return readBundleDataset(dataset, { vendor: this.vendor }).map(record => ({
+      ...record,
       ...(this.pricing ? { pricing: this.pricing } : {}),
-      ...(this.platforms.length ? { platforms: this.platforms } : {})
-    }
-    return readBundleDataset(dataset, { vendor: this.vendor })
-      .map(record => ({ ...record, ...repository }))
+      platforms: record.platforms?.length ? record.platforms : this.platforms
+    }))
   }
 
   async collect () {

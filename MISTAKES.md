@@ -142,6 +142,25 @@ the format as an operating system would be wrong for several repositories here.
 stating a fact about a repository they wrote, the other is a program inferring
 one from a file extension.
 
+**And the same defect, one move later.** The downspout profiles were then edited
+to carry `pu:supportedPlatform` — 52 files in a *different repository* — and
+`DownspoutHarvester.readProfile` returns a fixed set of fields that did not
+include it. The statement would have been in the author's own files, committed,
+published, and in no harvest. It is the write-without-a-read again, in the one
+place where the two halves are in different repositories and nothing whatsoever
+connects them: no test, no import, no grep that spans both. The check that
+caught it was reading the harvester before editing the files rather than after.
+`tests/harvest/harvesters.test.js` now asserts every downspout profile's
+platforms arrive in the record, which is the binding that makes the two
+repositories one system.
+
+A second thing fell out of that re-harvest, unrelated and worth more: it read 52
+profiles where the deployed catalogue holds 50. `moka` and `magneto` were added
+to downspout on 2026-09-09 and 2026-09-12 and are not on the site. **Nothing
+reports a source that has grown since it was last read** — `/health` counts what
+is in the store, not what is in the sources — so a plugin added upstream is
+absent until somebody happens to re-harvest for another reason.
+
 ---
 
 ## 2026-09-14 — A test fixture that a secret scanner read as a leaked key

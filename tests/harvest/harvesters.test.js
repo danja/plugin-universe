@@ -12,6 +12,7 @@ import { LINUX } from '../../src/harvest/Platforms.js'
 const DOWNSPOUT = process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout'
 const FLUES = process.env.FLUES_PATH ?? '/home/danny/github/flues'
 const trn = NAMESPACES.trn
+const pu = NAMESPACES.pu
 
 const haveSeed = fs.existsSync(DOWNSPOUT) && fs.existsSync(FLUES)
 
@@ -74,6 +75,30 @@ describe.skipIf(!haveSeed)('DownspoutHarvester', () => {
 
   it('marks every plugin as VST3', () => {
     expect(result.plugins.every(p => p.formats.includes(`${trn}VST3`))).toBe(true)
+  })
+
+  it('reads the platforms the profiles state, in both shapes', () => {
+    // The read half of the 2026-09-15 change. `pu:supportedPlatform` was added
+    // to all 52 profile.ttl files, and `readProfile` returned a fixed set of
+    // fields that did not include it — so without this the statement would have
+    // been in the repository, in the author's own files, and in no harvest.
+    // That is the failure at the top of CLAUDE.md, in the one place where the
+    // write and the read are in different repositories and nothing at all
+    // connects them.
+    expect(result.plugins.length).toBeGreaterThanOrEqual(50)
+    for (const plugin of result.plugins) {
+      expect(plugin.platforms, `${plugin.name} states no platforms`)
+        .toEqual([`${pu}Windows`, `${pu}MacOS`, `${pu}Linux`])
+    }
+  })
+
+  it('reads them from the one DOAP-shaped profile too', () => {
+    // plugins/worms is lv2:Plugin rather than trn:PluginProfile, read by the
+    // fallback shape — one plugin in fifty-two, and the one a second reader is
+    // most likely to be forgotten in.
+    const worms = result.plugins.find(p => p.name === 'ToneWorm')
+    expect(worms, 'the DOAP-shaped profile was not harvested at all').toBeTruthy()
+    expect(worms.platforms).toContain(`${pu}Windows`)
   })
 })
 
