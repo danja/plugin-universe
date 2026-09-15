@@ -60,6 +60,7 @@ const FROM_PREDICATE = Object.freeze({
   [`${trn}requires`]: { field: 'requires', as: 'localName' },
   [`${trn}caution`]: { field: 'caution', as: 'text' },
   [`${pu}category`]: { field: 'category', as: 'localName' },
+  [`${pu}supportedPlatform`]: { field: 'platform', as: 'localName' },
   [`${pu}licenceId`]: { field: 'licenceId', as: 'text' }
 })
 
@@ -128,6 +129,10 @@ export function profileTurtle (fields = {}, { subject = null } = {}) {
   // parse — found by reading a generated profile straight back in, which is the
   // only check that would have caught it.
   for (const value of list(fields.category)) say('pu:category', `<${pu}category/${value}>`)
+  // A prefixed name here, unlike the category above: `pu:Windows` has no slash
+  // in its local part, so it parses. Written one statement per platform rather
+  // than a comma list to match the other `pu:` lines around it.
+  for (const value of list(fields.platform)) say('pu:supportedPlatform', `pu:${value}`)
   for (const value of list(fields.licenceId)) say('pu:licenceId', literal(value))
   for (const value of list(fields.caution)) say('trn:caution', literal(value))
 
@@ -187,6 +192,10 @@ export function profileFieldsFor (doc = {}) {
     // A harvested plugin may carry several; the first is the one the page leads
     // with, and an author editing the file can say otherwise.
     category: (doc.categories ?? [])[0] ?? '',
+    // All of them, unlike the category: `pu:supportedPlatform` has no maxCount
+    // in the shapes, and a profile saying a plugin runs on Windows but not that
+    // it also runs on Linux would be worse than one saying neither.
+    platform: doc.platforms ?? [],
     licenceId: doc.licenceId ?? '',
     caution: doc.cautions ?? ''
   }

@@ -37,7 +37,10 @@ const FIELDS = {
   vendor: 'Test Vendor',
   format: ['VST3', 'LV2'],
   description: 'A plugin that exists only in this test.',
-  category: 'reverb'
+  category: 'reverb',
+  // Two of the three, so that "all of them" and "the ones that were ticked"
+  // cannot be mistaken for each other in what comes back.
+  platform: ['Windows', 'Linux']
 }
 
 let clock = Date.now()
@@ -149,6 +152,14 @@ describe('a submission from a new contributor', () => {
     // downstream could detect.
     const formats = written.filter(row => row.p === `${NAMESPACES.trn}format`).map(row => row.o)
     expect(formats.sort()).toEqual([`${NAMESPACES.trn}LV2`, `${NAMESPACES.trn}VST3`])
+
+    // And the platforms, as pu: individuals rather than as strings. This is the
+    // only source that can state them directly — a submitted plugin has no
+    // packages to derive them from — so if the form does not carry them through
+    // to the graph, the field is decoration.
+    const platforms = written
+      .filter(row => row.p === `${NAMESPACES.pu}supportedPlatform`).map(row => row.o)
+    expect(platforms.sort()).toEqual([`${NAMESPACES.pu}Linux`, `${NAMESPACES.pu}Windows`])
   })
 
   it('refuses a proposal of a plugin the catalogue now holds', async () => {

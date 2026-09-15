@@ -54,6 +54,17 @@ a name and a description.
 Transport* means it needs tempo and beat position; a plugin that free-runs does
 not.
 
+**Platforms.** Which operating systems it runs on — Windows, macOS, Linux. Tick
+all that apply and leave them all clear if you are not sure: blank means "nobody
+has said", which is what this catalogue would rather record than a guess.
+
+This one is worth a moment even though it looks trivial. Where a plugin ships
+through a registry that states its platforms, or publishes release assets named
+for them, the catalogue works it out. Where it does not, **you are the only
+source there is** — and "will this run on my machine" is the question that
+disqualifies a plugin before anybody reads what it does. It is a link on your
+plugin's page and a filter: `/?platform=Windows`.
+
 **Caution.** Anything that surprises people. Heavy CPU at high settings, output
 that can jump in level, a parameter best left alone while the tape is rolling.
 This is read by someone deciding whether to put your plugin in a live rig, and
@@ -95,6 +106,7 @@ done — you never have to submit anything to this catalogue at all.
 
 ```turtle
 @prefix trn:  <http://purl.org/stuff/transmissions/> .
+@prefix pu:   <http://purl.org/stuff/plugin-universe/> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
 
@@ -107,7 +119,8 @@ done — you never have to submit anything to this catalogue at all.
     trn:format trn:VST3, trn:LV2 ;
     trn:role trn:AudioEffect ;
     trn:accepts trn:Audio ;
-    trn:produces trn:Audio .
+    trn:produces trn:Audio ;
+    pu:supportedPlatform pu:Windows, pu:MacOS, pu:Linux .
 ```
 
 That is the whole thing. Every term in it is [published](/ns), and the fifty

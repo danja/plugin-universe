@@ -1,0 +1,33 @@
+# The platform evidence already in the store, and what has been derived from it.
+#
+# Two kinds of evidence, both of them facts a harvester wrote and neither of
+# them reachable by a facet:
+#
+#   - pu:operatingSystem on a package file, which the Open Audio Stack manifest
+#     states for 559 plugins — "win", "mac", "linux".
+#   - the download URL, whose filename is how a GitHub release says the same
+#     thing: dm-BigMuff-windows.zip, master_me-1.3.1-macos-universal.dmg.
+#
+# Both are three blank nodes below the plugin, which is why neither could be
+# filtered on. `src/harvest/Platforms.js` turns them into pu:Platform
+# individuals; this only fetches them, so that the classifier is one function
+# rather than a second copy written in SPARQL.
+#
+# ?derived comes back too, so the backfill can tell a plugin that needs writing
+# from one already written and be a no-op on a second run.
+#
+# The graph is on every row because a write stays inside the graph the fact came
+# from — a source's graph is a source's graph.
+SELECT ?graph ?plugin ?system ?url ?derived
+WHERE {
+  GRAPH ?graph {
+    ?plugin a trn:PluginProfile .
+    OPTIONAL {
+      ?plugin pu:package/pu:packageFile ?file .
+      OPTIONAL { ?file pu:operatingSystem ?system }
+      OPTIONAL { ?file pu:downloadUrl ?url }
+    }
+    OPTIONAL { ?plugin pu:supportedPlatform ?derived }
+  }
+}
+ORDER BY ?graph ?plugin

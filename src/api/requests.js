@@ -22,11 +22,16 @@
  */
 export const FACET_NAMES = Object.freeze([
   'format', 'category', 'role', 'vendor', 'source', 'pricing', 'licence', 'measured',
+  // What it runs on, and one of the four `facetControls` draws — it took
+  // `source`'s place there, because "will it run on my machine" disqualifies a
+  // plugin before anything else about it matters. `source` is still a badge on
+  // every result row, a link on every plugin page and `?source=` in a URL.
+  'platform',
   // `accepts` and `produces` are the two that make a chain answerable: given a
   // plugin that produces MIDI, `/?accepts=Midi` is the list of things that can
   // follow it. Like `role`, they are addressable by URL and linked from a
   // plugin page without being a dropdown on the form — `facetControls` renders
-  // four of these deliberately, and a form with eight selects is a wall.
+  // four of the eleven deliberately, and a form with eleven selects is a wall.
   'accepts', 'produces'
 ])
 

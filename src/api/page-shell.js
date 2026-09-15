@@ -322,17 +322,40 @@ export function pager ({ total, offset, limit, params = {}, base = '/' }) {
  * these three decide what goes in it.
  */
 
-/** The facet dropdowns, with the current selection marked. */
+/**
+ * How a facet value is written in a dropdown, where it differs from the token.
+ *
+ * Only the one entry, and an exception table rather than a full map so that its
+ * silence about `Windows` means "the token is already right" — the same shape as
+ * `UNIT_SYMBOL` in `render-plugin.js` and `SCHEMA_PLATFORM` in `serialise.js`.
+ * The *value* in the option stays the token, because that is what goes into the
+ * URL; only the text changes.
+ */
+const FACET_VALUE_LABEL = { MacOS: 'macOS' }
+
+/**
+ * The facet dropdowns, with the current selection marked.
+ *
+ * Four of the eleven facets, deliberately: a form with eleven selects is a wall.
+ * `platform` replaced `source` here on 2026-09-15 — "will it run on my machine"
+ * disqualifies a plugin before anything else about it matters, and source
+ * availability is still a badge on every result row, a link on every plugin page
+ * and `?source=` in a URL. The one thing it costs is worth stating: a plugin
+ * with no platform recorded is in no platform's results, so this dropdown hides
+ * part of the catalogue when it is set. It defaults to "any" like the others,
+ * and nothing makes it sticky.
+ */
 export function facetControls (facetValues, facets) {
   const facetSelect = name => templates.render('search-facet', {
     name,
     options: templates.each('search-facet-option', facetValues?.[name] ?? [], value => ({
       value: value.value,
+      label: FACET_VALUE_LABEL[value.value] ?? value.value,
       count: value.count,
       selected: value.value === facets[name] ? ' selected' : ''
     }))
   })
-  return ['format', 'category', 'pricing', 'source'].map(facetSelect).join('\n  ')
+  return ['format', 'category', 'pricing', 'platform'].map(facetSelect).join('\n  ')
 }
 
 /**

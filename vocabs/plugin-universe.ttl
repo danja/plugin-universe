@@ -64,6 +64,36 @@ pu:Paid         a pu:Pricing ; rdfs:label "Paid" .
 
 pu:sourceAvailability a owl:ObjectProperty ; rdfs:range pu:SourceAvailability ;
     rdfs:comment "Derived from the plugin's own licence. Absent means unknown." .
+
+## ── Platforms ───────────────────────────────────────────────────────────────
+## The third question asked about any plugin, and the one the catalogue could
+## already answer and never did: 559 plugins carried pu:operatingSystem strings
+## on their package files, selected by one query that builds the registry index
+## and by nothing a reader or an agent could reach.
+##
+## Individuals rather than strings, for the reason pu:Pricing is: "win", "Win",
+## "Windows" and "windows" are one platform and four facet values, and the
+## catalogue has no way back once both spellings are in it. Named individuals
+## also give the platform an IRI that resolves, which is what makes
+## `?platform=Windows` a question about a thing rather than a string match.
+##
+## Deliberately coarse. A plugin either runs on a platform or it does not; which
+## architectures, which minimum version and which package format are facts about
+## a *file*, and pu:architecture and pu:operatingSystem on pu:PackageFile are
+## where those live. Three individuals is the granularity at which a harvester
+## can be right without guessing.
+
+pu:Platform a owl:Class ; rdfs:label "Platform" ;
+    rdfs:comment "An operating system a plugin runs on. Coarse by design: the architecture and the package format are properties of a file, not of the plugin." .
+pu:Windows a pu:Platform ; rdfs:label "Windows" ;
+    rdfs:comment "Microsoft Windows." .
+pu:MacOS   a pu:Platform ; rdfs:label "macOS" ;
+    rdfs:comment "Apple macOS, whatever the architecture. A universal binary and an Intel-only one are both macOS; which architectures a download covers is pu:architecture on the file." .
+pu:Linux   a pu:Platform ; rdfs:label "Linux" ;
+    rdfs:comment "Linux, and by extension the other free Unixes a Linux build is normally offered for. A distribution is not a platform here." .
+
+pu:supportedPlatform a owl:ObjectProperty ; rdfs:domain trn:PluginProfile ; rdfs:range pu:Platform ;
+    rdfs:comment "A platform the plugin runs on. Asserted only from evidence — a registry manifest saying so, a release asset built for it, or its author telling us. Absent means nobody has said, which is not the same as 'no'. Distinct from pu:platform, which describes the machine a measurement was taken on." .
 pu:pricing a owl:ObjectProperty ; rdfs:range pu:Pricing ;
     rdfs:comment "Never derived from a licence: an open-source licence grants the right to the source, not a free binary. Asserted only by a harvester whose source states it, and carrying that source's provenance." .
 pu:licenceId a owl:DatatypeProperty ; rdfs:range xsd:string ;

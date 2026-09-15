@@ -206,6 +206,35 @@ describe('trust is earned, and then the queue shrinks', () => {
     expect(facts.some(row => row.o === 'https://example.invalid/plugin')).toBe(true)
   })
 
+  it('writes a corrected platform as an individual, and reads it back', async () => {
+    // The check CLAUDE.md asks for by name: a feature that persists something
+    // needs a test that reads it back. Image upload had 22 passing tests over
+    // bytes, types, refusals and rendering, and none over the write — which was
+    // the half that was broken for as long as the route existed.
+    //
+    // What could break here and pass everything else: `valueTerm` writing a
+    // literal instead of an IRI. The value is a bare word, `literal()` is the
+    // fallback, and a plugin carrying `pu:supportedPlatform "Windows"` renders
+    // nowhere, filters nowhere and violates nothing anybody looks at.
+    const trusted = await accounts.find(contributor.iri)
+    const outcome = await corrections.submit({
+      account: trusted,
+      subject: SUBJECT,
+      // Lower case on purpose. A person typing into the correction box does
+      // not know the local name, and the value is normalised through the same
+      // table the harvesters map "win" and "ubuntu" with — so this must land
+      // as pu:Windows and not as a fourth spelling.
+      predicate: `${pu}supportedPlatform`,
+      value: 'windows'
+    }, tick())
+    expect(outcome.status).toBe(STATUS.ACCEPTED)
+
+    const written = (await factsOf(trusted))
+      .filter(row => row.p === `${pu}supportedPlatform`)
+    expect(written).toHaveLength(1)
+    expect(written[0].o).toBe(`${pu}Windows`)
+  })
+
   it('does not promote someone who is already a moderator', async () => {
     // `promoteIfEarned` sets `trusted`, which is a demotion for a moderator.
     expect(await accounts.promoteIfEarned(moderator, 1000)).toBe(false)

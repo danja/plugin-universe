@@ -4,6 +4,7 @@ import DownspoutHarvester from '../../src/harvest/DownspoutHarvester.js'
 import Lv2Harvester from '../../src/harvest/Lv2Harvester.js'
 import { Harvester, HarvestError } from '../../src/harvest/Harvester.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
+import { LINUX } from '../../src/harvest/Platforms.js'
 
 // Harvesters are tested against the real seed repositories. They exist to read
 // one specific corpus correctly, so a synthetic fixture would test nothing.
@@ -108,6 +109,29 @@ describe.skipIf(!haveSeed)('Lv2Harvester', () => {
   it('preserves the upstream canonical IRI', () => {
     const shifty = result.plugins.find(p => p.name === 'Shifty')
     expect(shifty.sourceIri).toBe('https://danja.github.io/flues/plugins/shifty')
+  })
+
+  it('says nothing about platforms unless the caller states them', () => {
+    // The assertion that keeps this honest. An LV2 bundle declares no
+    // platforms — LV2 builds for Windows and macOS too — so reading the format
+    // as an operating system would be a guess written into the graph, and it
+    // would be wrong for several of the repositories this catalogue harvests.
+    // `bin/ingest.js` states Linux for flues because its author does; the
+    // harvester is generic and must keep silent on its own.
+    expect(result.plugins.every(p => (p.platforms ?? []).length === 0)).toBe(true)
+  })
+
+  it('carries a stated platform onto every plugin in the repository', async () => {
+    // A property of the repository, like its licence, its vendor and its
+    // pricing — asserted at the call site that names it, and applied to all 36.
+    const stated = await new Lv2Harvester({
+      repoPath: FLUES, id: 'flues', licence: 'MIT', derivedFrom: 'x',
+      platforms: [LINUX]
+    }).harvest()
+    expect(stated.plugins.length).toBeGreaterThanOrEqual(36)
+    expect(stated.plugins.every(p => p.platforms.includes(LINUX))).toBe(true)
+    // Linux only. "Built on Linux" and "runs everywhere" are different claims.
+    expect(stated.plugins.every(p => p.platforms.length === 1)).toBe(true)
   })
 
   it('reads ports as parameters with no translation', () => {

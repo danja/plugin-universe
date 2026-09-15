@@ -1,10 +1,13 @@
 # Facet counts for the search UI: how many plugins carry each format, role,
-# category, licence, source availability and price. Driven by the data rather
-# than a hardcoded list, so a new source adding a category makes it appear.
+# category, licence, platform, source availability and price. Driven by the data
+# rather than a hardcoded list, so a new source adding a category makes it
+# appear.
 #
 # "source" and "pricing" answer the two questions asked most often about a
 # plugin — can I see the source, do I have to pay — and are worth facets of
-# their own rather than being buried in the licence string.
+# their own rather than being buried in the licence string. "platform" is the
+# third: a Windows user reading a catalogue three quarters of which is Linux
+# audio software is asking it on every page.
 SELECT ?facet ?value (COUNT(DISTINCT ?plugin) AS ?count)
 WHERE {
   GRAPH ?g {
@@ -23,6 +26,8 @@ WHERE {
       ?plugin pu:sourceAvailability ?v . BIND("source" AS ?facet)
     } UNION {
       ?plugin pu:pricing ?v . BIND("pricing" AS ?facet)
+    } UNION {
+      ?plugin pu:supportedPlatform ?v . BIND("platform" AS ?facet)
     } UNION {
       ?plugin pu:licenceId ?vendorName . BIND("licence" AS ?facet)
     } UNION {

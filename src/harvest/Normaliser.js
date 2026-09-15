@@ -1,5 +1,6 @@
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import { toSpdx, sourceAvailabilityFor, PRICING, AVAILABILITY } from './Licensing.js'
+import { PLATFORMS, platformsFromPackages } from './Platforms.js'
 
 /**
  * Source shapes to the catalogue's graph model.
@@ -256,6 +257,19 @@ export function normalisePlugin (raw) {
     sourceAvailability: raw.sourceAvailability ?? sourceAvailabilityFor(raw.licence),
     // Only ever what a harvester asserted, and only from the listed set.
     pricing: PRICING.has(raw.pricing) ? raw.pricing : null,
+    // What it runs on. A harvester that knows says so — an author filling in
+    // `/submit` is the only source that knows directly — and otherwise this is
+    // read out of the packages, which is where 559 plugins' worth of the answer
+    // has been sitting unread since Phase 1.
+    //
+    // Derived here rather than in each harvester for the reason
+    // `sourceAvailability` is: three harvesters would be three copies of the
+    // same inference, and the fourth would forget. A harvester's own assertion
+    // wins, and is filtered against the list rather than trusted — the same
+    // treatment `pricing` gets one line up, and for the same reason.
+    platforms: raw.platforms
+      ? [...new Set(raw.platforms)].filter(platform => PLATFORMS.includes(platform))
+      : platformsFromPackages(raw.packages ?? []),
     maintainer: raw.maintainer ?? null,
     formats: [...new Set(raw.formats ?? [])],
     roles: [...new Set(roles)],

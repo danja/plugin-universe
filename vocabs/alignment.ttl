@@ -108,6 +108,18 @@ pu:donateUrl      skos:closeMatch schema:funding .
 pu:category skos:closeMatch schema:applicationSubCategory .
 pu:tag      skos:closeMatch schema:keywords .
 
+## ── Platforms ───────────────────────────────────────────────────────────────
+## schema:operatingSystem is a string on schema:SoftwareApplication, so the
+## alignment is close and not exact in the other direction too: pu:MacOS is an
+## individual and "macOS" is what schema.org wants. `pluginJsonLd` does that
+## conversion at the boundary, which is the honest place for it.
+##
+## pu:operatingSystem above aligns to the same property from the packaging side.
+## Both are right: schema.org has one term where this catalogue has a fact about
+## a plugin and a fact about a file.
+
+pu:supportedPlatform skos:closeMatch schema:operatingSystem , aufx:operating_system .
+
 ## ── Provenance of this file ─────────────────────────────────────────────────
 
 <https://w3id.org/aufx/ontology/1.0>

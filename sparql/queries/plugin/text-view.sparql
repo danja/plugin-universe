@@ -22,6 +22,12 @@ SELECT ?plugin ?g ?name ?vendor ?description ?homepage ?seeAlso ?created ?licenc
        (GROUP_CONCAT(DISTINCT ?acceptsLabel; separator=", ") AS ?accepts)
        (GROUP_CONCAT(DISTINCT ?producesLabel; separator=", ") AS ?produces)
        (GROUP_CONCAT(DISTINCT ?requiresLabel; separator=", ") AS ?requires)
+       # What it runs on. Written onto the plugin by the serialiser and derived
+       # from the packages by the normaliser — 559 plugins carried the same fact
+       # as a string three blank nodes down, where only the registry index could
+       # reach it. Local names, like the roles and signals above, so that the
+       # facet reads `?platform=Windows` rather than a percent-encoded IRI.
+       (GROUP_CONCAT(DISTINCT ?platformLabel; separator=", ") AS ?platforms)
        # Depictions are looked for in every graph, not only the one that
        # declares the plugin. An image uploaded here lands in the contributor's
        # own graph, and scoped to the plugin's graph it was invisible — the
@@ -59,6 +65,7 @@ WHERE {
     OPTIONAL { ?plugin trn:accepts ?acc    BIND(REPLACE(STR(?acc), "^.*/", "") AS ?acceptsLabel) }
     OPTIONAL { ?plugin trn:produces ?pro   BIND(REPLACE(STR(?pro), "^.*/", "") AS ?producesLabel) }
     OPTIONAL { ?plugin trn:requires ?req   BIND(REPLACE(STR(?req), "^.*/", "") AS ?requiresLabel) }
+    OPTIONAL { ?plugin pu:supportedPlatform ?plat BIND(REPLACE(STR(?plat), "^.*/", "") AS ?platformLabel) }
     OPTIONAL { ?plugin pu:category ?cat    BIND(REPLACE(STR(?cat), "^.*/", "") AS ?categoryLabel) }
     OPTIONAL { ?plugin pu:tag ?tag }
     OPTIONAL { ?plugin lv2:port ?port . ?port lv2:name ?portName }

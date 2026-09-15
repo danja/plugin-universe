@@ -11,6 +11,7 @@ import OpenAudioStackHarvester from '../src/harvest/OpenAudioStackHarvester.js'
 import GitHubClient from '../src/harvest/GitHubClient.js'
 import GitHubHarvester from '../src/harvest/GitHubHarvester.js'
 import { FREE } from '../src/harvest/Licensing.js'
+import { LINUX } from '../src/harvest/Platforms.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import EmbeddingService from '../src/embeddings/EmbeddingService.js'
 import VectorIndex from '../src/vectors/VectorIndex.js'
@@ -161,7 +162,15 @@ function localHarvesters () {
         derivedFrom: 'https://github.com/danja/flues',
         vendor: 'Danny Ayers',
         // The user's own repository, MIT and given away.
-        pricing: FREE
+        pricing: FREE,
+        // Linux, and only Linux — stated by the person who wrote and builds
+        // them, which is the only thing that could settle it. The bundles
+        // themselves declare nothing: LV2 is a cross-platform format and an
+        // .lv2 tree says as much about Windows as about Linux, so nothing in
+        // `Lv2Harvester` may infer this. It is here beside the licence and the
+        // pricing because it is the same kind of fact — one about *this*
+        // repository, verified rather than assumed (docs/sources.md §4).
+        platforms: [LINUX]
       })
     }
   ]

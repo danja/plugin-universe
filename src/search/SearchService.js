@@ -225,6 +225,13 @@ export class SearchService {
       accepts: row.accepts ? row.accepts.split(', ').filter(Boolean) : [],
       produces: row.produces ? row.produces.split(', ').filter(Boolean) : [],
       requires: row.requires ? row.requires.split(', ').filter(Boolean) : [],
+      // Local names — `Windows`, `MacOS`, `Linux`. Deliberately not fed to the
+      // lexical index or the composed text: see the note in `LexicalIndex.fields`
+      // about `accepts` and `produces`, which applies here with more force.
+      // These three tokens would appear on three quarters of the corpus, and the
+      // question "does it run on Windows" is a filter with an exact answer
+      // rather than a word match with an approximate one.
+      platforms: row.platforms ? row.platforms.split(', ').filter(Boolean) : [],
       categories: row.categories ? row.categories.split(', ').filter(Boolean) : [],
       // Synonyms for the plugin's categories. Searched, not displayed: they
       // exist so that a person typing "echo" finds a delay.

@@ -53,6 +53,12 @@ function summarise (result) {
     iri: result.iri,
     formats: result.formats ?? [],
     categories: result.categories ?? [],
+    // In the summary rather than only in the full record: "will this run on my
+    // machine" disqualifies a result outright, and an agent that has to fetch
+    // each plugin to find out will recommend one that does not. An empty list
+    // means nobody has said, not "none" — three quarters of the catalogue has
+    // this and the rest is silent rather than negative.
+    platforms: result.platforms ?? [],
     licence: result.licenceId ?? null,
     price: result.pricing ?? null,
     source: result.sourceAvailability ?? null,
@@ -92,6 +98,7 @@ export function registerTools (server, { search, publication = null }) {
       category: z.string().describe('Category slug, e.g. reverb, compressor, synth. Use list_categories to see them.').optional(),
       pricing: z.string().describe('Free, Donationware, Freemium or Paid.').optional(),
       source: z.string().describe('OpenSource, SourceAvailable or Proprietary.').optional(),
+      platform: z.string().describe('Operating system the plugin runs on: Windows, MacOS or Linux. Plugins with no platform recorded are excluded, so use it to narrow rather than to prove a plugin will not run.').optional(),
       // The chain facets. An agent asked "what should I put after this?" has no
       // other way to ask it: the answer is a join between what one plugin
       // produces and what another accepts, and it is the question this
@@ -103,7 +110,7 @@ export function registerTools (server, { search, publication = null }) {
   }, async ({ query, limit, ...facets }) => {
     const chosen = Object.fromEntries(Object.entries(facets).filter(([, value]) => value))
     if (!query && Object.keys(chosen).length === 0) {
-      return failure('Give a query, or at least one of format, category, pricing, source, accepts or produces.')
+      return failure('Give a query, or at least one of format, category, pricing, source, platform, accepts or produces.')
     }
     const size = limit ?? 10
     const outcome = query

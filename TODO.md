@@ -285,14 +285,21 @@ stated in [docs/backups.md](docs/backups.md):
 
 ## 6. Smaller things, not blocking
 
-* **`src/api/render-forms.js` is 606 lines and `src/contrib/routes.js` 592**, both past the
+* **`src/contrib/Submissions.js` is 756 lines**, the longest file in `src/` and well past the
+  ~600 CLAUDE.md calls "almost always wants splitting". It is three things: the `SUBMITTABLE`
+  field table with its vocabulary composition, the `validate` / `valueTerm` pair, and the
+  `Submissions` class that queues and writes. The seam is between the table and the class — the
+  table changes when a field is added, the class when the moderation flow changes, and adding
+  the platform field touched only the first. `src/contrib/submittable.js` with
+  `Submissions.js` re-exporting, so no caller moves.
+* **`src/api/render-forms.js` is 613 lines and `src/contrib/routes.js` 592**, both past the
   point CLAUDE.md says to look. The seam in each is the same one: **the submission flow**.
   `renderSubmitPage` plus `renderProfilePastePage` and the field renderer are one subject;
   `submitRoute` plus `profilePasteRoute` and the upload handling are its other half. A
   `src/api/render-submit.js` and a `src/contrib/submit-routes.js`, with the old modules
   re-exporting as `render.js` already does, would leave every caller alone. Worth doing before
   the next thing lands in either.
-* **`SearchService.js` is 651 lines and past the point CLAUDE.md says to look.** It was 545
+* **`SearchService.js` is 696 lines and past the point CLAUDE.md says to look.** It was 545
   after the last split; `unindexed()` and the vendor identity loading took it over. **The seam
   is the vendor fold** — `vendorIdentities`, the grouping in `loadDocuments`, `vendor()`,
   `vendorList()`, `vendorAliases` and `vendorIdentityCoverage()` are about a hundred lines that
@@ -314,10 +321,27 @@ stated in [docs/backups.md](docs/backups.md):
   reverb, delay and so on need someone who can open the published ontology. Alignments are
   asserted only where the target term has been verified, which is why these are absent rather
   than guessed.
-* **No `accepts` or `produces` dropdown on the search form.** `facetControls` renders four of
-  the ten facets deliberately — a form with ten selects is a wall — so these are reachable by
-  URL and from a plugin page but not browsable. Whether they earn a place is an editorial
-  question and the answer probably depends on whether anyone uses the links.
+* **No `source`, `accepts` or `produces` dropdown on the search form.** `facetControls` renders
+  four of the eleven facets deliberately — a form with eleven selects is a wall — so the rest are
+  reachable by URL and from a plugin page but not browsable. `platform` took `source`'s place on
+  2026-09-15: "will it run on my machine" disqualifies a plugin before anything else about it
+  matters, and source availability is still a badge on every result row. Worth watching for one
+  thing — **a plugin with no platform recorded is in no platform's results**, so setting that
+  dropdown hides part of the catalogue without saying so. It is not sticky, which is most of the
+  defence; if it ever becomes sticky it needs a line on the page saying what it excludes.
+* **Nothing derives a platform from a format, and nothing should.** 176 plugins had no platform
+  evidence in their packages — 90 source-only GitHub repositories, the 50 downspout plugins, the
+  36 flues bundles. Reading LV2 as Linux and VST3 as all three would put an inference in the
+  graph where every other fact is evidence, and it would be wrong for several repositories here.
+  If it is ever revisited it wants a separate predicate with its own provenance, not
+  `pu:supportedPlatform`.
+
+  The route that *is* open is asking whoever knows. flues is done — `bin/ingest.js` states Linux
+  for that repository beside its licence, vendor and pricing, which is where a per-repository
+  fact belongs, and `tests/harvest/harvesters.test.js` asserts the harvester stays silent
+  without it. downspout is the same shape and still open; its README names all four builds. That
+  leaves the ~90 GitHub repositories, where the only honest mechanism is a release asset — see
+  [docs/danja-todo.md](docs/danja-todo.md).
 * **Tooltips where they earn their place.** Measurement metrics already carry labels and units
   from the vocabulary, which is the case that most wants one. Two cautions: a tooltip is
   invisible on a touch screen and to a keyboard user unless built as a proper disclosure, and

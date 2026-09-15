@@ -1,4 +1,5 @@
 import { parseTurtleFile } from '../harvest/TurtleReader.js'
+import { PLATFORMS } from '../harvest/Platforms.js'
 import { NAMESPACES } from './NamespaceManager.js'
 
 /**
@@ -29,6 +30,8 @@ const rdfs = NAMESPACES.rdfs
 const owl = NAMESPACES.owl
 
 const FILE = 'vocabs/trn-profile.ttl'
+const pu = NAMESPACES.pu
+const PLATFORM_FILE = 'vocabs/plugin-universe.ttl'
 
 /**
  * Read the profile vocabulary.
@@ -86,6 +89,68 @@ export async function loadProfileVocabulary (file = FILE) {
     roles: [...roleIris].map(term).sort(byLabel),
     signals: [...individualIris].filter(one => !REQUIREMENTS.has(one)).map(term).sort(byLabel),
     requirements: [...individualIris].filter(one => REQUIREMENTS.has(one)).map(term).sort(byLabel)
+  }
+}
+
+/**
+ * The platforms a profile may name, read from `vocabs/plugin-universe.ttl`.
+ *
+ * A separate function because they are in a separate namespace and a separate
+ * file — `pu:Windows` is not a `trn:` term and never will be — but the same
+ * rule and for the same reason: the form must not offer what the shapes will
+ * refuse, and a list of platforms written out in JavaScript is a copy of an
+ * ontology.
+ *
+ * `rdfs:label` matters here more than anywhere else in this file. The local
+ * name is `MacOS`, because a Turtle local name has to be one, and the label is
+ * "macOS", because that is how Apple spells it and how a reader will look for
+ * it. Deriving the label from the local name would put "MacOS" on every plugin
+ * page and in every checkbox — the exact defect `trn:ControlMidi` had.
+ *
+ * @returns {Promise<{platforms: object[]}>} shaped like the profile
+ *   vocabularies, so `withProfileVocabulary` consumes it unchanged.
+ */
+export async function loadPlatformVocabulary (file = PLATFORM_FILE) {
+  const dataset = await parseTurtleFile(file)
+
+  const labels = new Map()
+  const comments = new Map()
+  const platformIris = new Set()
+
+  for (const quad of dataset) {
+    const predicate = quad.predicate.value
+    if (predicate === `${rdfs}label`) labels.set(quad.subject.value, quad.object.value)
+    else if (predicate === `${rdfs}comment`) comments.set(quad.subject.value, quad.object.value)
+    // Typed directly as pu:Platform, the way pu:Free is typed pu:Pricing. The
+    // class itself carries rdfs:label too and is not one of its own members, so
+    // matching on the type rather than on the label is what keeps "Platform"
+    // out of the list of platforms.
+    else if (predicate === `${rdf}type` && quad.object.value === `${pu}Platform`) {
+      platformIris.add(quad.subject.value)
+    }
+  }
+
+  if (platformIris.size === 0) {
+    throw new Error(`${file} defines no pu:Platform individuals, so no platform can be offered.`)
+  }
+
+  // Ordered by `PLATFORMS` rather than alphabetically or by the order the
+  // parser happened to yield, so the form's checkboxes, the plugin page's row
+  // and the JSON-LD all read the same way round. Written as a filter rather
+  // than a comparator on purpose: `indexOf` returns -1 for something not on the
+  // list and a comparator would silently sort it to the front, which is the
+  // `slice(-1)` trap in CLAUDE.md wearing different clothes. A platform in the
+  // file and not in `PLATFORMS` is dropped here and fails the binding test,
+  // which is the pair of outcomes worth having.
+  return {
+    platforms: PLATFORMS
+      .filter(subject => platformIris.has(subject))
+      .map(subject => ({
+        iri: subject,
+        value: subject.replace(pu, ''),
+        label: labels.get(subject) ?? subject.replace(pu, ''),
+        help: comments.get(subject) ?? null
+      }))
   }
 }
 

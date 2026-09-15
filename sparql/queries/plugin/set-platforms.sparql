@@ -1,0 +1,18 @@
+# Replace one plugin's derived platforms, in its own graph.
+#
+# A DELETE of every pu:supportedPlatform on the subject before inserting, for
+# the reason `relicence.sparql` deletes by predicate rather than by value: this
+# is a recomputation, so what it writes has to be the whole answer and not an
+# addition to a stale one. Running it twice must leave the store as running it
+# once did.
+#
+# Nothing a source said is edited. pu:operatingSystem on the package file — the
+# raw statement — is untouched, and this is the same fact where a query can
+# reach it.
+#
+# ${platforms} is a pre-formatted list of IRIs, because a SPARQL update has no
+# way to take a variable number of objects and QueryService quotes nothing
+# itself. The caller builds it from SPARQLHelper.iri().
+DELETE { GRAPH ${graph} { ${plugin} pu:supportedPlatform ?old } }
+INSERT { GRAPH ${graph} { ${plugin} pu:supportedPlatform ${platforms} } }
+WHERE  { GRAPH ${graph} { OPTIONAL { ${plugin} pu:supportedPlatform ?old } } }

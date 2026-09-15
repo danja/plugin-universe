@@ -26,13 +26,27 @@ export class Lv2Harvester extends Harvester {
    * @param {string|null} [spec.pricing] - a Licensing pricing IRI, where the
    *   repository's terms are known. Not derived from the bundle's licence: an
    *   open-source licence grants source, not a free build.
+   * @param {string[]} [spec.platforms] - pu:Platform IRIs the repository's
+   *   maintainer says these bundles run on.
+   *
+   *   **Stated per repository, never inferred from the format.** An LV2 bundle
+   *   declares nothing about platforms — LV2 builds for Windows and macOS as
+   *   well — so a harvester that read "LV2" as "Linux" would be writing a guess
+   *   into the graph, and the guess would be wrong for several repositories in
+   *   this catalogue. This is here so that somebody who *knows*, and who is
+   *   naming the repository anyway to state its licence, can say so in the same
+   *   place. Empty by default, which is the honest answer for a tree of bundles
+   *   nobody has said anything about.
    */
-  constructor ({ repoPath, id, licence, derivedFrom, vendor = null, pricing = null }) {
+  constructor ({
+    repoPath, id, licence, derivedFrom, vendor = null, pricing = null, platforms = []
+  }) {
     super({ id, kind: 'source', licence, derivedFrom: derivedFrom ?? repoPath })
     if (!repoPath) throw new HarvestError('Lv2Harvester needs repoPath')
     this.repoPath = repoPath
     this.vendor = vendor
     this.pricing = pricing
+    this.platforms = platforms
   }
 
   static SKIP_DIRECTORIES = SKIP_DIRECTORIES
@@ -62,8 +76,15 @@ export class Lv2Harvester extends Harvester {
       const parsed = await parseTurtleFile(path.join(bundleDir, file))
       dataset = dataset ? dataset.merge(parsed) : parsed
     }
+    // What the repository says, as against what the bundle says. Both are
+    // added only when there is something to add, so a caller that names neither
+    // gets records exactly as the bundle described them.
+    const repository = {
+      ...(this.pricing ? { pricing: this.pricing } : {}),
+      ...(this.platforms.length ? { platforms: this.platforms } : {})
+    }
     return readBundleDataset(dataset, { vendor: this.vendor })
-      .map(record => (this.pricing ? { ...record, pricing: this.pricing } : record))
+      .map(record => ({ ...record, ...repository }))
   }
 
   async collect () {

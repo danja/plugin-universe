@@ -117,6 +117,12 @@ export function renderPluginPage (
     // carry one and a list of them is not a question anybody asks. A link that
     // resolves to an empty result is worse than no link.
     ['Requires', (doc.requires ?? []).map(named).join(', ')],
+    // What it runs on. Linked to the facet, which is the same shape as Formats
+    // one row up and answers the question a reader most often came with. The
+    // label comes from `vocabs/plugin-universe.ttl` by way of the same field
+    // table everything else here uses, so `MacOS` reads as "macOS" — the local
+    // name stays the token in the URL.
+    ['Platforms', linkedValues(doc.platforms, v => `/?platform=${encodeURIComponent(v)}`, named), true],
     ['Categories', linkedValues(doc.categories, v => `/category/${encodeURIComponent(v)}`), true],
     ['Tags', (doc.tags ?? []).join(', ')],
     ['Price', PRICING_LABEL[doc.pricing]],

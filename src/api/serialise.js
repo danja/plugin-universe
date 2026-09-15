@@ -30,6 +30,15 @@ function linkable (value) {
 }
 
 /**
+ * How schema.org spells a platform whose local name differs.
+ *
+ * Only the one, and an exception list rather than a full table so that its
+ * silence about `Windows` and `Linux` means "the local name is already right" —
+ * the same arrangement as `UNIT_SYMBOL` in `render-plugin.js`.
+ */
+const SCHEMA_PLATFORM = Object.freeze({ MacOS: 'macOS' })
+
+/**
  * schema.org JSON-LD for a plugin page. This is what makes the catalogue
  * legible to search engines without them parsing the RDF.
  */
@@ -56,6 +65,11 @@ export function pluginJsonLd (doc) {
   if (doc.image) ld.image = doc.image
   if (linkable(doc.provenance?.derivedFrom)) ld.isBasedOn = doc.provenance.derivedFrom
   if (keywords) ld.keywords = keywords
+  // schema.org's own term for this, and it wants a string rather than an
+  // individual — so `MacOS` becomes "macOS" here at the boundary rather than
+  // anywhere earlier. `vocabs/alignment.ttl` records the closeMatch.
+  const platforms = (doc.platforms ?? []).map(name => SCHEMA_PLATFORM[name] ?? name)
+  if (platforms.length) ld.operatingSystem = platforms.join(', ')
   return ld
 }
 
@@ -87,6 +101,7 @@ export function pluginTurtle (doc) {
   for (const category of doc.categories ?? []) {
     lines.push(`    pu:category ${iri(`${NAMESPACES.pu}category/${category}`)} ;`)
   }
+  for (const platform of doc.platforms ?? []) lines.push(`    pu:supportedPlatform pu:${platform} ;`)
   for (const tag of doc.tags ?? []) lines.push(`    pu:tag ${literal(tag)} ;`)
   lines.push('    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> .')
   return lines.join('\n')

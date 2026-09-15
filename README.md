@@ -1,4 +1,4 @@
-# plugin-universe
+# Plugin Universe
 
 An open database of DAW plugins, live at **[plugin-universe.com](https://plugin-universe.com)**.
 
@@ -82,10 +82,16 @@ Plus 376 vendors, 28 categories, and plugins submitted through the site itself.
 The public SPARQL copy is republished after each harvest, so it can lag the
 site by a plugin or two; `/health` is the live figure.
 
-Every plugin carries the two things people ask first — **can I see the source**
-and **do I have to pay** — as separate facets, because they are independent:
-Ardour is GPL-3.0 and its official binaries are sold. Source availability is
-derived from the stated licence; pricing is only ever what a source asserted.
+Every plugin carries the three things people ask first — **will it run on my
+machine**, **can I see the source** and **do I have to pay** — as separate
+facets, because they are independent: Ardour is GPL-3.0 and its official
+binaries are sold. Source availability is derived from the stated licence;
+pricing is only ever what a source asserted; platforms come from a registry
+manifest that states them or a release asset built for them. Where a project
+publishes neither, the catalogue says nothing rather than guessing — and a
+plugin with no platform recorded is absent from every platform's results, which
+is a reason to narrow a search with the facet and not to conclude anything from
+it.
 
 Sources are only harvested after their terms are reviewed and recorded in
 [docs/sources.md §4](docs/sources.md). A sanctioned API is used wherever one

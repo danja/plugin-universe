@@ -7,6 +7,64 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 
 ## One-off
 
+- [ ] **After the next deploy, run the platform backfill on the server.** The catalogue now has
+  a Platforms field — `pu:supportedPlatform`, with `pu:Windows` / `pu:MacOS` / `pu:Linux` — on
+  the plugin itself, a `?platform=` facet, a row on every plugin page, and the field on
+  `/submit`. New harvests write it; the 757 plugins already in the store do not have it until
+  this is run:
+
+  ```sh
+  docker compose exec app node bin/ingest.js --vocabs-only    # the three individuals and their labels
+  docker compose exec app node bin/backfill-platforms.js      # dry run: reports what would change
+  docker compose exec app node bin/backfill-platforms.js --apply
+  docker compose restart app                                  # the facet is built at startup
+  ```
+
+  It is a recomputation, not a re-harvest: it derives from `pu:operatingSystem` and download
+  URLs already in the store, so it costs no source any traffic, is idempotent, and is a no-op
+  after a source is next harvested. Then re-publish, or the public SPARQL copy and the dumps
+  keep the old shape.
+
+  **Expect roughly 580 of 757 plugins to gain platforms** — 559 from the Open Audio Stack
+  manifests and about 21 from GitHub release asset names. On the local store it was 559 of 645
+  and the facet came out 478 Windows, 421 macOS, 360 Linux; the server's numbers will be higher
+  and I have not measured them. The other ~176 are source-only GitHub repositories, the 50
+  downspout plugins and the 36 flues bundles, none of which publish a package the catalogue can
+  read a platform from. They stay silent, which is your decision from 2026-09-15 and the right
+  one — except where you know the answer, which is the next two items: flues is settled and
+  needs a re-harvest to land, downspout still needs you.
+
+- [ ] **Say what the downspout plugins run on.** All 50 of them are in the catalogue with no
+  platforms, and `README.md` in that repository already says the answer: the release ships
+  `linux-x86_64`, `macos-arm64`, `macos-x86_64` and `windows-x86_64` VST3 zips. Nothing in the
+  `profile.ttl` files says so, and the harvester reads those files rather than the release, so
+  it cannot know. Two ways to fix it, and the first is better for everyone:
+  add `pu:supportedPlatform pu:Windows, pu:MacOS, pu:Linux .` to each `plugins/*/profile.ttl`
+  in `~/github/downspout` — it is a one-line addition per file, it is a fact you control, and it
+  travels with the plugin wherever the profile goes. Failing that, tell me and I will have
+  `DownspoutHarvester` assert it. **The README also says the macOS and Windows builds are
+  untested** — if that is still true, it belongs in `trn:caution` rather than being a reason to
+  leave the field blank.
+
+- [ ] **Re-harvest flues on the server, so the 36 bundles get their Linux.** *2026-09-15:* you
+  said Linux only, and `bin/ingest.js` now states it beside the repository's licence, vendor and
+  pricing — the same place every other per-repository fact is declared, and verified rather than
+  inferred: `Lv2Harvester` itself still says nothing, because an LV2 bundle declares no platform
+  and several repositories in this catalogue build for Windows and macOS too. Applied locally;
+  all 36 now carry `pu:supportedPlatform pu:Linux` and nothing else.
+
+  The backfill above **cannot** do this one — it derives from packages, and a flues bundle has
+  none — so it needs a real harvest:
+
+  ```sh
+  docker compose run --rm app node bin/ingest.js --source flues --skip-embeddings
+  ```
+
+  It takes about five seconds and needs `SEED_DIR` to hold the `flues` checkout; without it the
+  run reports the source as skipped and changes nothing. Order does not matter: the backfill
+  skips a plugin whose harvester stated its platforms and says so in its report, so neither can
+  undo the other.
+
 - [ ] **Dismiss the GitHub secret-scanning alert on `tests/api/billing.test.js` as a false
   positive** — no rotation needed, and nothing to revoke. The flagged string was a Stripe
   webhook signing secret invented for that test file; it has never existed in any Stripe
@@ -44,8 +102,9 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   a wiki.
 
 - [ ] **Read `/about/profiles` as a plugin author would**, and fill one in for one of your own.
-  `/submit` now asks for roles, what a plugin accepts and produces, what it requires of the host
-  and any caution worth stating — the fields the fifty downspout profiles already carry — and
+  `/submit` now asks for roles, what a plugin accepts and produces, what it requires of the host,
+  which platforms it runs on, and any caution worth stating — the fields the fifty downspout
+  profiles already carry, plus the platforms they do not — and
   that page is what has to persuade a stranger those fields are worth their ten minutes. It
   That page used to promise something that did not exist — *"send us the URL of your bundle"*
   for ports and parameters. **It exists now:** `/admin` has a *Read a bundle* panel, and the

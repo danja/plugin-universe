@@ -147,6 +147,12 @@ export function serialisePlugin (plugin, pluginIri, { created = null } = {}) {
   for (const signal of plugin.accepts) add(trn + 'accepts', iri(signal))
   for (const signal of plugin.produces) add(trn + 'produces', iri(signal))
   for (const requirement of plugin.requires) add(trn + 'requires', iri(requirement))
+  // What it runs on, on the plugin rather than only on its files. The packages
+  // below have carried this since Phase 1 as `pu:operatingSystem` strings, and
+  // a fact three blank nodes deep is a fact no facet can filter on and no page
+  // can show — which is precisely how 559 plugins came to declare their
+  // platforms with nothing able to read the declaration back.
+  for (const platform of plugin.platforms ?? []) add(pu + 'supportedPlatform', iri(platform))
   for (const other of plugin.recommendedBefore) add(trn + 'recommendedBefore', iri(other))
   for (const other of plugin.recommendedAfter) add(trn + 'recommendedAfter', iri(other))
   for (const caution of plugin.cautions) add(trn + 'caution', literal(caution))

@@ -26,12 +26,19 @@ stateless, no account, nothing to write.
 semantic match over each plugin's description, parameters and category labels,
 fused with a lexical match on names and vendors. "Warm analogue bus compressor"
 works better than a product name. Facets — format, category, pricing, source,
-accepts, produces — narrow the result set and never re-rank it.
+platform, accepts, produces — narrow the result set and never re-rank it.
 
 `accepts` and `produces` are the ones worth knowing about. They are signal
 types from the plugin profile, and they answer the question an agent building a
 signal chain actually has: take the `produces` of a plugin from `get_plugin`,
 pass it as `accepts`, and the result is the set of plugins that can follow it.
+
+`platform` — `Windows`, `MacOS` or `Linux` — is the one to be careful repeating.
+Every result carries a `platforms` list, and **an empty list means nobody has
+said**, not that the plugin will not run. The fact comes from a registry
+manifest stating it or a release asset built for it, and a good deal of the
+catalogue is source-only projects that publish neither. Narrowing a search by
+platform is sound; telling somebody a plugin is unavailable on theirs is not.
 
 **`get_plugin`** — the full record for one plugin: description, vendor, formats,
 parameters, licence, **where each fact came from and under what terms**, and any

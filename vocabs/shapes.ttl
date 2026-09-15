@@ -300,6 +300,20 @@ pu:PluginShape a sh:NodeShape ;
         sh:message "Pricing is one of four individuals. It is never derived from a licence: an open-source licence grants source, not a free binary." ;
     ] ;
     sh:property [
+        sh:path pu:supportedPlatform ;
+        sh:nodeKind sh:IRI ;
+        ## Generated from PLATFORMS in src/harvest/Platforms.js.
+        ## tests/harvest/platforms.test.js binds this list, that constant and the
+        ## pu:Platform individuals in vocabs/plugin-universe.ttl together — the
+        ## arrangement that stopped the licence enumeration drifting, applied
+        ## here before it has had a chance to drift.
+        ##
+        ## No sh:maxCount: a plugin runs on as many platforms as it runs on, and
+        ## most of the catalogue's run on all three.
+        sh:in ( pu:Windows pu:MacOS pu:Linux ) ;
+        sh:message "A platform is one of three individuals — pu:Windows, pu:MacOS, pu:Linux. Map the source's spelling in src/harvest/Platforms.js rather than writing a fourth: 'win' and 'Windows' are one platform and two facet values." ;
+    ] ;
+    sh:property [
         sh:path pu:licenceId ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;

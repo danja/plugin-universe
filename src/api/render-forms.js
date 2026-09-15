@@ -137,12 +137,19 @@ export function renderSubmitPage (submittable, {
         throw new Error(`${name} takes several values but declares no choices to offer.`)
       }
       const chosen = new Set([values[name] ?? []].flat())
+      // The label a reader sees, from `rdfs:label` in the vocabulary, the same
+      // lookup the select below uses and the same one the plugin page renders
+      // these terms with. It showed the bare local name until now, so a form
+      // offering "ControlMidi" and "MacOS" led to a page saying "Control MIDI"
+      // and "macOS" — one fact, two spellings, and the form had the worse one.
+      const label = new Map((spec.terms ?? spec.labels ?? []).map(term => [term.value, term.label]))
       return templates.render('submit-checkboxes', {
         label: spec.label,
         help: spec.help,
         boxes: templates.each('submit-checkbox', spec.choices, value => ({
           name,
           value,
+          text: label.get(value) ?? value,
           checked: chosen.has(value) ? ' checked' : ''
         }))
       })

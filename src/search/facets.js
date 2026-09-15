@@ -35,6 +35,12 @@ const FACET_PATTERNS = Object.freeze({
   source: value =>
     own(`?plugin ${iri(NAMESPACES.pu + 'sourceAvailability')} ${iri(NAMESPACES.pu + value)}`),
   pricing: value => own(`?plugin ${iri(NAMESPACES.pu + 'pricing')} ${iri(NAMESPACES.pu + value)}`),
+  // The third availability question, and the one this catalogue was already
+  // holding the answer to. Values are `Windows`, `MacOS`, `Linux` — the local
+  // names of the pu:Platform individuals, so `?platform=Windows` reads as the
+  // question somebody is actually asking.
+  platform: value =>
+    own(`?plugin ${iri(NAMESPACES.pu + 'supportedPlatform')} ${iri(NAMESPACES.pu + value)}`),
   licence: value => own(`?plugin ${iri(NAMESPACES.pu + 'licenceId')} ${literal(value)}`),
   // The one that is not a property of the plugin. A verdict lives in the
   // profiler's own run graph, so this joins rather than filters: a plugin

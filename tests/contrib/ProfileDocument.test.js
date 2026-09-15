@@ -37,6 +37,7 @@ const GOOD = {
   role: ['AudioEffect'],
   accepts: ['Audio'],
   produces: ['Audio'],
+  platform: ['Windows', 'MacOS', 'Linux'],
   caution: 'High feedback becomes dense.'
 }
 
@@ -54,6 +55,18 @@ describe('writing a profile', () => {
     const categories = [...dataset].filter(q => q.predicate.value === `${NAMESPACES.pu}category`)
     expect(categories).toHaveLength(1)
     expect(categories[0].object.value).toBe(`${NAMESPACES.pu}category/delay`)
+  })
+
+  it('writes platforms as pu: individuals a parser accepts', async () => {
+    // `pu:Windows` is a legal prefixed name where `pu:category/reverb` is not,
+    // and that difference is exactly why this is asserted rather than assumed.
+    const dataset = await parseTurtle(profileTurtle(GOOD))
+    const platforms = [...dataset]
+      .filter(q => q.predicate.value === `${NAMESPACES.pu}supportedPlatform`)
+      .map(q => q.object.value)
+    expect(platforms.sort()).toEqual([
+      `${NAMESPACES.pu}Linux`, `${NAMESPACES.pu}MacOS`, `${NAMESPACES.pu}Windows`
+    ])
   })
 
   it('survives a description containing quotes and newlines', async () => {
@@ -228,6 +241,7 @@ describe('a profile built from a catalogue document', () => {
     produces: ['Audio'],
     requires: ['HostTransport'],
     categories: ['midi', 'synth'],
+    platforms: ['Windows', 'MacOS'],
     licenceId: 'LGPL-3.0',
     cautions: 'Loud at high feedback.'
   }
@@ -243,6 +257,7 @@ describe('a profile built from a catalogue document', () => {
     expect(back.fields.vendor).toBe('Olivier Doaré')
     expect(back.fields.format).toEqual(['VST3', 'AudioUnit'])
     expect(back.fields.requires).toEqual(['HostTransport'])
+    expect(back.fields.platform).toEqual(['Windows', 'MacOS'])
     expect(back.fields.caution).toBe('Loud at high feedback.')
   })
 
@@ -257,6 +272,14 @@ describe('a profile built from a catalogue document', () => {
 
   it('takes one category, because the shapes allow one', () => {
     expect(profileFieldsFor(DOC).category).toBe('midi')
+  })
+
+  it('takes every platform, because the shapes allow several', () => {
+    // The opposite of the category above, and the difference is in the shapes:
+    // pu:supportedPlatform has no sh:maxCount. A profile saying a plugin runs
+    // on Windows but not that it also runs on macOS would be worse than one
+    // saying neither.
+    expect(profileFieldsFor(DOC).platform).toEqual(['Windows', 'MacOS'])
   })
 
   it('falls back to the plugin\'s own IRI when there is no homepage', async () => {

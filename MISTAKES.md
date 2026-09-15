@@ -90,6 +90,60 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-15 — Platform data harvested for 559 plugins, reachable by nothing
+
+**What happened.** Asked to add a Platforms field, the first thing to check was
+whether the catalogue already had the data, and whether homepages would need
+scraping to get it. It had the data. `pu:operatingSystem` had been written onto
+package files by the Open Audio Stack harvester since Phase 1 — 628 `win`, 578
+`linux` and 564 `mac` file records across 559 of production's 757 plugins — and
+another 21 plugins publish GitHub release assets whose filenames say the same
+thing (`-windows.zip`, `-macos-universal.dmg`, `-ubuntu.zip`). 176 plugins have
+no evidence either way.
+
+`grep -rn 'operatingSystem' sparql/queries/` returned one file:
+`plugin/registry.sparql`, which builds the OAS-compatible registry index.
+`plugin/text-view.sparql` did not select it, so no document carried it, no page
+showed it, no facet filtered on it and the MCP tools could not report it.
+
+**Root cause.** The same one as `trn:accepts` — pattern 3 above, for the fourth
+time — with an aggravating factor the earlier cases did not have: the value was
+not on the plugin. It sat three blank nodes down, on `?plugin pu:package/
+pu:packageFile/pu:operatingSystem ?os`. A facet pattern scopes to `GRAPH ?g {
+?plugin … }`, and there is no sensible way to filter on a property of a package
+file from there. So the fact was not merely unread, it was **unreadable in the
+shape it was stored in**, and nothing about storing it that way looked wrong at
+the time: it is exactly where the OAS manifest puts it.
+
+**Prevention.** `pu:supportedPlatform` on the plugin, derived at harvest time by
+`src/harvest/Platforms.js` from the same package evidence, with the file-level
+string left exactly where it was — the registry index still needs it, and a
+downloader needs to know which file is which. The check that would have caught
+this earlier is the one already written down: of a term in `vocabs/`, ask which
+query in `sparql/queries/` selects it. The new part is the second question —
+**and can a facet reach it from the plugin?** A predicate two joins away from
+the subject is one nothing will filter on, whatever selects it.
+
+`tests/harvest/platforms.test.js` binds the four copies of the platform list
+(the constant, the vocabulary, the `sh:in`, the facet) before they have had a
+chance to drift, and `tests/search/facet-coverage.test.js` now asserts both
+directions of the prose: that `docs/profiles.md` promises no facet that does not
+exist, and that `docs/services.md` lists every facet that does.
+
+**Not scraping.** The question in the original request was whether homepages
+would have to be scraped. For three quarters of the catalogue, no — the answer
+was already stored. For the remaining 176 it would conflict with `docs/sources.md`
+§4, and the honest record for them is silence — except where somebody knows.
+Later the same day the flues bundles' author said Linux only, so `bin/ingest.js`
+states it for that repository beside its licence and pricing. `Lv2Harvester`
+still says nothing on its own: an LV2 bundle declares no platform, and reading
+the format as an operating system would be wrong for several repositories here.
+**The difference between those two is the whole point** — one is a person
+stating a fact about a repository they wrote, the other is a program inferring
+one from a file extension.
+
+---
+
 ## 2026-09-14 — A test fixture that a secret scanner read as a leaked key
 
 **What happened.** `tests/api/billing.test.js` used

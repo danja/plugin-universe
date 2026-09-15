@@ -219,6 +219,16 @@ submitter.
 
 **Binaries are never hosted.** Only URLs and checksums.
 
+**The plugin also carries what it runs on**, as `pu:supportedPlatform` over the `pu:Platform`
+individuals (`pu:Windows`, `pu:MacOS`, `pu:Linux`). That is a summary of the packaging facts above
+and is deliberately kept as its own statement on the plugin: the file-level `pu:operatingSystem` sits
+three blank nodes down, where no facet can filter on it and no document can select it. It was
+written for 559 plugins and read by one query — the registry index — for two phases. `Platforms.js`
+derives it at harvest time from a stated `pu:operatingSystem` where there is one and from a release
+asset's filename where there is not, and a plugin whose packages say neither carries nothing. Coarse
+on purpose: the architecture and the package format are properties of a *file*, and a plugin either
+runs on a platform or does not.
+
 ### 2.5 Measurement layer
 
 Output of the profiler (§6), as timestamped observations rather than plugin properties — because

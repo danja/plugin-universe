@@ -3,6 +3,7 @@ import { readFileSync } from 'fs'
 import { FACET_PATTERNS } from '../../src/search/SearchService.js'
 import { FACET_NAMES } from '../../src/api/server.js'
 import { renderPluginPage } from '../../src/api/render.js'
+import { pluginJsonLd, pluginTurtle } from '../../src/api/serialise.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
 /**
@@ -35,6 +36,7 @@ const DOC = {
   accepts: ['Midi', 'ControlMidi'],
   produces: ['Midi'],
   requires: ['HostTransport'],
+  platforms: ['Windows', 'Linux'],
   formats: [],
   categories: [],
   tags: [],
@@ -62,6 +64,7 @@ describe('every facet the API accepts is a facet the filter applies', () => {
       source: `${NAMESPACES.pu}sourceAvailability`,
       pricing: `${NAMESPACES.pu}pricing`,
       licence: `${NAMESPACES.pu}licenceId`,
+      platform: `${NAMESPACES.pu}supportedPlatform`,
       measured: `${NAMESPACES.pu}ValidationResult`
     }
     for (const [name, build] of Object.entries(FACET_PATTERNS)) {
@@ -100,6 +103,22 @@ describe('the pages that promise this', () => {
     for (const [, name] of prose.matchAll(/\/\?([a-z]+)=/g)) {
       expect(FACET_NAMES, `docs/profiles.md offers /?${name}= and there is no such facet`)
         .toContain(name)
+    }
+  })
+
+  it('names every facet there is, in the document that lists them', () => {
+    // The other direction, and the one that goes wrong quietly. `/services` is
+    // the API's own documentation and states the facet list outright; a facet
+    // added to `FACET_NAMES` and not to that sentence is a filter nothing tells
+    // a caller about, which is how `/plugins` came to accept `?category=` and
+    // ignore it. The first direction catches a promise with nothing behind it;
+    // this one catches something real that was never promised.
+    const services = readFileSync('docs/services.md', 'utf8')
+    const listed = services.match(/Facets are ([^.]*)\./)
+    expect(listed, 'docs/services.md no longer states the facet list').not.toBeNull()
+    for (const name of FACET_NAMES) {
+      expect(listed[1], `docs/services.md does not mention the ${name} facet`)
+        .toContain(`\`${name}\``)
     }
   })
 })
@@ -156,9 +175,58 @@ describe('what the profile says reaches the page', () => {
   })
 
   it('omits a row rather than showing an empty one', () => {
-    const bare = renderPluginPage({ ...DOC, accepts: [], produces: [], requires: [] })
+    const bare = renderPluginPage({ ...DOC, accepts: [], produces: [], requires: [], platforms: [] })
     expect(bare).not.toContain('Accepts')
     expect(bare).not.toContain('Produces')
     expect(bare).not.toContain('Requires')
+    expect(bare).not.toContain('Platforms')
+  })
+})
+
+/**
+ * The same three joins for platforms, which had all of them broken at once.
+ *
+ * The fact was in the store for 559 plugins as `pu:operatingSystem` on a
+ * package file — a string three blank nodes below the plugin, selected by the
+ * registry query and by nothing else. No document carried it, no page showed
+ * it, no facet filtered on it, and nothing reported any of that, because
+ * invisibility is not a state anything reports.
+ */
+describe('what a plugin runs on reaches the page', () => {
+  const query = readFileSync('sparql/queries/plugin/text-view.sparql', 'utf8')
+  const facets = readFileSync('sparql/queries/plugin/facets.sparql', 'utf8')
+
+  it('is selected by the query every document is built from', () => {
+    expect(query, 'text-view does not read pu:supportedPlatform')
+      .toContain('pu:supportedPlatform')
+    expect(query, 'text-view does not project ?platforms').toContain('AS ?platforms')
+    expect(query, 'a plugin on three platforms must still be one row')
+      .toContain('GROUP_CONCAT(DISTINCT ?platformLabel')
+  })
+
+  it('is counted by the facet query, so the filter can offer real numbers', () => {
+    // A facet whose values are never counted is a filter nothing advertises.
+    expect(facets).toContain('pu:supportedPlatform')
+    expect(facets).toContain('"platform" AS ?facet')
+  })
+
+  it('shows on a plugin page, linked to the facet', () => {
+    const page = renderPluginPage(DOC)
+    expect(page).toContain('Platforms')
+    expect(page).toContain('/?platform=Windows')
+    expect(page).toContain('/?platform=Linux')
+  })
+
+  it('reaches the JSON-LD as schema.org spells it', () => {
+    // schema:operatingSystem wants a string, and the string for pu:MacOS is
+    // "macOS" — converted at the boundary rather than anywhere earlier, so the
+    // catalogue keeps the individual and the search engine gets the word.
+    const ld = pluginJsonLd({ ...DOC, platforms: ['Windows', 'MacOS', 'Linux'] })
+    expect(ld.operatingSystem).toBe('Windows, macOS, Linux')
+    expect(pluginJsonLd({ ...DOC, platforms: [] }).operatingSystem).toBeUndefined()
+  })
+
+  it('reaches the Turtle a plugin IRI dereferences to', () => {
+    expect(pluginTurtle(DOC)).toContain('pu:supportedPlatform pu:Windows')
   })
 })

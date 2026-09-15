@@ -35,13 +35,20 @@ GET /health
 ```
 
 Facets are `format`, `category`, `role`, `vendor`, `source`, `pricing`,
-`licence`, `measured`, `accepts` and `produces`. They filter and never re-rank.
-They work on `/plugins` as well as `/search`.
+`licence`, `measured`, `platform`, `accepts` and `produces`. They filter and
+never re-rank. They work on `/plugins` as well as `/search`.
 
 `accepts` and `produces` are the signal types from the plugin profile — `Audio`,
 `Midi`, `ControlMidi` and the rest, as `/facets` lists them. They are what makes
 a chain answerable rather than just a catalogue: given something that produces
 MIDI, `/search?accepts=Midi` is the set of plugins that can follow it.
+
+`platform` is `Windows`, `MacOS` or `Linux`. Read `/facets` for the counts
+rather than taking a number from here. **A plugin with no platform recorded is
+not in any platform's result set**, and that is a substantial part of the
+catalogue: the fact comes from a registry manifest that states it or a release
+asset built for it, and a project that publishes neither has said nothing. Use
+the facet to narrow, never to conclude that a plugin will not run somewhere.
 
 **`/search` and `/plugins` answer in two languages.** JSON is the default —
 that is what these paths have always been, and a caller sending no `Accept`

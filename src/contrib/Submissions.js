@@ -8,7 +8,7 @@ import ensureContributorGraphs from './ContributorGraphs.js'
 import QueryService from '../store/QueryService.js'
 import { STATUS } from './Corrections.js'
 import { toKnownSpdx, SELECTABLE_LICENCES } from '../harvest/Licensing.js'
-import { loadProfileVocabulary } from '../rdf/ProfileVocabulary.js'
+import { loadProfileVocabulary, loadPlatformVocabulary } from '../rdf/ProfileVocabulary.js'
 import CategoryScheme from '../rdf/CategoryScheme.js'
 
 /**
@@ -186,6 +186,19 @@ export const SUBMITTABLE = Object.freeze({
     multiple: true, choices: null, vocabulary: 'requirements',
     help: 'Anything it needs from the host or from hardware to work properly.'
   },
+  platform: {
+    // The one fact on this form that only its author can state with certainty,
+    // and the one a reader wants first. For 559 harvested plugins it is read
+    // out of the packages; for a plugin somebody is submitting there are no
+    // packages yet, so if it is not asked here it is not known at all.
+    //
+    // `pu:`, not `trn:` — hence its own kind rather than `profileTerm`, which
+    // mints into `trn:` and would produce `trn:Windows`, a term no vocabulary
+    // defines and every shape rejects.
+    predicate: `${pu}supportedPlatform`, label: 'Platforms', kind: 'platform', required: false,
+    multiple: true, choices: null, vocabulary: 'platforms',
+    help: 'Which operating systems it runs on. Tick all that apply, and leave them all clear if you are not sure — blank means "nobody has said", which is what the catalogue would rather record than a guess.'
+  },
   caution: {
     predicate: `${trn}caution`, label: 'Caution', kind: 'text', required: false,
     help: 'Anything that surprises people — heavy CPU at high settings, output that can jump in level, a parameter best left alone while playing.'
@@ -200,6 +213,16 @@ export const SUBMITTABLE = Object.freeze({
  * because a list of roles in JavaScript is a second copy of an ontology. This
  * joins the two, once, at startup.
  */
+/**
+ * The kinds whose values are vocabulary terms a page renders by label.
+ *
+ * `trn:ControlMidi` reads "Control MIDI" and `pu:MacOS` reads "macOS"; both
+ * come from `rdfs:label` in the file that defines them, by way of
+ * `profileLabels`. Everything else either has no label to render — a licence
+ * identifier is what it is — or has its own pages, as categories do.
+ */
+const LABELLED_KINDS = Object.freeze(new Set(['profileTerm', 'platform']))
+
 export function withProfileVocabulary (vocabulary) {
   return Object.freeze(Object.fromEntries(
     Object.entries(SUBMITTABLE).map(([name, spec]) => {
@@ -209,12 +232,18 @@ export function withProfileVocabulary (vocabulary) {
         throw new Error(
           `${name} takes its choices from the "${spec.vocabulary}" vocabulary, which was not supplied.`)
       }
-      // `terms` carries the label a reader sees and is kept only for the
-      // profile fields, because `profileLabels` turns it into the `trn:` term
-      // lookup used across the site. Categories have their own scheme, their
-      // own pages and their own labels; folding them into that map would put
-      // two namespaces in one lookup keyed by bare local name.
-      return [name, spec.kind === 'profileTerm'
+      // `terms` carries the label a reader sees and is kept for the fields
+      // whose values a *page* has to render, because `profileLabels` turns it
+      // into the term lookup used across the site. Categories are excluded:
+      // they have their own scheme, their own pages and their own labels, and a
+      // category slug in that map would be a second namespace sharing one
+      // lookup keyed by bare local name — `reverb` the category and a `trn:`
+      // term of the same name would be indistinguishable.
+      //
+      // Platforms are in it, and they are the second namespace the paragraph
+      // above warns about — so the guard in `profileLabels` refuses a local
+      // name claimed twice rather than leaving it to be noticed on a page.
+      return [name, LABELLED_KINDS.has(spec.kind)
         ? { ...spec, choices: terms.map(term => term.value), terms }
         : { ...spec, choices: terms.map(term => term.value), labels: terms }]
     })
@@ -236,12 +265,14 @@ export function withProfileVocabulary (vocabulary) {
  * dropdown and slug order is not the order anybody scans.
  */
 export async function loadSubmittable () {
-  const [profile, scheme] = await Promise.all([
+  const [profile, platforms, scheme] = await Promise.all([
     loadProfileVocabulary(),
+    loadPlatformVocabulary(),
     CategoryScheme.load()
   ])
   return withProfileVocabulary({
     ...profile,
+    ...platforms,
     categories: [...scheme.concepts.values()]
       .map(concept => ({ value: concept.slug, label: concept.prefLabel }))
       .sort((a, b) => a.label.localeCompare(b.label))
@@ -268,13 +299,27 @@ export async function loadSubmittable () {
  */
 export function profileLabels (submittable) {
   const labels = new Map()
-  for (const spec of Object.values(submittable)) {
-    // Profile terms only. This map is keyed by bare local name and read when
-    // rendering a `trn:` term, so a category slug in it would be a second
-    // namespace sharing one lookup — and `reverb` the category and a `trn:`
-    // term of the same name would be indistinguishable.
-    if (spec.kind !== 'profileTerm') continue
-    for (const term of spec.terms ?? []) labels.set(term.value, term.label)
+  for (const [name, spec] of Object.entries(submittable)) {
+    // Labelled kinds only. This map is keyed by bare local name, so a category
+    // slug in it would be a second namespace sharing one lookup — and `reverb`
+    // the category and a `trn:` term of the same name would be
+    // indistinguishable.
+    if (!LABELLED_KINDS.has(spec.kind)) continue
+    for (const term of spec.terms ?? []) {
+      // Two namespaces do share this map — `trn:` behaviour terms and `pu:`
+      // platforms — and they are disjoint today. A collision would not fail
+      // anywhere: one label would quietly win and a page would render the
+      // wrong word for a term, which is the class of defect nothing in this
+      // project notices. So it is an error at startup instead.
+      const seen = labels.get(term.value)
+      if (seen !== undefined && seen !== term.label) {
+        throw new Error(
+          `Two vocabularies both define "${term.value}" — "${seen}" and "${term.label}" ` +
+          `(${name}). This map is keyed by local name, so one would silently win. ` +
+          'Rename the term, or give platforms a lookup of their own.')
+      }
+      labels.set(term.value, term.label)
+    }
   }
   return labels
 }
@@ -286,6 +331,11 @@ export function valueTerm (kind, value) {
   // A format and a profile term are both bare local names in the trn:
   // namespace — VST3, AudioEffect, ControlMidi — so they mint the same way.
   if (kind === 'format' || kind === 'profileTerm') return iri(`${trn}${value}`)
+  // A platform is the same shape in the other namespace: Windows, MacOS, Linux
+  // are individuals of pu:Platform. Minting one into trn: would produce a term
+  // nothing defines, which `vocabs/shapes.ttl` would refuse after the form had
+  // been filled in — the failure mode the enumeration exists to prevent.
+  if (kind === 'platform') return iri(`${pu}${value}`)
   return literal(value)
 }
 
@@ -327,7 +377,14 @@ export function validate (fields = {}, submittable = SUBMITTABLE) {
         // built from the vocabulary and a validator checking the vocabulary
         // cannot disagree. A submission naming a term the shapes would reject
         // is refused here, where the person can still fix it.
-        if (spec.kind === 'profileTerm') {
+        //
+        // A platform is checked the same way and against the same kind of
+        // list, read from `vocabs/plugin-universe.ttl` rather than written out
+        // here. `sh:in` on `pu:supportedPlatform` enumerates the three, so an
+        // unchecked value would fail validation after somebody had filled the
+        // form in — and "win" alongside "Windows" is exactly the facet-splitting
+        // the enumeration exists to stop.
+        if (spec.kind === 'profileTerm' || spec.kind === 'platform') {
           if (!spec.choices) {
             throw new SubmissionError(
               `${spec.label} cannot be checked: the profile vocabulary was not loaded.`)

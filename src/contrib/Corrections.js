@@ -6,6 +6,7 @@ import { TRUST } from '../auth/Accounts.js'
 import { CONTRIBUTION_CONFIG } from '../../config/preferences.js'
 import ensureContributorGraphs from './ContributorGraphs.js'
 import { toKnownSpdx } from '../harvest/Licensing.js'
+import { PLATFORMS, toPlatform } from '../harvest/Platforms.js'
 import QueryService from '../store/QueryService.js'
 
 /**
@@ -61,9 +62,14 @@ export const STATUS = Object.freeze({
  *   plugin's behaviour is not something the correction form asks for, because
  *   the question "does this accept MIDI" is one for its author rather than a
  *   passer-by.
+ * - `platform` — one of the `pu:Platform` individuals. Unlike `profileTerm`
+ *   this *is* offered for correction, because it is the one behavioural fact a
+ *   passer-by can genuinely settle: somebody who has run the plugin on Windows
+ *   knows it runs on Windows. It is a closed list, so a correction cannot
+ *   introduce a spelling, and the moderation queue is between it and the graph.
  */
 export const FIELD_KINDS = Object.freeze([
-  'text', 'url', 'category', 'format', 'licence', 'image', 'profileTerm'
+  'text', 'url', 'category', 'format', 'licence', 'image', 'profileTerm', 'platform'
 ])
 
 /**
@@ -79,6 +85,10 @@ export const CORRECTABLE = Object.freeze({
   [`${foaf}homepage`]: { label: 'Homepage', kind: 'url' },
   [`${pu}category`]: { label: 'Category', kind: 'category' },
   [`${trn}format`]: { label: 'Format', kind: 'format' },
+  // One platform per correction, because a correction is one triple. Somebody
+  // adding all three sends three, which is the same shape as adding two formats
+  // and is what the queue is for.
+  [`${pu}supportedPlatform`]: { label: 'Platform', kind: 'platform' },
   // `licence`, not `text`: a correction goes through the same normalisation a
   // harvest does, so correcting GPLv3 to "gpl3" cannot split the facet.
   [`${pu}licenceId`]: { label: 'Licence', kind: 'licence' },
@@ -140,6 +150,32 @@ export function validate ({ subject, predicate, value, rationale }, { images = n
   if (field.kind === 'format' && !/^[A-Za-z0-9]+$/.test(trimmed)) {
     throw new CorrectionError('A format is a name like VST3, LV2 or CLAP.')
   }
+
+  // A licence is normalised as well as checked, so a correction cannot be the
+  // thing that puts a second spelling of GPL-3.0 into the catalogue.
+  let proposed = trimmed
+  if (field.kind === 'licence') {
+    proposed = toKnownSpdx(trimmed)
+    if (!proposed) {
+      throw new CorrectionError(
+        `"${trimmed}" is not a licence identifier the catalogue recognises. Use the SPDX form, such as GPL-3.0, MIT or Apache-2.0.`)
+    }
+  }
+  // Normalised the same way and for the same reason, through the same table the
+  // harvesters map `win` and `macos` with. This is the difference between the
+  // platform check and the `^[A-Za-z0-9]+$` one two blocks up: a pattern accepts
+  // "Windoze" and mints a platform nothing else in the catalogue carries, while
+  // a lookup turns "windows", "win64" and "Windows" into one individual and
+  // refuses everything else.
+  if (field.kind === 'platform') {
+    const platform = toPlatform(trimmed)
+    if (!platform) {
+      throw new CorrectionError(
+        `"${trimmed}" is not a platform this catalogue knows. ` +
+        `Use ${PLATFORMS.map(one => one.replace(pu, '')).join(', ')}.`)
+    }
+    proposed = platform.replace(pu, '')
+  }
   if (field.kind === 'image') {
     // Closed when no store is supplied. A caller that cannot say what this
     // site hosts cannot be allowed to assert what it hosts — and the default
@@ -163,17 +199,6 @@ export function validate ({ subject, predicate, value, rationale }, { images = n
     }
   }
 
-  // A licence is normalised as well as checked, so a correction cannot be the
-  // thing that puts a second spelling of GPL-3.0 into the catalogue.
-  let proposed = trimmed
-  if (field.kind === 'licence') {
-    proposed = toKnownSpdx(trimmed)
-    if (!proposed) {
-      throw new CorrectionError(
-        `"${trimmed}" is not a licence identifier the catalogue recognises. Use the SPDX form, such as GPL-3.0, MIT or Apache-2.0.`)
-    }
-  }
-
   const reason = String(rationale ?? '').trim()
   if (reason.length > CONTRIBUTION_CONFIG.maxRationaleLength) {
     throw new CorrectionError(`Please keep the reason under ${CONTRIBUTION_CONFIG.maxRationaleLength} characters.`)
@@ -187,6 +212,7 @@ export function valueTerm (kind, value) {
   if (kind === 'url' || kind === 'image') return iri(value)
   if (kind === 'category') return iri(`${pu}category/${value}`)
   if (kind === 'format') return iri(`${trn}${value}`)
+  if (kind === 'platform') return iri(`${pu}${value}`)
   return literal(value)
 }
 
