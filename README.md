@@ -15,14 +15,46 @@ There are two ways to build a catalogue of anything. You can write a schema and
 fill it in, or you can ask a language model and hope. This does neither, and the
 argument for that is the interesting part of the project.
 
-**The ontology is the contract, and code follows it.** Terms go in `vocabs/`
-first. A plugin's parameters are described with `lv2:port`, `lv2:symbol`,
-`lv2:default`, `lv2:scalePoint` and `units:unit` — LV2's own vocabulary, not a
-private invention — which is why an LV2 bundle maps into this catalogue
-*untranslated*, and why 1,600 ports carry real ranges and units rather than
-prose about knobs. Categories are a SKOS concept scheme with definitions and
-alternative labels, not an enum; a vendor category and an LV2 plugin class both
-attach to it as `skos:closeMatch`.
+**The ontology is the contract, and code follows it.** A new term is added to
+`vocabs/` first, and the code that reads or writes it follows. Existing
+vocabularies are used wherever one exists: a plugin's parameters are LV2's own
+`lv2:port`, `lv2:symbol`, `lv2:default`, `lv2:scalePoint` and `units:unit`, so
+an LV2 bundle maps in untranslated and 1,600 ports carry real ranges and units.
+Categories are a SKOS concept scheme with definitions and alternative labels
+rather than an enum, so a vendor's category and an LV2 plugin class can both
+attach to it as `skos:closeMatch`. Prefixes are declared in one place,
+`src/rdf/NamespaceManager.js`, and nowhere else.
+
+The vocabularies in use:
+
+- **[`trn:`](https://github.com/danja/transmission)** — Transmissions, the primary
+  vocabulary here: plugin profiles, roles, signals. Shared with sibling projects,
+  and extensions are proposed upstream rather than forked.
+- **[`pu:`](http://purl.org/stuff/plugin-universe/)** — this project's own terms, for
+  what nothing else covers: measurements, packages, catalogue administration.
+- **[`lv2:`](https://lv2plug.in/ns/lv2core)** — LV2 core: plugins, ports, parameter
+  ranges, plugin classes.
+- **[`units:`](https://lv2plug.in/ns/extensions/units)** — LV2 units: what a parameter
+  is measured in — dB, Hz, ms.
+- **[`skos:`](https://www.w3.org/TR/skos-reference/)** — the category and tag concept
+  scheme, and the close matches from vendor categories and LV2 classes into it.
+- **[`foaf:`](http://xmlns.com/foaf/spec/)** — makers, homepages, screenshots.
+- **[`dcterms:`](https://www.dublincore.org/specifications/dublin-core/dcmi-terms/)** —
+  titles, descriptions, dates, licences.
+- **[`prov:`](https://www.w3.org/TR/prov-o/)** — which harvest wrote a graph, from
+  what, and when.
+- **[`rdfs:`](https://www.w3.org/TR/rdf-schema/)** and
+  **[`owl:`](https://www.w3.org/TR/owl2-overview/)** — labels and comments, and
+  `owl:sameAs` to preserve a plugin's upstream IRI where it already has one.
+- **[`sh:`](https://www.w3.org/TR/shacl/)** — the shapes in `vocabs/shapes.ttl` that
+  ingest validates against.
+- **[`void:`](https://www.w3.org/TR/void/)** — the dataset description shipped with the
+  public dump.
+- **[`doap:`](https://github.com/ewilderj/doap)** — read on the way in: LV2 bundles
+  state a project name and a licence with it.
+- **[`schema:`](https://schema.org/SoftwareApplication)** and
+  **[`aufx:`](https://w3id.org/aufx/ontology/1.0)** — alignment targets only, asserted
+  in `vocabs/alignment.ttl` and never written into a plugin's own description.
 
 **SHACL is what stops the model rotting.** `vocabs/shapes.ttl` says what a valid
 plugin is, and the ingest pipeline validates before it writes, so a defective
