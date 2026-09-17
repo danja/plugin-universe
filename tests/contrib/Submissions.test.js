@@ -203,7 +203,7 @@ describe('refusing to write', () => {
  * that way — `trn:format` has no maxCount in the shapes.
  */
 describe('formats', () => {
-  it('are the same nine the SHACL shapes allow', () => {
+  it('are exactly the ones the SHACL shapes allow', () => {
     // The coupling that has cost this project most: a list in code and the
     // same list in vocabs/shapes.ttl with nothing connecting them. A format
     // missing here is one nobody can submit; one here that the shapes reject

@@ -66,6 +66,45 @@ describe('the validation shapes', () => {
     expect(report.results.some(r => r.path === `${rdfs}label`)).toBe(true)
   })
 
+  it('accepts a web plugin, which is a format like any other', async () => {
+    // JigDAW's plugins are all of this kind and none of the others. Without
+    // trn:WebAudio every profile it publishes was a violation here, so the
+    // catalogue could hold a plugin it had no way to describe.
+    const report = await validate([
+      `<${IRI}> <${rdf}type> <${trn}PluginProfile> .`,
+      `<${IRI}> <${rdfs}label> "Pulse" .`,
+      `<${IRI}> <${trn}format> <${trn}WebAudio> .`
+    ])
+    expect(summarise(report)).toBe('conforms')
+  })
+
+  it('accepts a host requirement from another published vocabulary', async () => {
+    // trn:requires carries a capability, and a capability defined elsewhere is
+    // still a capability. JigDAW declares jig:MidiEvents and jig:MidiOut, which
+    // are real dereferenceable terms. Requiring the trn: namespace here made
+    // every one of its profiles unharvestable while reporting only that the
+    // namespace was wrong.
+    const report = await validate([
+      `<${IRI}> <${rdf}type> <${trn}PluginProfile> .`,
+      `<${IRI}> <${rdfs}label> "Pulse" .`,
+      `<${IRI}> <${trn}requires> <${trn}HostTransport> .`,
+      `<${IRI}> <${trn}requires> <http://purl.org/stuff/jigdaw/MidiEvents> .`
+    ])
+    expect(summarise(report)).toBe('conforms')
+  })
+
+  it('still rejects a host requirement that is not an IRI', async () => {
+    // The check that remains, and the one that catches the actual mistake: a
+    // bare string names nothing a consumer can follow.
+    const report = await validate([
+      `<${IRI}> <${rdf}type> <${trn}PluginProfile> .`,
+      `<${IRI}> <${rdfs}label> "Stringy" .`,
+      `<${IRI}> <${trn}requires> "MidiEvents" .`
+    ])
+    expect(report.conforms).toBe(false)
+    expect(report.results.some(r => r.path === `${trn}requires`)).toBe(true)
+  })
+
   it('rejects a format IRI that is not one of the known individuals', async () => {
     // A typo here creates a facet that matches nothing, silently.
     const report = await validate([

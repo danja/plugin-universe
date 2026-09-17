@@ -76,7 +76,11 @@ export class SubmissionError extends Error {
  * passes the form and fails at the last moment.
  */
 export const PLUGIN_FORMATS = Object.freeze([
-  'VST3', 'VST2', 'CLAP', 'AudioUnit', 'AudioUnitV3', 'LV2', 'LADSPA', 'AAX', 'Standalone'
+  'VST3', 'VST2', 'CLAP', 'AudioUnit', 'AudioUnitV3', 'LV2', 'LADSPA', 'AAX', 'Standalone',
+  // A plugin that runs in a browser: JavaScript on an AudioWorklet over
+  // WebAssembly, fetched from its own IRI. Bound to the sh:in list in
+  // vocabs/shapes.ttl by the test below, which is what stops the two drifting.
+  'WebAudio'
 ])
 
 export const SUBMITTABLE = Object.freeze({
