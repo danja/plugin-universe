@@ -1,18 +1,26 @@
 import fs from 'fs'
 import { join as pathJoin, isAbsolute } from 'path'
 import logger from 'loglevel'
-import { send, sendText, LICENCE, HTML } from './respond.js'
+import { send, sendText, redirect, LICENCE, HTML } from './respond.js'
 import { renderVocabularies } from './render.js'
+import { prefersPage } from './requests.js'
 import buildRegistry from './registry.js'
 import { ImageError } from './ImageStore.js'
+import { parseTurtleFile } from '../harvest/TurtleReader.js'
+import { NAMESPACES } from '../rdf/NamespaceManager.js'
 
 /**
  * What the site says about itself, and the files it serves flat.
  *
- * Five routes with nothing in common except that none of them is a page about
+ * Six routes with nothing in common except that none of them is a page about
  * a plugin: the health check a monitor polls, `robots.txt`, the Open Audio
- * Stack registry view, the vocabulary documents that every published IRI
- * resolves to, and the stored images.
+ * Stack registry view, the vocabulary documents, the `pu:` term IRIs that
+ * redirect to them, and the stored images.
+ *
+ * The vocabulary documents were described here as "what every published IRI
+ * resolves to", which was the intention and was not true: the documents
+ * resolved and the terms in them did not, which is the half a consumer actually
+ * follows. See `vocabularyTermRoute` below.
  *
  * They were scattered through `server.js`'s switch and its default branch.
  * Grouping them is what makes the file that is left recognisably *the
@@ -44,6 +52,94 @@ export async function metaRoutes (context) {
   if (picture) return storedImage(context, picture[1])
 
   return false
+}
+
+/**
+ * A `pu:` term IRI, dereferenced.
+ *
+ * Every plugin this catalogue publishes is described with terms minted under
+ * `http://purl.org/stuff/plugin-universe/`, and the PURL sends the whole
+ * namespace here — so `pu:supportedPlatform` arrives as `/supportedPlatform`,
+ * which answered **404 with a JSON body**. The namespace root resolved, the
+ * documents at `/ns` resolved, and not one of the 115 terms the data actually
+ * uses did. A consumer following a predicate to find out what it means got an
+ * error, which is the whole thing a dereferenceable vocabulary exists to avoid.
+ * Found from the other side: `~/github/jigdaw` hit it while making `trn:`
+ * resolve, and `trn:` had had the identical fault.
+ *
+ * **303, not 200.** The term is a property or a class, not a document; the
+ * document that describes it is the one this redirects to. That distinction is
+ * httpRange-14 and it is the reason a vocabulary is served this way rather than
+ * by answering at the term's own IRI.
+ *
+ * **Mounted last, after every other route module.** This handler only ever
+ * answers what would otherwise be a 404, so it cannot shadow a route that
+ * happens to share a name — `pu:category` is a real term and `/category/<slug>`
+ * is a real route, and with this ordering neither has to know about the other.
+ *
+ * The terms come from the vocabulary file rather than a list in code, for the
+ * reason `CategoryScheme` and `ProfileVocabulary` do: a copy of an ontology is
+ * a second thing to keep right. A term added to `vocabs/plugin-universe.ttl`
+ * resolves without touching this file.
+ */
+const PU = NAMESPACES.pu
+const TERM_FILE = 'vocabs/plugin-universe.ttl'
+const VOCABULARY_DOCUMENT = '/ns/plugin-universe.ttl'
+const VOCABULARY_INDEX = '/ns'
+
+// Keyed by file, not one slot: a cache that ignores its argument makes the
+// argument a lie, and the test that proves the empty-vocabulary guard fires
+// passes a different file.
+const termCache = new Map()
+
+/**
+ * The single-segment `pu:` names the vocabulary defines, as a Set.
+ *
+ * Subjects only: what the file *describes* is what it answers for. A term
+ * mentioned as an object — `rdfs:range pu:Vendor` in a file that does not
+ * define `pu:Vendor` — would be a claim to describe something it does not.
+ *
+ * Slashed names are excluded because they are not vocabulary terms at all:
+ * `pu:category/reverb`, `pu:plugin/<slug>` and `pu:vendor/<slug>` are instance
+ * IRIs whose paths are already served by the catalogue's own routes, which is
+ * why those have always dereferenced and the terms never did.
+ */
+export async function vocabularyTerms (file = TERM_FILE) {
+  if (termCache.has(file)) return termCache.get(file)
+  const dataset = await parseTurtleFile(file)
+  const found = new Set()
+  for (const quad of dataset) {
+    const subject = quad.subject
+    if (subject.termType !== 'NamedNode' || !subject.value.startsWith(PU)) continue
+    const local = subject.value.slice(PU.length)
+    if (local && !local.includes('/') && !local.includes('#')) found.add(local)
+  }
+  if (found.size === 0) {
+    throw new Error(
+      `${file} defines no pu: terms, so every published predicate would 404. ` +
+      'Check that vocabs/ reached the deployment.')
+  }
+  termCache.set(file, found)
+  return found
+}
+
+/** The path a term IRI redirects to, given what the client asked for. */
+export function termDocument (accept = '') {
+  // A person gets the index, which explains what each document is and links to
+  // it; anything asking for RDF gets the document itself. The alternative —
+  // sending a browser straight to Turtle — offers a download of a file it
+  // cannot render, in answer to a click.
+  return prefersPage(accept) ? VOCABULARY_INDEX : VOCABULARY_DOCUMENT
+}
+
+export async function vocabularyTermRoute (context) {
+  const { path, request, response } = context
+  // One segment, and shaped like a term. Cheap enough to run on every 404, and
+  // it keeps a path like `/plugin/x/y` from touching the vocabulary at all.
+  if (!/^\/[A-Za-z][A-Za-z0-9_-]*$/.test(path)) return false
+  if (!(await vocabularyTerms()).has(path.slice(1))) return false
+  redirect(response, termDocument(request.headers.accept ?? ''), 303)
+  return true
 }
 
 /** Whether a path belongs to this module, without doing the work. */

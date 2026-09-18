@@ -17,7 +17,7 @@ import { handleMcp, MCP_PATH } from '../mcp/server.js'
 import accountRoutes from './account-routes.js'
 import moderationRoutes from './moderation-routes.js'
 import contributionRoutes from '../contrib/routes.js'
-import metaRoutes from './meta-routes.js'
+import metaRoutes, { vocabularyTermRoute } from './meta-routes.js'
 import wikiRoutes from '../wiki/routes.js'
 import billingRoutes from '../billing/routes.js'
 import catalogueRoutes from './catalogue-routes.js'
@@ -378,6 +378,11 @@ export function createServer ({
         request, response, path, params, viewer, auth, search, started,
         corrections, images, billing, wiki: wikiService, navigationFor
       })) return
+
+      // A `pu:` term IRI — `/supportedPlatform` and the 114 others the data is
+      // written in. Last of all, so that it answers only what would otherwise
+      // be a 404 and can never shadow a route above it.
+      if (await vocabularyTermRoute({ request, response, path })) return
 
       return send(response, 404, { error: 'No such endpoint', path })
     } catch (error) {

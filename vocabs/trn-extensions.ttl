@@ -6,8 +6,21 @@
 ## Extensions to the trn: vocabulary made by Plugin Universe.
 ##
 ## These are additions to http://purl.org/stuff/transmissions/, not a fork.
-## They should be proposed upstream to ~/github/transmission rather than
-## maintained separately. Nothing here redefines an existing trn: term.
+## Nothing here redefines an existing trn: term.
+##
+## **The formats below have been proposed upstream and adopted.** They live in
+## ~/github/transmission/vocabs/formats.ttl, which is what that namespace has
+## actually served since 2026-09-18 — the PURL resolves and every term 303s to
+## it. This file keeps its copy because vocabs/shapes.ttl validates against it
+## here, so the two are a pair that can drift, and each repository watches the
+## direction that costs it: transmission's tests/vocab/site.test.js fails on a
+## term declared here and missing there, and tests/rdf/trn-formats.test.js fails
+## on one declared there and missing here — which would be a format the shapes
+## refuse although the published vocabulary blesses it. Both skip, and say so,
+## when the sibling checkout is absent.
+##
+## A new trn: term goes upstream first now. This file is for the interval
+## between proposing one and its being adopted, and for nothing else.
 
 ## ── Plugin formats ──────────────────────────────────────────────────────────
 ## valis improvises this as val:formats "VST3" string literals. Typed

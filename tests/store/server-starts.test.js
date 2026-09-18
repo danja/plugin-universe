@@ -218,6 +218,33 @@ describe('bin/serve.js', () => {
     }
   })
 
+  it('dereferences a pu: term IRI, which the published data is written in', async () => {
+    // The PURL sends the whole namespace here, so `pu:supportedPlatform`
+    // arrives as this path. It answered 404 with a JSON body until 2026-09-18 —
+    // every term in the vocabulary did — and the route that fixes it is mounted
+    // after every other module, which is exactly the kind of ordering a unit
+    // test cannot see.
+    const response = await fetch(`${BASE}/supportedPlatform`, {
+      headers: { Accept: 'text/turtle' }, redirect: 'manual'
+    })
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe('/ns/plugin-universe.ttl')
+
+    // And the far end of the hop exists, which is the half a redirect test
+    // usually forgets: a 303 to a 404 is still a term that does not resolve.
+    const document = await fetch(`${BASE}/ns/plugin-universe.ttl`)
+    expect(document.status).toBe(200)
+    expect(document.headers.get('content-type')).toContain('text/turtle')
+    expect(await document.text()).toContain('supportedPlatform')
+  })
+
+  it('still 404s a path that is not a term', async () => {
+    // The route runs last and must stay that way: if it ever answered more
+    // than the vocabulary, a mistyped URL would become a redirect.
+    const response = await fetch(`${BASE}/notAVocabularyTerm`, { redirect: 'manual' })
+    expect(response.status).toBe(404)
+  })
+
   it('resolves a plugin IRI in all four representations', async () => {
     const list = await (await fetch(`${BASE}/plugins?limit=1`)).json()
     const slug = list.results[0].iri.replace(/^.*\/plugin\//, '')

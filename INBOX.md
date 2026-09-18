@@ -26,6 +26,15 @@ Loose ideas, before they have a phase. Moved into [TODO.md](TODO.md) or
   dump repeatedly — a `Disallow: /dumps/` would hide it from search as well,
   which is the trade.
 
+* **Two `pu:` things the JigDAW work turned up, neither blocking.** The
+  vocabulary now dereferences, but `/ns/plugin-universe.ttl` is the whole
+  document — a term IRI lands a reader in 374 lines with no anchor on the term
+  they followed. Serving one term's description, or an HTML view with anchors,
+  is the better answer when something asks for it. And `trn:` is now owned and
+  served by `~/github/transmission`, so this repository's
+  `vocabs/trn-extensions.ttl` is a mirror for the shapes rather than a place new
+  terms go; the next `trn:` term goes upstream first.
+
 ## Confirmed done
 
 * ~~support JigDAW plugins : /home/danny/github/jigdaw~~ — `JigDawHarvester`,

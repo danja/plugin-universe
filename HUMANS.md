@@ -44,6 +44,35 @@ that are yours. [TODO.md](TODO.md) is what the *project* needs; this is what
   shows. Worth a pass while the files are open.
 
 
+- [ ] **Deploy the `pu:` term fix, then follow one term from outside.**
+  *2026-09-18:* every IRI this catalogue publishes its data in answered 404.
+  `http://purl.org/stuff/plugin-universe/supportedPlatform` — and the other 114
+  terms — landed on this site as `/supportedPlatform` and fell through to the
+  catch-all with a JSON error. Plugin, vendor and category IRIs were always
+  fine, which is why it went unseen: those are routes. `~/github/jigdaw` found
+  it while making `trn:` resolve, and `trn:` had had the same fault.
+
+  A code deploy, nothing else:
+
+  ```sh
+  ./bin/deploy.sh
+  ```
+
+  Then ask a client, from off the machine — the PURL hop is part of what is
+  being tested, so a local curl proves less:
+
+  ```sh
+  curl -sIL -H 'Accept: text/turtle' \
+    http://purl.org/stuff/plugin-universe/supportedPlatform | grep -E '^HTTP|^[Ll]ocation'
+  # ends 200 text/turtle at /ns/plugin-universe.ttl, via a 303 rather than a 404
+  ```
+
+  A browser asking for the same term gets `/ns` instead, which is the readable
+  index. Both are one route; it is mounted after every other one, so a term that
+  shares a name with a page — `pu:category` and `/category/<slug>` — leaves the
+  page alone.
+
+
 - [ ] **A security review and pentest of the whole system**, including the rest of the server —
   your idea from the inbox, and the right time is before the announcement rather than after the
   traffic. Worth being specific about scope when you set it up: the things most worth attacking

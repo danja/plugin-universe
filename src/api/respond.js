@@ -66,7 +66,16 @@ export function sendText (response, status, body, contentType) {
  * sitemap will list. Promote them once the shape has settled.
  */
 export function redirect (response, location, status = 302) {
-  response.writeHead(status, { Location: location, Vary: VARY, 'Content-Length': 0 })
+  response.writeHead(status, {
+    Location: location,
+    // Open, like every other response here, and it matters most on the one
+    // redirect that is part of the published data: a `pu:` term IRI 303s to the
+    // document that defines it, and an RDF client in a browser following that
+    // hop is refused without this.
+    'Access-Control-Allow-Origin': '*',
+    Vary: VARY,
+    'Content-Length': 0
+  })
   response.end()
 }
 

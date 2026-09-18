@@ -433,7 +433,21 @@ it there.
 
 Primary vocabulary is `trn:` — `http://purl.org/stuff/transmissions/` — extended by this project and
 shared with `~/github/transmission`, `~/github/downspout` and `~/github/valis`. Extensions should be
-proposed upstream to the transmission repo, not forked.
+proposed upstream to the transmission repo, not forked. **`~/github/transmission` owns it and now
+serves it**: the PURL has resolved since 2026-09-18 and the plugin-format individuals were moved up
+into its `vocabs/formats.ttl`. The copy in `vocabs/trn-extensions.ttl` stays because the shapes
+validate against it here; `tests/rdf/trn-formats.test.js` fails when upstream declares a format this
+repository has not caught up with, and its counterpart there watches the other direction.
+
+**A `pu:` IRI resolves to this site, and every term has to answer.** The PURL sends the whole
+namespace here, so `pu:supportedPlatform` arrives as `/supportedPlatform`. Instance IRIs —
+`pu:plugin/<slug>`, `pu:vendor/<slug>`, `pu:category/<slug>` — are routes and always worked; the 115
+vocabulary terms answered 404 with a JSON body until `vocabularyTermRoute` in `src/api/meta-routes.js`
+303'd them to `/ns/plugin-universe.ttl`. It is mounted **after every other route module**, so it
+answers only what would otherwise be a 404 and cannot shadow a route that shares a name — `pu:category`
+is a term and `/category/<slug>` is a route. A new `pu:` predicate written by the serialiser must be
+defined in `vocabs/plugin-universe.ttl` or it is an IRI in published data that leads nowhere;
+`tests/api/vocabulary-terms.test.js` is the binding.
 
 | Prefix | IRI | Used for |
 |---|---|---|

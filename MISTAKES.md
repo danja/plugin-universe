@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Sixty entries is past the point where anyone reads them all, so what follows
+Sixty-one entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index. Entries are consolidated when several
 turn out to be one lesson, and promoted into [CLAUDE.md](CLAUDE.md) when a
@@ -87,6 +87,41 @@ moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-18 — The namespace resolved and not one of its terms did
+
+**What happened.** `http://purl.org/stuff/plugin-universe/` answers 200 with the
+vocabulary; `http://purl.org/stuff/plugin-universe/supportedPlatform` answered
+**404 with a JSON body**, and so did the other 114 terms. The PURL forwards the
+whole namespace to this site, so a term arrives as `/supportedPlatform` and fell
+through every route to the catch-all. Instance IRIs were fine —
+`pu:plugin/<slug>`, `pu:vendor/<slug>` and `pu:category/<slug>` are paths the
+catalogue already serves — which is exactly why nobody noticed: following a
+plugin IRI worked, and following a *predicate* out of the same document did not.
+
+Found from another repository. `~/github/jigdaw` made `trn:` dereference, which
+had had the identical fault, and measured this namespace on the way past.
+
+**Root cause.** Pattern 3 in a new place: a thing published and never followed.
+Every Turtle and JSON-LD response this site serves is written in these terms, so
+the IRIs were in front of every consumer from the first day — but every test
+that reads one reads it as a string. Nothing had dereferenced one, because
+dereferencing your own vocabulary is what somebody *else's* client does. The
+project's own checklist item — "does a published URL resolve to a route?" — was
+written for a user agent and a docs link, and a term IRI never got read as one.
+
+**Prevention.** `vocabularyTermRoute` 303s a term to the document that defines
+it, mounted after every other route module so it answers only what would
+otherwise be a 404 and can shadow nothing. The term list is read from
+`vocabs/plugin-universe.ttl` rather than written in code, so a new term resolves
+without touching the route. Two checks: `tests/api/vocabulary-terms.test.js`
+binds the `pu:` predicates `PluginSerialiser` writes to the terms the vocabulary
+defines — a predicate written into 650 plugins and defined nowhere is an IRI
+that leads nowhere — and `tests/store/server-starts.test.js` asks the running
+process for one and follows the hop to the far end, because a 303 to a 404 is
+still a term that does not resolve.
 
 ---
 
