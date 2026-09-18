@@ -52,19 +52,27 @@ that are yours. [TODO.md](TODO.md) is what the *project* needs; this is what
   reviewed in `docs/sources.md` §4; it is your own repository, so the graph is
   CC0 as downspout's is and Apache-2.0 travels with each plugin.
 
+  **The code has to get there first.** `docker compose run --rm app …` runs the
+  *image*, and until it is rebuilt there is no `jigdaw` harvester in it —
+  `--source jigdaw` then fails with "No harvester matches", which is what it
+  said on 2026-09-18. In order:
+
   ```sh
-  git clone https://github.com/danja/jigdaw data/seed/jigdaw   # or point SEED_DIR at a parent
+  ./bin/deploy.sh                                              # 1. the harvester itself
+  git clone https://github.com/danja/jigdaw data/seed/jigdaw   # 2. or point SEED_DIR at a parent
+  docker compose up -d                                         # 3. recreate: JIGDAW_PATH is new
   docker compose run --rm app node bin/ingest.js --source jigdaw
   docker compose run --rm app node bin/mint-vendors.js
   docker compose run --rm app node bin/ingest.js --only-new     # embeds the three
   docker compose restart app
   ```
 
-  The path reaches the container as `JIGDAW_PATH: /srv/seed/jigdaw`, which is in
-  `docker-compose.yml`, so **the app container has to be recreated rather than
-  restarted** the first time — `docker compose up -d` does that. Without the
-  checkout the ingest reports the source as skipped and carries on, which looks
-  exactly like a machine that has not cloned it.
+  Step 3 is a recreate rather than a restart because the path arrives as
+  `JIGDAW_PATH: /srv/seed/jigdaw` from `docker-compose.yml`, and a running
+  container does not pick that up on a restart. Without the checkout the ingest
+  reports the source as skipped and carries on — the failure now says which of
+  those two it is, and names the remedy, rather than reporting that no harvester
+  matched.
 
   One thing to decide while you are there: a JigDAW profile also carries the
   module and processor locations, their SRI digests, the render quantum and the

@@ -128,6 +128,15 @@ async function githubHarvesters (file) {
 }
 
 /**
+ * What `localHarvesters()` saw: every source id it knows, and the ones it had
+ * to skip. Both are for the failure message below — "No harvester matches
+ * --source jigdaw" is true and says nothing about why, and the why is almost
+ * always a checkout that is not there.
+ */
+const knownSources = []
+const skippedSources = []
+
+/**
  * The configured sources.
  *
  * Three of them read a git checkout from the local filesystem, which is right
@@ -149,11 +158,13 @@ function localHarvesters () {
 
   const candidates = [
     {
+      id: 'downspout',
       path: downspoutPath,
       env: 'DOWNSPOUT_PATH',
       build: () => new DownspoutHarvester({ repoPath: downspoutPath })
     },
     {
+      id: 'flues',
       path: fluesPath,
       env: 'FLUES_PATH',
       build: () => new Lv2Harvester({
@@ -177,6 +188,7 @@ function localHarvesters () {
       })
     },
     {
+      id: 'jigdaw',
       path: jigdawPath,
       env: 'JIGDAW_PATH',
       build: () => new JigDawHarvester({ repoPath: jigdawPath })
@@ -185,9 +197,14 @@ function localHarvesters () {
 
   const harvesters = []
   for (const candidate of candidates) {
+    knownSources.push(candidate.id)
     if (fs.existsSync(candidate.path)) {
       harvesters.push(candidate.build())
     } else {
+      // Remembered, not just announced. `--source <id>` filters the harvesters
+      // this function returns, so a skipped source and a misspelled one both
+      // end up as an empty list — and the message for the two is not the same.
+      skippedSources.push(candidate)
       console.log(
         `SKIPPING a source: no checkout at ${candidate.path}. ` +
         `Set ${candidate.env} or bind-mount it to include it.`
@@ -209,7 +226,28 @@ const harvesters = (githubFile ? await githubHarvesters(githubFile) : localHarve
   .filter(h => !onlySource || h.id === onlySource)
 
 if (harvesters.length === 0) {
-  console.error(`No harvester matches --source ${onlySource}`)
+  const skipped = skippedSources.find(source => source.id === onlySource)
+  if (skipped) {
+    // The common case by a distance, and the one the old message hid: the
+    // source is configured and its checkout is not on this machine. On a server
+    // that is a clone; in Docker it is also a path *inside* the container, and
+    // ${skipped.env} arrives from docker-compose.yml — which a running
+    // container does not pick up on a restart.
+    console.error(
+      `--source ${onlySource} is configured, and was skipped: no checkout at ${skipped.path}.\n` +
+      `  Clone it there, or set ${skipped.env} to where it is.\n` +
+      '  In Docker that path is inside the container: it is bind-mounted from ${SEED_DIR}\n' +
+      `  and ${skipped.env} is set in docker-compose.yml, so after changing either the app\n` +
+      '  container must be recreated — `docker compose up -d` — rather than restarted.')
+  } else {
+    console.error(
+      `No harvester matches --source ${onlySource}.\n` +
+      (githubFile
+        ? '  With --github the sources are the repositories marked include in that file.'
+        : `  Configured: ${[...knownSources, 'open-audio-stack'].join(', ')}.\n` +
+          '  A source added since this code was built is not one of them: on a deployment,\n' +
+          '  check that the image is current (./bin/deploy.sh) before checking the spelling.'))
+  }
   process.exit(1)
 }
 
