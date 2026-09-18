@@ -325,6 +325,50 @@ in the way rather than changing it: making somebody's home world-traversable is
 their decision. Without it, `/image/` and `/dumps/` return 403 while everything
 else works.
 
+### The subdomains, and the CORS rule that applies to both
+
+`sparql.plugin-universe.com` and `mcp.plugin-universe.com` are separate files —
+`deploy/nginx/sparql.plugin-universe.conf` and
+`deploy/nginx/mcp.plugin-universe.conf` — installed the same way as the main one
+and with their own certificates. Neither has a port-80 block: the main config
+already lists every subdomain on `:80`, serves the ACME challenge path and
+redirects the rest, and **two blocks claiming one name on one port is a warning
+rather than an error**, with nginx keeping whichever it loaded first.
+
+```sh
+sudo cp deploy/nginx/sparql.plugin-universe.conf \
+        /etc/nginx/sites-available/sparql.plugin-universe.com.conf
+sudo cp deploy/nginx/mcp.plugin-universe.conf \
+        /etc/nginx/sites-available/mcp.plugin-universe.com.conf
+sudo ln -sf /etc/nginx/sites-available/sparql.plugin-universe.com.conf /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/mcp.plugin-universe.com.conf    /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+**Both proxy to something that answers CORS itself, and two answers are worse
+than none.** Fuseki's `CrossOriginFilter` is on by default — it reflects the
+request's `Origin` and sets `Access-Control-Allow-Credentials: true` — and the
+application answers a preflight because it is reachable without a proxy in front
+of it. Where these files `add_header Access-Control-Allow-Origin`, the proxied
+location must therefore `proxy_hide_header` the upstream's, or the response
+carries two of them. A duplicate is not doubly permissive: it is invalid, and
+every browser refuses the response, so the endpoint works from `curl` and fails
+from exactly the clients it exists for. `nginx -t` cannot see this — it is valid
+configuration and wrong behaviour, the same shape as `add_header` in a location
+replacing the server block's headers.
+
+Which is why the install ends by asking a client rather than the configuration:
+
+```sh
+curl -sI -H 'Origin: https://example.org' \
+  'https://sparql.plugin-universe.com/public/query?query=ASK%7B%7D' \
+  | grep -ci '^access-control-allow-origin'        # 1 is right, 2 is the bug
+```
+
+`tests/api/cors.test.js` holds the repository copies to the same rule: every
+vhost that sets `Access-Control-Allow-Origin` must hide the upstream's in each
+location it proxies.
+
 ### HTTP/2 on a shared host
 
 `plugin-universe.host.conf` does not enable HTTP/2, deliberately. **HTTP/2 is a
