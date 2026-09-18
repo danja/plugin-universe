@@ -1,7 +1,7 @@
 # Danja's list
 
 Things only you can do: server access, credentials, legal, and the decisions
-that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
+that are yours. [TODO.md](TODO.md) is what the *project* needs; this is what
 *you* need to do.
 
 
@@ -42,6 +42,70 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
   platforms and that is your call — but if it is still true, it belongs in `trn:caution` on the
   affected plugins, which is a field the profiles already carry and the plugin page already
   shows. Worth a pass while the files are open.
+
+
+- [ ] **Clone jigdaw on the server and harvest it.** *2026-09-18:* the catalogue
+  can hold web plugins now — `JigDawHarvester` reads the generated `profile.ttl`
+  in each `plugins/<name>/` of `~/github/jigdaw`, and `trn:WebAudio` is a format
+  like any other. Three plugins locally: BassGen, Cascade and Pulse, all
+  Apache-2.0, all free, ports and scale points and cautions intact. Terms are
+  reviewed in `docs/sources.md` §4; it is your own repository, so the graph is
+  CC0 as downspout's is and Apache-2.0 travels with each plugin.
+
+  ```sh
+  git clone https://github.com/danja/jigdaw data/seed/jigdaw   # or point SEED_DIR at a parent
+  docker compose run --rm app node bin/ingest.js --source jigdaw
+  docker compose run --rm app node bin/mint-vendors.js
+  docker compose run --rm app node bin/ingest.js --only-new     # embeds the three
+  docker compose restart app
+  ```
+
+  The path reaches the container as `JIGDAW_PATH: /srv/seed/jigdaw`, which is in
+  `docker-compose.yml`, so **the app container has to be recreated rather than
+  restarted** the first time — `docker compose up -d` does that. Without the
+  checkout the ingest reports the source as skipped and carries on, which looks
+  exactly like a machine that has not cloned it.
+
+  One thing to decide while you are there: a JigDAW profile also carries the
+  module and processor locations, their SRI digests, the render quantum and the
+  channel counts, and none of it is harvested — nothing would query it. It is in
+  [INBOX.md](INBOX.md) with what closing that would cost.
+
+  **Tell me when it has run.** README.md's "What is in it" table describes the
+  deployment and deliberately has no JigDAW row yet: it would be a claim about a
+  catalogue that does not hold them. Adding it is on [TODO.md](TODO.md), with
+  the figure to be taken from `/health` rather than from this paragraph.
+
+
+- [ ] **Copy the corrected nginx files and prove they are the ones being
+  served.** *2026-09-18:* four of them changed, and the CORS fixes are the kind
+  that `nginx -t` cannot see — valid configuration, wrong behaviour.
+
+  * `sparql.plugin-universe.conf` — **the public SPARQL endpoint could not be
+    called from a browser at all.** Fuseki answers CORS itself (it reflects the
+    Origin and sets `Allow-Credentials: true`), nginx added its own on top, and
+    a duplicated `Access-Control-Allow-Origin` is invalid rather than doubly
+    permissive: every browser refuses the response. The location now hides the
+    upstream's set. This is worth checking *before* the announcement, since
+    "query it from a browser" is the endpoint's whole appeal.
+  * `mcp.plugin-universe.conf` — the same duplication against this app's own
+    headers, on the preflight an MCP client sends first.
+  * `plugin-universe.conf` and `plugin-universe.host.conf` — the `api.` block
+    served without `X-Content-Type-Options` or `Referrer-Policy`, which the site
+    block beside it has always set.
+
+  `./deploy/nginx/check.sh` passes on all of them here (four pre-existing
+  `listen … http2` deprecation warnings, unchanged). After copying and
+  reloading, ask the consumer rather than the artefact:
+
+  ```sh
+  nginx -T | grep -c 'proxy_hide_header Access-Control-Allow-Origin'   # 3 with both subdomains enabled: 2 mcp, 1 sparql
+  curl -sI -H 'Origin: https://example.org' \
+       'https://sparql.plugin-universe.com/public/query?query=ASK%7B%7D' \
+       | grep -ci '^access-control-allow-origin'   # expect exactly 1
+  ```
+
+  A `2` there is the bug still being served, whatever `nginx -t` says.
 
 
 - [ ] **A security review and pentest of the whole system**, including the rest of the server —
@@ -187,7 +251,8 @@ that are yours. [TODO.md](../TODO.md) is what the *project* needs; this is what
 
 ## The announcement, when you are ready
 
-The draft is in [announcement-01.md](announcement-01.md). The points that were
+The draft was `docs/announcement-01.md`, deleted in commit ae2aeb3 and
+recoverable with `git show ae2aeb3^:docs/announcement-01.md`. The points that were
 listed here are in it; what is left is your decision about where it goes and
 when. The one thing worth keeping in view while editing: the first question
 people ask is "where did you get my data", and the answer reads far better
@@ -279,6 +344,13 @@ Nothing here needs server access. The profiler runs on this machine.
   after any ingest that adds plugins, or their makers have no identity and their
   vendor pages show no identifier. `--dry-run` says what it would write. Safe to
   repeat: the IRIs are content hashes, so re-deriving produces the same ones.
+
+  *2026-09-18:* **the ingest now counts what is missing and tells you.** This
+  step had been a habit written down and missed twice — most recently by the
+  three JigDAW plugins — so `bin/ingest.js` ends by asking the store how many
+  plugins carry a vendor string with no minted maker, and names the command when
+  the answer is not zero. Silence at the end of a run means there is nothing to
+  do.
 
   **It now also applies `data/curation/vendor-merges.json`** — the vendors who
   are one maker under two names. That file is the only record of a judgement

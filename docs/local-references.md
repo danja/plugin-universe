@@ -2,3 +2,4 @@
 * ~/github/valis - another plugin which uses RDF/Turtle
 * ~/github/semem - SPARQL/Semantic Search system (is bloated but the core should be reusable)
 * ~/github/flues - has some lv2 plugins
+* ~/github/jigdaw - web-native plugins; profiles extend the trn: format with a jig: half

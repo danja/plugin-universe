@@ -59,6 +59,7 @@ describe('every signal type in the catalogue is defined in the vocabulary', () =
     const defined = new Map(
       [...vocabulary.signals, ...vocabulary.requirements].map(term => [term.value, term]))
     const missing = used
+      .filter(one => one.iri.startsWith(NAMESPACES.trn))
       .filter(one => !defined.has(one.term))
       .map(one => `${one.predicate} -> ${one.term}`)
     expect(missing, 'used by a plugin and defined in no vocabulary file').toEqual([])
@@ -68,13 +69,44 @@ describe('every signal type in the catalogue is defined in the vocabulary', () =
     // page in front of a vendor. Only checked where the local name is
     // camel-case: `trn:Audio` is labelled "Audio" and rightly so, so equality
     // on its own proves nothing. An interior capital does.
-    for (const one of used) {
+    for (const one of used.filter(one => one.iri.startsWith(NAMESPACES.trn))) {
       const term = defined.get(one.term)
       expect(term.label, `${one.term} has an empty label`).toBeTruthy()
       if (/[a-z][A-Z]/.test(one.term)) {
         expect(term.label, `${one.term} has no rdfs:label, so it renders as its local name`)
           .not.toBe(one.term)
       }
+    }
+  })
+
+  /**
+   * A requirement may come from somebody else's vocabulary. A signal may not.
+   *
+   * That asymmetry is `vocabs/shapes.ttl`'s decision, not this test's:
+   * `trn:accepts` and `trn:produces` are constrained to the `trn:` namespace
+   * because the catalogue's signal list is what makes chains suggestable and a
+   * private signal type would only ever match itself; `trn:requires` carries a
+   * host capability, and a capability defined elsewhere is still a capability —
+   * JigDAW's `jig:MidiEvents` and `jig:MidiOut` are the case that opened it.
+   *
+   * The shape changed and this file did not, which is the failure at the top of
+   * CLAUDE.md: three JigDAW plugins ingested cleanly, conformed to the shapes,
+   * and failed here — reported as "defined in no vocabulary file", which is
+   * true and is no longer the same thing as wrong. So the rule is written down
+   * on both sides now.
+   *
+   * What an external term does *not* get is a label: the plugin page shows its
+   * local name, by the policy in `render-plugin.js`. That is a gap worth
+   * closing and not a reason to refuse the fact.
+   */
+  it('takes a host capability from another published vocabulary, and a signal from no one', () => {
+    const external = used.filter(one => !one.iri.startsWith(NAMESPACES.trn))
+    for (const one of external) {
+      expect(one.predicate,
+        `${one.iri} is used with trn:${one.predicate}, which vocabs/shapes.ttl ` +
+        'constrains to the trn: namespace')
+        .toBe('requires')
+      expect(one.iri, `${one.iri} is not a dereferenceable IRI`).toMatch(/^https?:\/\//)
     }
   })
 
@@ -91,7 +123,10 @@ describe('every signal type in the catalogue is defined in the vocabulary', () =
 
     // And the split has to match how the data uses them, which is the fact the
     // hand-maintained REQUIREMENTS set in ProfileVocabulary is guessing at.
-    for (const one of used) {
+    // Only the terms this vocabulary is answerable for. An external capability
+    // is classified by the vocabulary that defines it, and the test above is
+    // the one that holds it to anything.
+    for (const one of used.filter(one => one.iri.startsWith(NAMESPACES.trn))) {
       const list = one.predicate === 'requires' ? requirements : signals
       expect(list, `${one.term} is used with trn:${one.predicate} but classed otherwise`)
         .toContain(one.term)

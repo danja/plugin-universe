@@ -18,6 +18,7 @@ or **Excluded**.
 |---|---|---|
 | `~/github/downspout` | 50 VST3 plugins, one `profile.ttl` each under `plugins/<slug>/` | Own |
 | `~/github/flues` | 37 LV2 bundles, 88 `.ttl` files under `lv2/` | Own |
+| `~/github/jigdaw` | 3 web plugins, one generated `profile.ttl` each under `plugins/<name>/` | Own |
 | `~/github/valis` | `profile.ttl` plus the `val:` element ontology and 15 circuit examples | Own |
 | `~/github/transmission` | `vocabs/profile.ttl`, the consolidated `profiles/downspout.ttl` | Own |
 
@@ -172,6 +173,7 @@ non-redistributable, which the dump assembly excludes. Where the answer is yes b
 |---|---|---|
 | open-audio-stack-registry | **CC0-1.0** (GitHub licence metadata, 2026-09-06). Explicitly built as an open API for third-party integration: "an open API (static JSON) you can integrate into your own products". | **Clear.** CC0 in, CC0 out. No conditions, no notice, no analysis needed. The best external source by a distance. |
 | webprofusion/OpenAudio | **CC0-1.0** | **Clear.** |
+| danja/jigdaw | **Apache-2.0** (`LICENSE`, `package.json`, verified 2026-09-18). The user's own repository. | **Own data.** Owned outright, so the harvested facts go into the CC0 graph as downspout's do — the code licence covers the code, not the facts about it. Apache-2.0 travels with each plugin as `pu:licenceId`, because that is the plugin's own licence and a reader installing one needs it. The profiles are generated from `profile.json` by the upstream build and state their own licence, so nothing here is inferred. |
 | studiorack-registry | **MIT** | **Usable.** MIT requires the copyright notice and permission text be preserved. Attach them as graph metadata; the facts extracted still flow into the CC0 dump, the notice travels with the graph. Deprecated and stale (2024) — historical entries only. |
 | lv2/lv2 | **ISC** | Specification, not data. Vocabulary reuse is unrestricted in practice; the ISC notice applies to the spec files if redistributed. |
 | LV2 bundles in the wild | Per repository — the plugin's own licence (flues is MIT) | **Check per repo at harvest.** Record the licence in the graph. Note that extracting factual metadata from a bundle is not redistributing the licensed work, but the bundle's own `doap:license` belongs in the graph regardless. |

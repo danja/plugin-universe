@@ -148,6 +148,7 @@ services:
       # checkout rather than failing the run.
       DOWNSPOUT_PATH: /srv/seed/downspout
       FLUES_PATH: /srv/seed/flues
+      JIGDAW_PATH: /srv/seed/jigdaw
     # A little swap headroom here, unlike the store: Node's cold pages are
     # exactly what swap is good for, and a stall in the web tier is recoverable
     # in a way that a stalled garbage collector is not.

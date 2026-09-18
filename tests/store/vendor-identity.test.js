@@ -289,3 +289,36 @@ describe('a curated merge, in the store', () => {
     }
   })
 })
+
+/**
+ * The question `bin/ingest.js` asks at the end of a run.
+ *
+ * Minting is a separate step from harvesting, and has to be: the identity of a
+ * vendor is a fold across every source, which no single harvester can compute.
+ * The cost of that is a window after every harvest in which a new maker has
+ * plugins and no vendor resource — no page, no `foaf:maker`, nothing to link —
+ * and the window closes only when somebody remembers the second command. It was
+ * a standing habit in HUMANS.md and it was missed again by three JigDAW
+ * plugins, so the ingest now counts them and names the remedy.
+ *
+ * This is the same count, asked of the store, so the reminder cannot quietly
+ * start answering zero for the wrong reason.
+ */
+describe('what the ingest reports when minting has not been run', () => {
+  const queries = new QueryService()
+
+  it('is a query the ingest actually loads', async () => {
+    const ingest = await import('fs').then(fs => fs.readFileSync('bin/ingest.js', 'utf8'))
+    expect(ingest, 'bin/ingest.js no longer asks').toContain("'vendor/unidentified'")
+    expect(queries.list()).toContain('vendor/unidentified')
+  })
+
+  it('counts the plugins whose vendor string has no maker, and there are none', async () => {
+    if (!derived) return
+    const [row] = await client.select(queries.get('vendor/unidentified', {}))
+    expect(Number(row.count),
+      'run node bin/mint-vendors.js — these plugins name a vendor the catalogue ' +
+      'has no identity for, so their vendor page does not exist').toBe(0)
+  })
+})
+

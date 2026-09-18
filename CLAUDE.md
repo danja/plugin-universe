@@ -19,7 +19,8 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
 ## Layout
 
 - `src/harvest/` — `Harvester` (the interface), `DownspoutHarvester`, `Lv2Harvester`,
-  `OpenAudioStackHarvester`, `GitHubHarvester` + `GitHubClient` + `GitHubDiscovery`,
+  `JigDawHarvester` (web plugins), `OpenAudioStackHarvester`,
+  `GitHubHarvester` + `GitHubClient` + `GitHubDiscovery`,
   `Lv2Bundle` (bundle reading, shared by the disk and API paths), `HttpSource` (polite
   fetching), `Normaliser` (where vocabulary defects are fixed), `PluginSerialiser`,
   `IngestPipeline`
@@ -316,7 +317,7 @@ change, and a long one rarely does.
   `tests/api/no-secret-shapes.test.js` walks the whole repository and fails on any line a
   scanner would flag; add a row to its `SHAPES` when a new provider's key could plausibly be
   pasted into a fixture.
-- **Keep [docs/danja-todo.md](docs/danja-todo.md) current.** It is the user's own action list —
+- **Keep [HUMANS.md](HUMANS.md) current.** It is the user's own action list —
   anything needing server access, credentials, legal review or a decision that is theirs goes
   there and not into a chat message that scrolls away. Revise it at the end of any session that
   changes what they need to do: strike finished items into the "Confirmed done" section rather
@@ -354,9 +355,12 @@ change, and a long one rarely does.
   `node --check`, not the suites, not the startup render check. The test suite is not a
   proofreader: comments, prose and page text are checked by a person or by nothing.
 - Log mistakes in MISTAKES.md (what happened, root cause, prevention).
-- Periodically review TODO.md and revise as necessary, and `docs/danja-todo.md` with it: TODO.md
-  is what the project needs, danja-todo.md is what the user needs to do. An item that lands in
-  one usually changes the other.
+- Periodically review TODO.md and revise as necessary, and `HUMANS.md` with it: TODO.md
+  is what the project needs, HUMANS.md is what the user needs to do. An item that lands in
+  one usually changes the other. [INBOX.md](INBOX.md) is the third: loose ideas before they
+  have a phase, emptied into one of the other two as they get one. All three are at the
+  repository root, where somebody arriving at the project sees them — `tests/api/doc-links.test.js`
+  keeps their names and every other link between documents honest.
 
 ## Development Guidelines
 
@@ -500,6 +504,9 @@ Referenced by `docs/local-references.md`; useful as seed data and as prior art:
 - `~/github/downspout` — 52 VST3 plugins with hand-written `profile.ttl` files (a moving count:
   it was 50 when this line was written and the repository is actively developed)
 - `~/github/flues` — 37 LV2 bundles, 88 `.ttl` files; the reference for LV2-shaped metadata
+- `~/github/jigdaw` — 3 web plugins whose `profile.ttl` files extend this project's profile format
+  with a `jig:` half (module, processor, digests, render quantum). Harvested by `JigDawHarvester`;
+  the `jig:` half is deliberately not read, because nothing queries it — see the note in that file.
 - `~/github/valis` — RDF loaded at runtime; the precedent for describing parameters with `lv2:port`
 - `~/github/semem` — the SPARQL / embedding / FAISS core is extracted from here (see
   `docs/architecture.md` §10). This project does not depend on semem; do not add it as a dependency.

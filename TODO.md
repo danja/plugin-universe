@@ -9,11 +9,12 @@ them. The *design intent* of what is unbuilt is in
 [docs/plan.md](docs/plan.md); this file is the actions.
 
 Anything needing server access, credentials, legal review or a decision that is
-Danja's is in [docs/danja-todo.md](docs/danja-todo.md) instead.
+Danja's is in [HUMANS.md](HUMANS.md) instead.
 
-**Where things are.** Measured 2026-09-14 from `/health`, the public endpoint and
-the suites, not from memory: **756 plugins, 756 indexed, 376 vendors all minted,
-50 measured; 1244 core tests over 56 files and 263 store tests over 24.**
+**Where things are.** The deployment, measured 2026-09-14 from `/health` and the
+public endpoint, not from memory: **756 plugins, 756 indexed, 376 vendors all
+minted, 50 measured.** The suites, measured 2026-09-18 by running them:
+**1373 core tests over 63 files and 283 store tests over 24.**
 Phases 0, 1, 3 and 5 are complete and deployed. Phase 2 is running and is missing
 the measurement it exists for. Phase 4 is built and has never taken money.
 
@@ -23,6 +24,15 @@ the measurement it exists for. Phase 4 is built and has never taken money.
 
 Small, unblocked, and each closes something that is already wrong. None is more
 than an hour.
+
+* **Add the JigDAW row to README.md — after the server has harvested it.**
+  *2026-09-18:* `JigDawHarvester` is built, tested and wired into `bin/ingest.js`
+  behind `JIGDAW_PATH`; three plugins are in the local store and in none of the
+  deployed figures. The "What is in it" table describes the deployment, so the
+  row and the counts go in when [HUMANS.md](HUMANS.md)'s clone-and-harvest step
+  has run and not before — README.md has claimed a harvester that had shipped
+  once already, and a number taken from memory twice. Take the figure from
+  `/health`.
 
 * **Deploy the vendor merge, and decide who else is one maker.** *2026-09-13:
   built.* `data/curation/vendor-merges.json` is read by `bin/mint-vendors.js`,
@@ -77,7 +87,7 @@ than an hour.
 * **A sitemap.** `robots.txt` has no `Sitemap:` line, and pointing at a 404 would
   be the same defect as advertising a contact page that does not exist — so the
   line waits on the file. **The decision has already been taken**
-  ([danja-todo.md](docs/danja-todo.md)): the list is `/`, `/plugins` and its
+  ([HUMANS.md](HUMANS.md)): the list is `/`, `/plugins` and its
   pages, the category pages and the plugin pages; `/search` stays out, and
   `robots.txt` already says so. 756 plugin pages is the whole argument for
   having one. Note the two-file trap while doing it: a new static route needs
@@ -88,8 +98,8 @@ than an hour.
 
 ## Recurring — habits, not tasks
 
-* **Check `docs/todo-misc.md`** for new items and fit them into a section here.
-* **Keep [docs/danja-todo.md](docs/danja-todo.md) current**, and prune it: it goes stale in
+* **Check [INBOX.md](INBOX.md)** for new items and fit them into a section here.
+* **Keep [HUMANS.md](HUMANS.md) current**, and prune it: it goes stale in
   one direction, with finished steps accumulating at the top while the next real action sinks.
 * **Validate nginx before it leaves this machine** — `./deploy/nginx/check.sh`. Six
   configurations have failed `nginx -t` on the server; all six were findable here.
@@ -146,7 +156,7 @@ Promotion, its compliance and the Stripe integration are built
 ([plan-done.md](docs/plan-done.md)). Two things are left, and the first is not code.
 
 * **No real money has moved, and the gate is tax registration**, not this
-  repository. On [danja-todo.md](docs/danja-todo.md), with the Stripe CLI test
+  repository. On [HUMANS.md](HUMANS.md), with the Stripe CLI test
   procedure. Worth knowing when it is run: every payment POST answered 405 until
   2026-09-13, so a delivery tried before then failed for that reason and not
   because of anything in the Stripe setup.
@@ -272,7 +282,7 @@ it. *Subject to the publish lag at the top of this file.*
 ## 5. Backups — built, waiting to be installed
 
 `bin/backup.js`, `bin/restore.js`, the nightly job and the pull script, all tested. Installing
-them is in [docs/danja-todo.md](docs/danja-todo.md). Two things deliberately not done, both
+them is in [HUMANS.md](HUMANS.md). Two things deliberately not done, both
 stated in [docs/backups.md](docs/backups.md):
 
 * **Encryption at rest**, if backups ever leave machines the user owns — these graphs hold
@@ -362,7 +372,7 @@ stated in [docs/backups.md](docs/backups.md):
 
   That leaves the ~90 GitHub repositories, where the only honest mechanism is a release asset,
   and the ~68 source-only ones among them publish none. Deploying the three re-harvests is in
-  [docs/danja-todo.md](docs/danja-todo.md).
+  [HUMANS.md](HUMANS.md).
 * **Tooltips where they earn their place.** Measurement metrics already carry labels and units
   from the vocabulary, which is the case that most wants one. Two cautions: a tooltip is
   invisible on a touch screen and to a keyboard user unless built as a proper disclosure, and

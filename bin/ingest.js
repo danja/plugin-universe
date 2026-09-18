@@ -4,8 +4,10 @@ import path from 'path'
 import logger from 'loglevel'
 import Config from '../src/Config.js'
 import SPARQLClient from '../src/store/SPARQLClient.js'
+import QueryService from '../src/store/QueryService.js'
 import IngestPipeline from '../src/harvest/IngestPipeline.js'
 import DownspoutHarvester from '../src/harvest/DownspoutHarvester.js'
+import JigDawHarvester from '../src/harvest/JigDawHarvester.js'
 import Lv2Harvester from '../src/harvest/Lv2Harvester.js'
 import OpenAudioStackHarvester from '../src/harvest/OpenAudioStackHarvester.js'
 import GitHubClient from '../src/harvest/GitHubClient.js'
@@ -128,21 +130,22 @@ async function githubHarvesters (file) {
 /**
  * The configured sources.
  *
- * Two of them read a git checkout from the local filesystem, which is right on
- * a development machine and absent on a server. A missing checkout is reported
- * and skipped rather than aborting the run: the remaining source is 559 plugins
- * and there is no sense in having none of them because two repositories are not
- * cloned. It is announced loudly, though — a catalogue quietly missing 86
- * plugins is exactly the kind of gap nobody notices.
+ * Three of them read a git checkout from the local filesystem, which is right
+ * on a development machine and absent on a server. A missing checkout is
+ * reported and skipped rather than aborting the run: the remaining source is
+ * 559 plugins and there is no sense in having none of them because three
+ * repositories are not cloned. It is announced loudly, though — a catalogue
+ * quietly missing 89 plugins is exactly the kind of gap nobody notices.
  *
- * Set DOWNSPOUT_PATH and FLUES_PATH, or bind-mount the checkouts, to include
- * them. See docs/deployment.md.
+ * Set DOWNSPOUT_PATH, FLUES_PATH and JIGDAW_PATH, or bind-mount the checkouts,
+ * to include them. See docs/deployment.md.
  */
 function localHarvesters () {
   // `||` rather than `??`: compose passes an unset variable as an empty
   // string, which `??` accepts as a value. See the note in bin/serve.js.
   const downspoutPath = process.env.DOWNSPOUT_PATH || '/home/danny/github/downspout'
   const fluesPath = process.env.FLUES_PATH || '/home/danny/github/flues'
+  const jigdawPath = process.env.JIGDAW_PATH || '/home/danny/github/jigdaw'
 
   const candidates = [
     {
@@ -172,6 +175,11 @@ function localHarvesters () {
         // repository, verified rather than assumed (docs/sources.md §4).
         platforms: [LINUX]
       })
+    },
+    {
+      path: jigdawPath,
+      env: 'JIGDAW_PATH',
+      build: () => new JigDawHarvester({ repoPath: jigdawPath })
     }
   ]
 
@@ -221,9 +229,14 @@ const failures = []
 
 // A sweep over many repositories must not lose the ones that worked because one
 // of them did not. A run over the configured sources is a different matter:
-// three of them, each expected to succeed, so a failure there is worth stopping
-// for rather than logging past.
-const continueOnError = harvesters.length > 3
+// a handful, each expected to succeed, so a failure there is worth stopping for
+// rather than logging past.
+//
+// Which run this is, not how many harvesters it has. It was `length > 3` and a
+// fourth configured source silently turned a stop-on-error run into a
+// log-and-continue one — the threshold was a proxy for "is this the GitHub
+// sweep", and adding a source is exactly what makes a proxy stop proxying.
+const continueOnError = Boolean(githubFile)
 
 for (const harvester of harvesters) {
   let report
@@ -284,6 +297,30 @@ console.log(`alignment   →  ${alignment.graph}  (${alignment.tripleCount} trip
 // `--vocabs-only` reloads just these, for when a term is added to a file under
 // vocabs/ and nothing else has changed.
 await writeOntologies(pipeline)
+
+/**
+ * The step a harvest cannot do for itself.
+ *
+ * Vendor identity is a fold across sources, so no harvester can compute it and
+ * `bin/mint-vendors.js` is a separate run. The cost is that a harvest bringing
+ * in a maker the catalogue has not seen leaves their plugins with a vendor
+ * string and no vendor resource — no vendor page, no `foaf:maker` — and nothing
+ * said so. It has now been a standing habit in HUMANS.md and missed twice, most
+ * recently by three JigDAW plugins, which is what a script is for.
+ *
+ * A count rather than an action: writing the identity layer here would mean
+ * dropping and rewriting a curated graph in the middle of a partial ingest.
+ */
+async function reportUnidentifiedVendors () {
+  const [row] = await new SPARQLClient(config.get('storage.endpoint'))
+    .select(new QueryService().get('vendor/unidentified', {}))
+  const count = Number(row?.count ?? 0)
+  if (count === 0) return
+  console.log(`\n${count} plugin(s) carry a vendor string with no minted maker.`)
+  console.log('  Run: node bin/mint-vendors.js     (then restart the app)')
+}
+
+await reportUnidentifiedVendors()
 
 if (skipEmbeddings) {
   console.log('\nSkipping embeddings (--skip-embeddings).')

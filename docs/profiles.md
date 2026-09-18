@@ -65,6 +65,13 @@ source there is** — and "will this run on my machine" is the question that
 disqualifies a plugin before anybody reads what it does. It is a link on your
 plugin's page and a filter: `/?platform=Windows`.
 
+A plugin that runs **in a browser** is the one case where leaving them all clear
+is the complete answer. Pick *Web Audio* as its format — an AudioWorklet
+processor over a WebAssembly module, fetched from the plugin's own IRI — and the
+format says what a list of operating systems would have been asked to say.
+[JigDAW](https://github.com/danja/jigdaw) plugins are harvested this way, and
+their profiles are the same shape as the one below with a little more in it.
+
 **Caution.** Anything that surprises people. Heavy CPU at high settings, output
 that can jump in level, a parameter best left alone while the tape is rolling.
 This is read by someone deciding whether to put your plugin in a live rig, and

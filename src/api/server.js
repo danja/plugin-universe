@@ -41,7 +41,7 @@ export { FACET_NAMES, facetsFrom, negotiate, prefersPage, pageOffset }
  * the running application, with no CSRF token — so the answer should be a
  * refusal from the *route* (403, or a redirect to sign in) and never from here.
  */
-const POST_PATHS = Object.freeze([
+export const POST_PATHS = Object.freeze([
   /^\/plugin\/[^/]+\/(correct|wiki|image|promote)$/,
   '/moderation',
   '/admin',
@@ -51,6 +51,52 @@ const POST_PATHS = Object.freeze([
   '/billing/portal',
   '/billing/webhook'
 ])
+
+/**
+ * Does this path accept a POST?
+ *
+ * The read-only guard and the CORS preflight both need the answer, and they
+ * disagreed: the guard consulted `POST_PATHS`, `/auth/` and the MCP endpoint,
+ * while the preflight answered "GET, OPTIONS" for everything. A browser asking
+ * to POST JSON to `/mcp` was therefore told no by the preflight and never sent
+ * the request — with every one of the endpoint's own tests passing, because a
+ * test is not a browser. This is the billing-route failure wearing a CORS hat,
+ * so it is one function rather than two lists.
+ */
+export function acceptsPost (pathname) {
+  if (pathname.startsWith('/auth/')) return true
+  if (pathname === MCP_PATH) return true
+  return POST_PATHS.some(
+    pattern => pattern instanceof RegExp ? pattern.test(pathname) : pattern === pathname)
+}
+
+/**
+ * The answer to a preflight for one path.
+ *
+ * `Access-Control-Allow-Headers` matters as much as the methods: a JSON POST
+ * carries `Content-Type: application/json`, which is not a CORS-safelisted
+ * value, so a preflight that does not name the header fails however many
+ * methods it allows.
+ */
+export function preflightHeaders (pathname) {
+  return {
+    ...JSON_HEADERS,
+    'Access-Control-Allow-Methods': acceptsPost(pathname)
+      ? 'GET, HEAD, POST, OPTIONS'
+      : 'GET, HEAD, OPTIONS',
+    // The MCP endpoint is the one that needs more than the safelist: a client
+    // identifies the protocol version it speaks in a header, and the spec's
+    // session header travels on requests to servers that issue one. This server
+    // is stateless and issues none, but a client that sends it must not have
+    // its request refused before it arrives. The same names are in
+    // `deploy/nginx/mcp.plugin-universe.conf`, which answers for the deployed
+    // endpoint; `tests/api/cors.test.js` holds the two together.
+    'Access-Control-Allow-Headers': pathname === MCP_PATH
+      ? 'Content-Type, Accept, Mcp-Session-Id, Mcp-Protocol-Version'
+      : 'Content-Type, Accept',
+    'Access-Control-Max-Age': '86400'
+  }
+}
 
 /**
  * The public read API.
@@ -235,8 +281,15 @@ export function createServer ({
       return send(response, 400, { error: 'Malformed URL' })
     }
 
+    // A preflight, answered from the same list the guard below enforces.
+    //
+    // It used to answer `Allow-Methods: GET, OPTIONS` for every path, which is
+    // a refusal of a cross-origin POST to `/mcp`, `/submit` or any of the
+    // others — the browser never sends the real request, and the endpoint's own
+    // tests all pass because none of them is a browser. One list, read twice,
+    // rather than a second list of methods to keep in step.
     if (request.method === 'OPTIONS') {
-      response.writeHead(204, JSON_HEADERS)
+      response.writeHead(204, preflightHeaders(url.pathname))
       return response.end()
     }
     // HEAD is GET without the body, and a server that supports GET is required
@@ -246,13 +299,7 @@ export function createServer ({
     // needs no branch — the headers, including Content-Length, stay correct.
     // POST reaches the auth routes only. Everything else is still read-only,
     // and says so.
-    const isAuthPost = request.method === 'POST' && request.url.startsWith('/auth/')
-    const isCorrectionPost = request.method === 'POST' && POST_PATHS.some(
-      pattern => pattern instanceof RegExp ? pattern.test(url.pathname) : pattern === url.pathname)
-    // MCP is JSON-RPC over POST. It writes no data — every tool answers a
-    // question — but it is a POST, so the read-only guard has to know about it.
-    const isMcp = url.pathname === MCP_PATH
-    if (request.method !== 'GET' && request.method !== 'HEAD' && !isAuthPost && !isCorrectionPost && !isMcp) {
+    if (request.method !== 'GET' && request.method !== 'HEAD' && !acceptsPost(url.pathname)) {
       return send(response, 405, { error: 'This API is read-only' })
     }
 

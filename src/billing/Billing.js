@@ -173,7 +173,7 @@ export class Billing {
       customer_creation: 'always',
       // A buyer who needs a document gets one without anybody being asked. What
       // Stripe issues is a receipt or a Stripe invoice — in Italy it is *not*
-      // an SdI invoice, which is a separate obligation. See docs/danja-todo.md.
+      // an SdI invoice, which is a separate obligation. See HUMANS.md.
       invoice_creation: { enabled: true },
       // Billing address from the start, so switching tax collection on later is
       // configuration rather than a migration.

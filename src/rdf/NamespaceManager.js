@@ -19,6 +19,11 @@ export const NAMESPACES = Object.freeze({
   // Project vocabularies
   trn: 'http://purl.org/stuff/transmissions/',
   pu: 'http://purl.org/stuff/plugin-universe/',
+  // JigDAW: web-native plugins, whose profiles extend the trn: one. Registered
+  // here because `JigDawHarvester` reads jig:WebPlugin to know it is looking at
+  // one, and because its host capabilities (jig:MidiEvents, jig:MidiOut) are
+  // legitimate trn:requires objects — see the note in vocabs/shapes.ttl.
+  jig: 'http://purl.org/stuff/jigdaw/',
 
   // Plugin description
   lv2: 'http://lv2plug.in/ns/lv2core#',

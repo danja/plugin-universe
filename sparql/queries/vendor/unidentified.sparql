@@ -1,0 +1,18 @@
+# Plugins that carry a vendor string and have no minted maker.
+#
+# The identity layer is derived by `bin/mint-vendors.js`, which is a separate
+# step from the harvest on purpose — a fold across sources is not something one
+# harvester can compute. The cost of that separation is that a harvest which
+# brings in a new vendor leaves this count above zero until the script is run,
+# and nothing announced it: the site showed the plugins with no vendor page
+# behind them, and `tests/store/vendor-identity.test.js` reported it days later.
+#
+# So `bin/ingest.js` asks this at the end of a run and names the remedy.
+SELECT (COUNT(DISTINCT ?plugin) AS ?count)
+WHERE {
+  GRAPH ?g {
+    ?plugin a trn:PluginProfile ;
+            trn:vendor ?vendor .
+  }
+  FILTER NOT EXISTS { GRAPH ?mg { ?plugin foaf:maker ?maker } }
+}

@@ -152,17 +152,18 @@ docker compose run --rm app node bin/ingest.js
 That harvests the configured sources, validates them against the SHACL shapes,
 writes them to per-source graphs, and embeds every plugin.
 
-**Two of the three sources are local git checkouts.** downspout and flues are
-read from the filesystem, so on a server they have to be there. Clone them into
-`data/seed/`, which is bind-mounted into the container at `/srv/seed`:
+**Three of the four sources are local git checkouts.** downspout, flues and
+jigdaw are read from the filesystem, so on a server they have to be there. Clone
+them into `data/seed/`, which is bind-mounted into the container at `/srv/seed`:
 
 ```sh
 git clone https://github.com/danja/downspout data/seed/downspout
 git clone https://github.com/danja/flues     data/seed/flues
+git clone https://github.com/danja/jigdaw    data/seed/jigdaw
 ```
 
 Or, if they are already checked out somewhere, point `SEED_DIR` at their
-*parent* directory — it must contain `downspout/` and `flues/`:
+*parent* directory — it must contain `downspout/`, `flues/` and `jigdaw/`:
 
 ```sh
 echo 'SEED_DIR=/home/github' >> .env
@@ -176,7 +177,7 @@ missing, which looks identical to not having cloned it.
 
 A missing checkout is
 not fatal — the ingest says so plainly and carries on with the rest — but it is
-86 plugins quietly absent, so read that output rather than skimming it. The Open
+89 plugins quietly absent, so read that output rather than skimming it. The Open
 Audio Stack registry needs no checkout; it is fetched over HTTP.
 
 **Do the slow part separately the first time.** Embedding is around five seconds

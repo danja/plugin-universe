@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import fs from 'fs'
 import DownspoutHarvester from '../../src/harvest/DownspoutHarvester.js'
+import JigDawHarvester from '../../src/harvest/JigDawHarvester.js'
 import Lv2Harvester from '../../src/harvest/Lv2Harvester.js'
 import { Harvester, HarvestError } from '../../src/harvest/Harvester.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
@@ -11,10 +12,12 @@ import { LINUX } from '../../src/harvest/Platforms.js'
 
 const DOWNSPOUT = process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout'
 const FLUES = process.env.FLUES_PATH ?? '/home/danny/github/flues'
+const JIGDAW = process.env.JIGDAW_PATH ?? '/home/danny/github/jigdaw'
 const trn = NAMESPACES.trn
 const pu = NAMESPACES.pu
 
 const haveSeed = fs.existsSync(DOWNSPOUT) && fs.existsSync(FLUES)
+const haveJigdaw = fs.existsSync(JIGDAW)
 
 describe('the harvester contract', () => {
   it('requires a licence to be declared, with no default', () => {
@@ -201,5 +204,82 @@ describe.skipIf(!haveSeed)('Lv2Harvester', () => {
     const shifty = result.plugins.find(p => p.name === 'Shifty')
     const active = shifty.parameters.find(p => p.symbol === 'active_division')
     expect(active.direction).toBe('output')
+  })
+})
+
+describe.skipIf(!haveJigdaw)('JigDawHarvester', () => {
+  let result
+  beforeAll(async () => {
+    result = await new JigDawHarvester({ repoPath: JIGDAW }).harvest()
+  })
+
+  it('reads every plugin directory with a profile, rejecting none', () => {
+    expect(result.plugins.length).toBeGreaterThanOrEqual(3)
+    expect(result.rejected).toEqual([])
+  })
+
+  it('marks every plugin as a web plugin and as nothing else', () => {
+    // The format is the whole reason trn:WebAudio exists. A JigDAW plugin is
+    // not a VST3, not an LV2 and not a native binary of any kind, so a second
+    // format here would be a false claim rather than extra information.
+    for (const plugin of result.plugins) {
+      expect(plugin.formats, plugin.name).toEqual([`${trn}WebAudio`])
+    }
+  })
+
+  it('says nothing about operating systems, because the platform is a browser', () => {
+    // Not an omission. pu:supportedPlatform enumerates three desktop operating
+    // systems and a web plugin runs on none of them in particular; the format
+    // carries what a platform list would have been asked to say.
+    expect(result.plugins.every(p => p.platforms.length === 0)).toBe(true)
+  })
+
+  it('keeps the plugin IRI it is published under', () => {
+    // These are dereferenceable by design — fetching the IRI *is* installing
+    // the plugin — so the upstream IRI is both the identity URIMinter hashes
+    // and what owl:sameAs preserves.
+    const cascade = result.plugins.find(p => p.name === 'Cascade')
+    expect(cascade.sourceIri).toBe('https://strandz.it/jigdaw/plugins/cascade/')
+    expect(cascade.homepage).toBe('https://strandz.it/jigdaw/plugins/cascade/')
+  })
+
+  it('reads ports as parameters, with units and scale points', () => {
+    const cascade = result.plugins.find(p => p.name === 'Cascade')
+    const size = cascade.parameters.find(p => p.symbol === 'size')
+    expect(size.minimum).toBe(2)
+    expect(size.maximum).toBe(60)
+    expect(size.unitIri).toBe(`${NAMESPACES.units}ms`)
+    const mode = cascade.parameters.find(p => p.symbol === 'mode')
+    expect(mode.scalePoints.map(point => point.label)).toEqual(['Plate', 'Hall', 'Bloom'])
+  })
+
+  it('reads a host requirement stated in the jigdaw vocabulary', () => {
+    // trn:requires carries a capability, and jig:MidiEvents is one. The shapes
+    // stopped insisting on the trn: namespace for exactly this; a harvester
+    // that dropped the value instead would have made that change pointless.
+    const bassgen = result.plugins.find(p => p.name === 'BassGen')
+    expect(bassgen.requires).toContain(`${NAMESPACES.jig}MidiEvents`)
+    expect(bassgen.requires).toContain(`${trn}HostTransport`)
+  })
+
+  it('reads the behaviour a scanner could not produce', () => {
+    const bassgen = result.plugins.find(p => p.name === 'BassGen')
+    expect(bassgen.roles).toContain(`${trn}MidiGenerator`)
+    expect(bassgen.produces).toContain(`${trn}BassMidi`)
+    expect(bassgen.cautions.length).toBeGreaterThan(0)
+    expect(bassgen.genres).toContain('Techno')
+  })
+
+  it('records the licence the profile states, and that the plugin is free', () => {
+    for (const plugin of result.plugins) {
+      expect(plugin.licenceId, plugin.name).toBe('Apache-2.0')
+      expect(plugin.pricing, plugin.name).toBe(`${pu}Free`)
+    }
+  })
+
+  it('lands in a category, so the plugin is findable by more than its name', () => {
+    // Roles map to categories in the normaliser. A source that produced none
+    // would put its plugins in the catalogue and out of every browse listing.
+    expect(result.plugins.every(p => p.categories.length > 0)).toBe(true)
   })
 })

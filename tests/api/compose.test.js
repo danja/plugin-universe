@@ -62,6 +62,21 @@ describe('the compose file', () => {
     expect(config).toContain('/srv/dumps/')
   })
 
+  it('passes the app every seed path bin/ingest.js looks for', () => {
+    // A variable in .env that is not named in the compose file does not reach
+    // the container — the note beside GITHUB_CLIENT_ID says so, having been
+    // learnt the hard way. The same applies here: `localHarvesters()` reads
+    // three environment variables, and a source whose path never arrives is
+    // reported as a missing checkout and skipped, which reads exactly like a
+    // machine that has not cloned it.
+    const ingest = readFileSync('bin/ingest.js', 'utf8')
+    const names = [...ingest.matchAll(/env: '([A-Z_]+)'/g)].map(match => match[1])
+    expect(names.length, 'no env: names found in bin/ingest.js').toBeGreaterThan(0)
+    for (const name of names) {
+      expect(COMPOSE, `${name} never reaches the app container`).toContain(`${name}: /srv/seed/`)
+    }
+  })
+
   it('parses, when Docker is here to say so', () => {
     let output
     try {

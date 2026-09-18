@@ -15,7 +15,7 @@ Three documents, three jobs, and they should not repeat each other:
 |---|---|
 | **plan.md** (here) | the *design intent* of what is unbuilt — goal, deliverables, exit criteria, risks |
 | **[../TODO.md](../TODO.md)** | the *actions*, in priority order, with what is known about each |
-| **[danja-todo.md](danja-todo.md)** | what needs **Danja** — server access, credentials, legal, a decision |
+| **[HUMANS.md](../HUMANS.md)** | what needs **Danja** — server access, credentials, legal, a decision |
 
 Every component named here is defined in [architecture.md](architecture.md). No
 phase depends on anything introduced later.
@@ -119,7 +119,7 @@ the public ranking disclosure (deliverable 4), the Stripe integration and the Pr
 
 1. *(part)* **Payment integration proven end to end.** The code is built and unit-tested; nothing
    has completed a real checkout. The gate is Italian tax registration, which is on
-   [danja-todo.md](danja-todo.md) and which Stripe's own onboarding will enforce.
+   [HUMANS.md](../HUMANS.md) and which Stripe's own onboarding will enforce.
 2. *(part)* **Pro entitlements.** Promoted listings and the Pro subscription are built. The
    **unfiltered query page**, **on-topic advertising** and **blogging** are not.
    - **The vendor profile** is the piece with a designed shape and no code. It is no longer blocked:
@@ -146,7 +146,7 @@ the public ranking disclosure (deliverable 4), the Stripe integration and the Pr
 - *Payments and tax across jurisdictions.* Use a provider that handles VAT/MOSS rather than building
   it — **and note that Stripe does not solve this in Italy**: invoices must go through SdI in a
   prescribed XML format, and a Stripe invoice is not an SdI invoice. See
-  [danja-todo.md](danja-todo.md).
+  [HUMANS.md](../HUMANS.md).
 - *Too few pro customers to matter.* See the revenue alternatives in [suggestions.md](suggestions.md);
   do not let promoted placement be the only model.
 - *A vendor profile becomes a way to edit facts.* A profile is the vendor's own words next to the

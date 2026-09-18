@@ -19,6 +19,7 @@
 
 ## Worklog
 
+* [2026-09-18 — Web plugins, two renamed lists, and a preflight nobody could see](entries/2026-09-18_claude_web-plugins-and-the-preflight.md)
 * [2026-09-10 — Prose from strangers, and getting the HTML out of the code](entries/2026-09-10_claude_the-wiki-and-html-in-files.md)
 * [2026-09-09 — Closing the correction loop, and putting the data on the page](entries/2026-09-09_claude_phase-three-and-the-front-page.md)
 * [2026-09-07 — The registry, the shapes, and two bugs the shapes found](entries/2026-09-07_claude_registry-shapes-alignment.md)
@@ -30,8 +31,9 @@
 * [The public SPARQL endpoint](sparql.md) — served at `/about/sparql`; why it is a separate dataset
 * [Backups](backups.md) — what is irreplaceable, what runs where, and how to restore
 * [Dumps](dumps.md) — the public dataset files, what is in them and what rebuilds them
-* [Danja's list](danja-todo.md) — actions needing server access, credentials or a decision
+* [Danja's list](../HUMANS.md) — actions needing server access, credentials or a decision
 * [TODO](../TODO.md) — what the project needs next, by phase
+* [Inbox](../INBOX.md) — loose ideas, before they have a phase
 
 ## Background
 

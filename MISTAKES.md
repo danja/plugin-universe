@@ -3,7 +3,7 @@
 Things that turned out to be wrong, and what replaced them. Kept so the same
 ground is not re-covered. Newest first.
 
-Fifty-seven entries is past the point where anyone reads them all, so what follows
+Sixty entries is past the point where anyone reads them all, so what follows
 is what they have in common. The individual entries keep the specifics, which is
 where the value is; this is the index. Entries are consolidated when several
 turn out to be one lesson, and promoted into [CLAUDE.md](CLAUDE.md) when a
@@ -68,7 +68,7 @@ was going to be built on that sentence. README.md claimed 645 plugins and that
 the GitHub harvester "remains", after it had shipped. The JSON promotion
 disclosure promised a bound that stopped being true within an hour of a config
 change. An image caption said "not copied here", which was true of every image
-until the day uploads started working. `docs/todo-misc.md` said "Empty" while
+until the day uploads started working. `INBOX.md` said "Empty" while
 holding five items.
 
 Two things make this one distinct. **It is worst where the prose is a
@@ -87,6 +87,78 @@ moment of writing rather than from memory.
 
 One more that fits nowhere: a headline metric moved the right way while a second
 moved the wrong way, and only reporting both caught it.
+
+---
+
+## 2026-09-18 — The preflight said GET, and the proxy said everything twice
+
+**What happened.** Asked to check for unintended CORS problems, and there were
+three, each invisible to every test and to curl.
+
+1. `createServer` answered every `OPTIONS` request with one fixed object saying
+   `Access-Control-Allow-Methods: GET, OPTIONS`, for every path — including the
+   ten in `POST_PATHS` and the MCP endpoint, which accepts nothing *but* POST.
+   A browser reading that never sends the real request, so the endpoint works
+   for curl, for an agent with a socket, and for nobody in a page. No
+   `Access-Control-Allow-Headers` was sent at all, which refuses a JSON POST on
+   its own: `Content-Type: application/json` is not CORS-safelisted.
+2. `deploy/nginx/sparql.plugin-universe.conf` adds three CORS headers to a
+   response Fuseki has already added its own to. Jena's `CrossOriginFilter` is
+   on by default: it reflects the request's `Origin`, sets
+   `Access-Control-Allow-Credentials: true`, and on a preflight advertises
+   `GET,POST,DELETE,PUT,HEAD,OPTIONS,PATCH`. Two `Access-Control-Allow-Origin`
+   headers is not twice as permissive — a browser treats a duplicate as invalid
+   and fails the request — so the public SPARQL endpoint was unusable from
+   exactly the clients a public SPARQL endpoint is for.
+3. The MCP vhost had the same duplication against this application's own
+   headers, which the app must keep sending because it is reachable without a
+   proxy in front of it.
+
+The `api.` server block in both nginx variants also set HSTS and neither
+`X-Content-Type-Options` nor `Referrer-Policy`, while the site block beside it
+set all three.
+
+**Root cause.** Two shapes of the same thing. The preflight was a **second list
+of methods** that had to agree with `POST_PATHS` and was written once as a
+constant — pattern 1, in a place nothing on this side of the wire can observe,
+because the browser's response to a bad preflight is to say nothing to the
+server at all. The nginx duplication is the `add_header`-in-a-location trap from
+CLAUDE.md turned outward: `nginx -t` passes, the headers are all present, and
+the configuration is wrong in a way only a browser reports.
+
+**Prevention.** `acceptsPost()` is now the one list, read by the guard and by
+`preflightHeaders()`. The nginx files hide the upstream's CORS headers wherever
+they set their own. `tests/api/cors.test.js` binds the two directions —
+every path the guard opens must be offered POST, and every vhost that sets
+`Access-Control-Allow-Origin` must hide the upstream's in each location it
+proxies — and `tests/store/server-starts.test.js` sends a real preflight to
+every write route and to `/mcp` against the running process, which is the only
+check of this class that has ever caught anything.
+
+---
+
+## 2026-09-18 — A shape was widened for JigDAW and the test that read it was not
+
+**What happened.** `vocabs/shapes.ttl` stopped requiring `trn:requires` objects
+to be in the `trn:` namespace, so that `jig:MidiEvents` and `jig:MidiOut` — real
+terms in JigDAW's published vocabulary — could be harvested. Three JigDAW
+plugins then ingested cleanly, conformed to the shapes, and failed
+`tests/store/profile-vocabulary.test.js`, which asserts that every term used
+with `accepts`, `produces` or `requires` is defined in `vocabs/trn-profile.ttl`.
+
+**Root cause.** Pattern 1 again, between a shape and a test that encode the same
+rule from opposite ends. The shape was the file that changed; the test had been
+written when the rule was "these all come from `trn:`" and went on asserting it.
+Nothing links a SHACL constraint to the store test covering the same predicate.
+
+**Prevention.** The asymmetry is now written on both sides: a *signal* type must
+be a `trn:` term, because the catalogue's signal list is what makes chains
+suggestable and a private signal would only ever match itself, while a *host
+capability* may come from any published vocabulary. The test checks the strict
+rule for `trn:` terms and, for the rest, that they are used only with
+`trn:requires` and are dereferenceable IRIs. What an external term still does
+not get is a label — the plugin page shows its local name, by the policy in
+`render-plugin.js` — which is recorded in INBOX.md rather than papered over.
 
 ---
 
@@ -243,7 +315,7 @@ than loaded.
 `pu:Vendor`, no `foaf:maker`, and `graph:curated/vendors` empty. I diagnosed it
 as a publish lag — the graph is registered `CC0-1.0` and `inCC0Dump`, so it
 qualifies for the dump, and `bin/publish.js` had not run since
-`bin/mint-vendors.js`. I wrote that cause into TODO.md, danja-todo.md and
+`bin/mint-vendors.js`. I wrote that cause into TODO.md, HUMANS.md and
 plan-done.md, and told the user it was one command.
 
 They ran it. Plugins went 753 → 756 and the vendor layer stayed at zero.
@@ -251,7 +323,7 @@ They ran it. Plugins went 753 → 756 and the vendor layer stayed at zero.
 **Root cause.** `bin/mint-vendors.js` had never been run on the serving host.
 `bin/publish.js` copies what the serving store holds, and the serving store held
 no vendors graph, so publishing worked perfectly and moved nothing. Minting is a
-separate step, listed in *Standing habits* in danja-todo.md, and had only ever
+separate step, listed in *Standing habits* in HUMANS.md, and had only ever
 run on the development machine — whose store I had queried to confirm the graph
 was "registered correctly and would be selected". It was. On the wrong host.
 
@@ -408,7 +480,7 @@ Nothing could have noticed. 867 tests passed. The unit tests call
 `billingRoutes()` directly, so they never pass through the guard. No test in
 any suite had ever issued a POST to the running application.
 
-It was also invisible in use, because nobody had used it: `docs/danja-todo.md`
+It was also invisible in use, because nobody had used it: `HUMANS.md`
 says in as many words that the payment flow is built, unit-tested, and has never
 completed a real checkout. The one thing that would have found this is the one
 thing on that list nobody had got to yet.
@@ -1034,7 +1106,7 @@ checking that a plugin's licence looks like an identifier rather than a
 paragraph.
 
 **How it was found.** By pointing a real MCP client at the deployment and
-reading what came back — which `docs/danja-todo.md` had been asking for since
+reading what came back — which `HUMANS.md` had been asking for since
 the MCP face was built: *"I can test the protocol; I cannot test whether the
 tool descriptions help an agent choose, and that is the part most likely to be
 wrong."* The descriptions turned out to be fine. The payload did not.
@@ -1223,7 +1295,7 @@ been red through every deploy since.
 **Prevention.** The tests now ask for the representation they want rather than
 taking the default, and `/ns` gained the test its own change never got — that a
 person gets a page and a machine gets the index. The wider point is in
-docs/danja-todo.md already and is worth keeping there: **`npm run test:live` is
+HUMANS.md already and is worth keeping there: **`npm run test:live` is
 the only check that sees the deployment**, and a red test in a suite that is
 never run is indistinguishable from no test.
 

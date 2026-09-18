@@ -598,7 +598,7 @@ describing all of it.
 - [x] An agent can answer a plugin question through the MCP endpoint without scraping the site.
 - [x] A package manager can point at the OAS-compatible view and resolve packages from it —
   *served, and nobody has been told it exists.* That last step is in
-  [danja-todo.md](danja-todo.md).
+  [HUMANS.md](../HUMANS.md).
 
 **Risks, and how they landed**
 

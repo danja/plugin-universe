@@ -185,6 +185,30 @@ describe('bin/serve.js', () => {
     expect(response.status, `${path} is in no POST list, so its handler never runs`).not.toBe(405)
   })
 
+  /**
+   * The preflight a browser sends before any of those POSTs.
+   *
+   * A handler that works and a preflight that says `GET, OPTIONS` add up to an
+   * endpoint no browser can call, and nothing on this side of the wire notices:
+   * the browser simply never sends the request. So this asks the running
+   * process the question a browser asks.
+   */
+  it.each([...WRITE_PATHS, '/mcp'])('tells a browser it may POST to %s', async path => {
+    const response = await fetch(`${BASE}${path}`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://example.org',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type'
+      }
+    })
+    expect(response.status, `${path} preflight`).toBe(204)
+    expect(response.headers.get('access-control-allow-origin')).toBe('*')
+    expect(response.headers.get('access-control-allow-methods'), path).toContain('POST')
+    expect(response.headers.get('access-control-allow-headers')?.toLowerCase(), path)
+      .toContain('content-type')
+  })
+
   it('still refuses a POST to a route that only reads', async () => {
     // The guard has to keep doing its job: the list is what may be written to,
     // not a switch that turns the check off.
