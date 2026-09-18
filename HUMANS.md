@@ -8,69 +8,11 @@ that are yours. [TODO.md](TODO.md) is what the *project* needs; this is what
 ## One-off
 
 
-- [ ] **Commit the downspout profile edits, then re-harvest downspout on the server.**
-  *2026-09-15:* `pu:supportedPlatform pu:Windows, pu:MacOS, pu:Linux` is now in all 52
-  `plugins/*/profile.ttl` files in `~/github/downspout`, with the `pu:` prefix added to each.
-  **They are edited and not committed** — that repository is yours and I do not run git in it.
-  Every file was parsed before and after and gained exactly three triples on the subject it
-  already described, including `plugins/worms/profile.ttl`, which is LV2/DOAP-shaped rather
-  than `trn:PluginProfile` and needed the same care.
-
-  `DownspoutHarvester` did not read that predicate — it returned a fixed set of fields — so the
-  edits on their own would have changed nothing in the catalogue. It reads it now, in both
-  shapes, and so does the shared LV2 bundle reader, which means an author who puts
-  `pu:supportedPlatform` in their own `.lv2` manifest is believed by the disk harvester and the
-  GitHub one alike.
-
-  ```sh
-  docker compose run --rm app node bin/ingest.js --source downspout
-  docker compose run --rm app node bin/mint-vendors.js   # see below — do not skip this
-  docker compose restart app
-  ```
-
-  **This will add two plugins you are currently missing.** The local re-harvest read 52
-  profiles where the deployed catalogue holds 50: `moka` and `magneto`, added to the repository
-  on 2026-09-09 and 2026-09-12, are not on the site. Nothing reports a source that has grown
-  since it was last read, which is worth knowing on its own.
-
-  `bin/mint-vendors.js` is not optional after a harvest that adds a plugin. Two store tests went
-  red locally until it was run: a new plugin carries a vendor *string* and the minted `foaf:maker`
-  lives in a derived graph that only that script rebuilds, so until it runs those plugins have no
-  vendor identity and your `danja` vendor page is missing them.
-
-  **The README says the macOS and Windows builds are untested.** You have stated all three
+- [ ] **The Downspout README says the macOS and Windows builds are untested.** You have stated all three
   platforms and that is your call — but if it is still true, it belongs in `trn:caution` on the
   affected plugins, which is a field the profiles already carry and the plugin page already
   shows. Worth a pass while the files are open.
 
-
-- [ ] **Deploy the `pu:` term fix, then follow one term from outside.**
-  *2026-09-18:* every IRI this catalogue publishes its data in answered 404.
-  `http://purl.org/stuff/plugin-universe/supportedPlatform` — and the other 114
-  terms — landed on this site as `/supportedPlatform` and fell through to the
-  catch-all with a JSON error. Plugin, vendor and category IRIs were always
-  fine, which is why it went unseen: those are routes. `~/github/jigdaw` found
-  it while making `trn:` resolve, and `trn:` had had the same fault.
-
-  A code deploy, nothing else:
-
-  ```sh
-  ./bin/deploy.sh
-  ```
-
-  Then ask a client, from off the machine — the PURL hop is part of what is
-  being tested, so a local curl proves less:
-
-  ```sh
-  curl -sIL -H 'Accept: text/turtle' \
-    http://purl.org/stuff/plugin-universe/supportedPlatform | grep -E '^HTTP|^[Ll]ocation'
-  # ends 200 text/turtle at /ns/plugin-universe.ttl, via a 303 rather than a 404
-  ```
-
-  A browser asking for the same term gets `/ns` instead, which is the readable
-  index. Both are one route; it is mounted after every other one, so a term that
-  shares a name with a page — `pu:category` and `/category/<slug>` — leaves the
-  page alone.
 
 
 - [ ] **A security review and pentest of the whole system**, including the rest of the server —
