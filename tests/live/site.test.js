@@ -3,6 +3,7 @@ import fs from 'fs'
 import Config from '../../src/Config.js'
 import { parseTurtle } from '../../src/harvest/TurtleReader.js'
 import { HARVEST_CONFIG, PUBLICATION_CONFIG } from '../../config/preferences.js'
+import { vocabularyTerms } from '../../src/api/meta-routes.js'
 
 /**
  * The deployed site, over the public internet.
@@ -734,6 +735,32 @@ describe('the promises the catalogue makes to other people', () => {
       expect(dataset.size, vocabulary.url).toBeGreaterThan(0)
     }
   })
+
+  it('resolves a pu: term through the PURL chain, not just the vocabulary document', async () => {
+    // The test above proves /ns/plugin-universe.ttl serves. It says nothing
+    // about whether a term IRI as published in the data — `pu:supportedPlatform`,
+    // not the document describing it — actually dereferences, and that gap is
+    // exactly how this broke: fixed here for `trn:` (found in ~/github/jigdaw),
+    // found unfixed for `pu:` days later, because nothing followed a *term*
+    // IRI the way the plugin IRI test above follows a plugin IRI. Same outage
+    // distinction as that test: purl.org is somebody else's server.
+    const [term] = await vocabularyTerms()
+    let response
+    try {
+      response = await get(
+        `http://purl.org/stuff/plugin-universe/${term}`,
+        { headers: { Accept: 'text/turtle' } })
+    } catch (error) {
+      throw new Error(
+        'purl.org did not answer, so the PURL chain could not be followed.\n' +
+        '  This is almost certainly their outage rather than a defect here — see\n' +
+        '  the plugin IRI test above for the same distinction.\n' +
+        `  Underlying error: ${error.message}`)
+    }
+    expect(response.status).toBe(200)
+    expect(response.url).toBe(`${BASE}/ns/plugin-universe.ttl`)
+    expect(response.headers.get('content-type')).toMatch(/text\/turtle/)
+  }, 60000)
 
   it('gives a person reading /ns a page, and a machine the index', async () => {
     // The change that broke the test above, now asserted rather than assumed.
