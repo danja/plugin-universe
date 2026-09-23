@@ -7,6 +7,11 @@ that are yours. [TODO.md](TODO.md) is what the *project* needs; this is what
 
 ## One-off
 
+- [ ] **Deploy the `robots.txt` change** — `./bin/deploy.sh`, then `npm run test:live`. *2026-09-23,
+  your decision:* `/dumps/` is now disallowed, with `/dumps/void.ttl` left crawlable so the
+  dataset description is still findable. Delete the `Allow:` line if you want the VoID file
+  hidden too. The live suite checks that the served file matches the repository's copy, so a
+  green run confirms it's live.
 
 - [ ] **The Downspout README says the macOS and Windows builds are untested.** You have stated all three
   platforms and that is your call — but if it is still true, it belongs in `trn:caution` on the

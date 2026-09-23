@@ -251,6 +251,17 @@ needs new foundations.
   The card is the one most worth a designer's attention: it is what somebody sees
   before they decide whether to click.
 
+* **A download link on the plugin page.** Less work than it sounds: `pu:downloadUrl` is already
+  written per package file by the Open Audio Stack and GitHub harvesters and already read back
+  by `sparql/queries/plugin/registry.sparql`, but only `/registry/plugins/index.json` shows it.
+  The page wants the URL per platform, beside the platform list, and nothing for a plugin whose
+  sources published no asset rather than a link to a repository dressed up as a download.
+
+* **A copy button for the plugin IRI.** The IRI is already on the page as text
+  (`templates/plugin.html`, the IRI row); a JigDAW host is the first thing that wants to paste
+  one. This is the first client-side behaviour a plugin page would have, so it belongs in
+  `/site.js` and must degrade to the selectable text already there.
+
 * **A 3D navigable plugin graph** — plugins as nodes, hover for a summary, click
   through to the page. Genuinely differentiating, and the one thing on this list
   that breaks a standing decision: the site is server-rendered with no client
@@ -384,6 +395,21 @@ stated in [docs/backups.md](docs/backups.md):
 * **Record the PURL configuration in this repo**, rather than only in the purl.org account.
   Sharper since the 2026-09-12 outage: a third party's uptime is load-bearing for the
   catalogue's identifiers, and the configuration exists in one place nobody here can read.
+* **A `pu:` term IRI lands a reader on the whole vocabulary.** Terms dereference now (303 to
+  `/ns/plugin-universe.ttl`, checked by `npm run test:live`), but that document is 374 lines with
+  no anchor on the term that was followed. One term's description, or an HTML view with anchors,
+  is the better answer when something asks for it.
+* **An external host capability has no label on a plugin page.** `trn:requires jig:MidiEvents`
+  renders as "MidiEvents", because labels come from the submission field table, which knows only
+  `trn:` terms; JigDAW's vocabulary labels it "MIDI Events". Right answer: the harvester writes
+  labels for the capabilities it references into its own source graph and the page reads them
+  back. Cheap answer: humanise the local name.
+* **The `jig:` half of a JigDAW profile is not harvested, deliberately.** Module and processor
+  locations, SRI digests, `jig:renderQuantum`, `jig:latencyFrames`, channel counts — real facts
+  that no query would select and no page would show, so writing them now would be the write path
+  without the read path. When something wants them (a host loading a plugin from the catalogue
+  is the obvious one), the write is four lines in `JigDawHarvester`; the query, the document and
+  the page are the work.
 * **`vocabs/shapes.ttl` is deliberately not loaded into the store**: SHACL shapes are how the
   store is checked, not part of what it describes. Here so it is not "fixed".
 

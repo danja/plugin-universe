@@ -29,6 +29,14 @@ Allow: /*?from=
 # has no use for.
 Disallow: /auth/
 
+# The dataset dumps. Megabytes each, regenerated in place, and the same facts
+# every plugin page already serves one at a time — crawling them costs this
+# server bandwidth to index nothing new. They are for downloading, and are
+# linked from /services for anyone who wants them. The VoID description stays
+# crawlable, so the dataset itself remains findable.
+Disallow: /dumps/
+Allow: /dumps/void.ttl$
+
 # A courtesy, not a limit — this runs on one small server. Crawlers that ignore
 # Crawl-delay are not doing anything wrong; the rate here is trivially served.
 Crawl-delay: 1

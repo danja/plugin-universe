@@ -128,6 +128,15 @@ describe('what it permits', () => {
     expect(isAllowed('/?from=10')).toBe(true)
   })
 
+  it('keeps crawlers out of the dumps, but not the description of them', () => {
+    // A dump is the whole catalogue in one file, re-served in full to every
+    // crawler that finds it. The VoID file is what makes the dataset findable.
+    expect(isAllowed('/dumps/')).toBe(false)
+    expect(isAllowed('/dumps/cc0/source-open-audio-stack.ttl')).toBe(false)
+    expect(isAllowed('/dumps/MANIFEST.json')).toBe(false)
+    expect(isAllowed('/dumps/void.ttl')).toBe(true)
+  })
+
   it('does not send a crawler through the sign-in flow', () => {
     expect(isAllowed('/auth/login')).toBe(false)
   })
