@@ -36,7 +36,10 @@ GET /health
 
 Facets are `format`, `category`, `role`, `vendor`, `source`, `pricing`,
 `licence`, `measured`, `platform`, `accepts` and `produces`. They filter and
-never re-rank. They work on `/plugins` as well as `/search`.
+never re-rank. They work on `/plugins` as well as `/search`, and so does
+`from`, the offset of the first result: `/search?q=reverb&format=AU&limit=25&from=25`
+is the second page of 25. The response's `offset` says where it
+actually started, which is the last page if `from` ran past the end.
 
 `accepts` and `produces` are the signal types from the plugin profile — `Audio`,
 `Midi`, `ControlMidi` and the rest, as `/facets` lists them. They are what makes

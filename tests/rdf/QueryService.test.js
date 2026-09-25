@@ -67,6 +67,15 @@ describe('QueryService', () => {
     ).toEqual([])
   })
 
+  it('puts no placeholder in a comment, where its value would be substituted too', () => {
+    // `get()` fills every `${name}` in the file, comments included. A value
+    // spanning lines — a list of conditions, a list of IRIs — ends the comment
+    // at its first newline, and the rest is parsed as query.
+    const commented = queries.list().filter(name =>
+      queries.template(name).split('\n').some(line => /#.*\$\{/.test(line)))
+    expect(commented, `${commented.join(', ')} names a placeholder inside a comment`).toEqual([])
+  })
+
   it('every query on disk declares only placeholders and known prefixes', () => {
     for (const name of queries.list()) {
       const template = queries.template(name)

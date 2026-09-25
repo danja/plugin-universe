@@ -8,6 +8,12 @@
 # their own rather than being buried in the licence string. "platform" is the
 # third: a Windows user reading a catalogue three quarters of which is Linux
 # audio software is asking it on every page.
+#
+# The conditions placeholder narrows the plugins counted, with the same patterns as
+# plugin/filter, or is empty for the whole catalogue. One query rather than a
+# filtered copy of this one, so the facets counted and the facets offered cannot
+# drift apart. The conditions sit outside the GRAPH block because each carries
+# its own; a measurement verdict lives in a run graph, not the plugin's.
 SELECT ?facet ?value (COUNT(DISTINCT ?plugin) AS ?count)
 WHERE {
   GRAPH ?g {
@@ -35,6 +41,7 @@ WHERE {
     }
     BIND(COALESCE(?vendorName, REPLACE(STR(?v), "^.*/", "")) AS ?value)
   }
+  ${conditions}
 }
 GROUP BY ?facet ?value
 ORDER BY ?facet DESC(?count) ?value

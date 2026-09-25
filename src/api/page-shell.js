@@ -286,7 +286,7 @@ export function resultItem (r) {
  * page two of the catalogue is a place, it should be linkable and it should
  * work with the back button.
  */
-export function pager ({ total, offset, limit, params = {}, base = '/' }) {
+export function pager ({ total, offset, limit, params = {}, base = '/', ranked = false }) {
   if (total <= limit) return ''
   const at = position => {
     const query = new URLSearchParams(
@@ -301,9 +301,12 @@ export function pager ({ total, offset, limit, params = {}, base = '/' }) {
     ? templates.render('pager-link', { href: at(position), rel, label })
     : templates.render('pager-disabled', { label })
 
+  // A ranked list is not in date order, and "older" over search results would
+  // say something about them that is not true.
+  const [back, on] = ranked ? ['\u2190 previous', 'next \u2192'] : ['\u2190 newer', 'older \u2192']
   return templates.render('pager', {
-    previous: step(offset > 0, Math.max(0, offset - limit), 'prev', '\u2190 newer'),
-    next: step(offset + limit < total, offset + limit, 'next', 'older \u2192'),
+    previous: step(offset > 0, Math.max(0, offset - limit), 'prev', back),
+    next: step(offset + limit < total, offset + limit, 'next', on),
     page: Math.floor(offset / limit) + 1,
     pages: Math.ceil(total / limit)
   })
@@ -367,18 +370,55 @@ export function facetControls (facetValues, facets) {
  * Formats are shown whole; there are seven. Categories are not: there are
  * twenty-eight, and a column of twenty-eight is a wall rather than a way in, so
  * this takes the largest few and links the rest through the browse list.
+ *
+ * **The links carry the current selection.** Each one used to be a fresh URL
+ * naming one facet, so choosing Audio Unit and then Reverb threw the format
+ * away — and "reverbs I can load in Logic" was reachable only by the search
+ * form, which had no second page. Given a `selection` (the query and facets of
+ * the listing it sits beside), a link adds its value to what is chosen, and the
+ * value already chosen becomes the link that removes it. Without one, on a
+ * plugin page or a form, there is nothing to carry and the links start afresh.
+ *
+ * The counts are the selection's, from `SearchService.facets(chosen)`: each
+ * facet counted under the other chosen filters, so the categories beside an
+ * Audio Unit listing say how many of each are Audio Unit.
  */
-export function sidebar (facetValues, total) {
-  const link = (href, label, count) => ({ href, label, count })
-  const formats = templates.each('sidebar-link',
-    (facetValues?.format ?? []).map(value =>
-      link(`/plugins?format=${encodeURIComponent(value.value)}`, value.value, value.count)),
-    row => row)
-  const categories = templates.each('sidebar-link',
-    (facetValues?.category ?? []).slice(0, RETRIEVAL_CONFIG.sidebarCategories).map(value =>
-      link(`/category/${encodeURIComponent(value.value)}`, value.value, value.count)),
-    row => row)
-  return templates.render('sidebar', { formats, categories, total })
+export function sidebar (facetValues, total, selection = null) {
+  const hrefFor = (name, value) => {
+    if (!selection) {
+      return name === 'category'
+        ? `/category/${encodeURIComponent(value)}`
+        : `/plugins?${name}=${encodeURIComponent(value)}`
+    }
+    const params = { ...selection.facets, [name]: selection.facets[name] === value ? null : value }
+    const query = new URLSearchParams(
+      Object.entries({ q: selection.query, ...params })
+        .filter(([, v]) => v !== null && v !== undefined && v !== '')
+    )
+    const keys = [...query.keys()]
+    // One category and nothing else is the category's own page, which says what
+    // the category means as well as listing it.
+    if (keys.length === 1 && keys[0] === 'category') return `/category/${encodeURIComponent(query.get('category'))}`
+    if (keys.length === 0) return '/plugins'
+    return `${selection.query ? '/search' : '/plugins'}?${query}`
+  }
+  const links = (name, values) => values.map(value => {
+    const chosen = selection?.facets[name] === value.value
+    return templates.render(chosen ? 'sidebar-link-current' : 'sidebar-link', {
+      href: hrefFor(name, value.value), label: value.value, count: value.count
+    })
+  }).join('\n')
+  const categoryValues = facetValues?.category ?? []
+  const shown = categoryValues.slice(0, RETRIEVAL_CONFIG.sidebarCategories)
+  // A chosen category outside the largest few still has to be shown, or there
+  // is no link to remove it with.
+  const chosenCategory = categoryValues.find(value => value.value === selection?.facets.category)
+  if (chosenCategory && !shown.includes(chosenCategory)) shown.push(chosenCategory)
+  return templates.render('sidebar', {
+    formats: links('format', facetValues?.format ?? []),
+    categories: links('category', shown),
+    total
+  })
 }
 
 /** The shared shell: the form, a summary line, results, and the optional slots. */
@@ -389,7 +429,7 @@ export function searchShell ({
     query: query ?? '',
     facets: facetControls(facetValues, facets),
     summary: templates.render('meta-line', { text: summary }),
-    side: sidebar(facetValues, total),
+    side: sidebar(facetValues, total, { query, facets }),
     // The same list the footer renders on every other page. Here it is the
     // left column instead, so the page has one and not both.
     links: templates.render('site-links', {}),

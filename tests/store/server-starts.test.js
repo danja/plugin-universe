@@ -102,6 +102,21 @@ describe('bin/serve.js', () => {
     expect(response.status).toBe(status)
   })
 
+  it('pages a search, and carries a chosen format into the sidebar categories', async () => {
+    // The reported case: a Logic user wanting one category in Audio Unit only.
+    // The sidebar dropped the format, and the search that kept it stopped at
+    // page one — so ask the running server both halves, with real facet values.
+    const { facets } = await (await fetch(`${BASE}/facets`)).json()
+    const format = facets.format[0].value
+    const html = await (await fetch(`${BASE}/plugins?format=${encodeURIComponent(format)}`,
+      { headers: { Accept: 'text/html' } })).text()
+    expect(html).toContain(`/plugins?format=${encodeURIComponent(format)}&amp;category=`)
+
+    const second = await fetch(`${BASE}/search?q=effect&from=25`, { headers: { Accept: 'text/html' } })
+    expect(second.status).toBe(200)
+    expect(await second.text()).toMatch(/page 2 of \d+/)
+  })
+
   it('serves a profile for a real plugin, as a file to host', async () => {
     // A route is not reachable until a request has reached it. This one is
     // regex-dispatched under /plugin/, so it sits in front of the plugin page's

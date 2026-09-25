@@ -208,6 +208,8 @@ button:hover { filter:brightness(1.08); }
 .side ul { list-style:none; margin:0; padding:0; font-size:.92rem; }
 .side li { padding:.12rem 0; display:flex; justify-content:space-between; gap:1rem; }
 .side-count { color:var(--muted); font-variant-numeric:tabular-nums; }
+/* A filter already chosen, whose link removes it. */
+.side a[aria-current] { font-weight:600; }
 .side-more { margin:.5rem 0 0; font-size:.92rem; }
 
 /* The site links. One block, rendered by the footer on most pages and by the

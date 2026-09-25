@@ -90,6 +90,31 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-09-25 — Accept did nothing, because the form posted to a redirect
+
+**What happened.** Accepting a submission or a correction in `/admin` left it in
+the queue with no message. `/moderation` had been folded into `/admin` and turned
+into a 302, but `templates/moderation-submission.html` and
+`moderation-item.html` still posted to `/moderation`. A browser follows a 302 after
+a POST with a GET and drops the body, so the decision never reached `review()`,
+and `/admin` re-rendered the unchanged queue. The other admin forms, which already
+posted to `/admin`, kept working, so the console looked fine.
+
+**Root cause.** Pattern 1 again: a route moved and the forms posting to it did not.
+And the guard made it worse. `linked-routes.test.js` asserted that something links
+to `/moderation`, and the only thing that did was the broken form action, so the
+test passed *because of* the bug. The unit tests call `submissions.review()`
+directly, and `server-starts.test.js` checks only that a POST is not a 405. A 302
+passes that check.
+
+**Prevention.** Both forms now post to `/admin`. `MOVED` in
+`src/api/moderation-routes.js` is the exported list of redirect-only paths, and
+`linked-routes.test.js` fails on any form `action` that names one. A POST to
+`/moderation` now gets a 307, which keeps the method and body, so a page left open
+from before still works. General lesson: **a redirect is not a route for a
+form**, and a test that checks for a link to a path can be satisfied by the
+defect itself.
+
 ## 2026-09-18 — The namespace resolved and not one of its terms did
 
 **What happened.** `http://purl.org/stuff/plugin-universe/` answers 200 with the

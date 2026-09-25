@@ -10,7 +10,7 @@
 # raw statement — is untouched, and this is the same fact where a query can
 # reach it.
 #
-# ${platforms} is a pre-formatted list of IRIs, because a SPARQL update has no
+# The platforms placeholder is a pre-formatted list of IRIs, because a SPARQL update has no
 # way to take a variable number of objects and QueryService quotes nothing
 # itself. The caller builds it from SPARQLHelper.iri().
 DELETE { GRAPH ${graph} { ${plugin} pu:supportedPlatform ?old } }

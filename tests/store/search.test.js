@@ -131,6 +131,36 @@ describe('hybrid search over the real catalogue', () => {
     expect(results).toEqual([])
   }, 30000)
 
+  it('pages a search, so a filtered query is not cut off at its first page', async () => {
+    const first = await search.search('effect', { limit: 5, offset: 0 })
+    expect(first.total).toBeGreaterThan(10)
+    const second = await search.search('effect', { limit: 5, offset: 5 })
+    expect(second.offset).toBe(5)
+    expect(second.results).toHaveLength(5)
+    const seen = new Set(first.results.map(result => result.iri))
+    expect(second.results.filter(result => seen.has(result.iri))).toEqual([])
+  }, 30000)
+
+  it('counts each facet within the other chosen filters, and agrees with what browsing finds', async () => {
+    // The sidebar beside an Audio Unit listing. Its category counts have to be
+    // the number of Audio Unit plugins in each, or following one lands on a
+    // list of a different length from the number that promised it.
+    const counts = await search.facets({ format: 'AudioUnit' })
+    const [top] = counts.category
+    const { total } = await search.browse({ facets: { format: 'AudioUnit', category: top.value }, limit: 1 })
+    expect(top.count).toBe(total)
+
+    // The chosen facet is not narrowed by itself, so the other formats are
+    // still there to switch to — and match the whole catalogue's counts.
+    const all = await search.facets()
+    expect(counts.format).toEqual(all.format)
+  }, 30000)
+
+  it('keeps a chosen value in its facet even when nothing else matches it', async () => {
+    const counts = await search.facets({ format: 'WebAudio', category: 'no-such-category' })
+    expect(counts.category).toContainEqual({ value: 'no-such-category', count: 0 })
+  }, 30000)
+
   it('browses by facet with no query text', async () => {
     const { results, total } = await search.browse({ facets: { category: 'effect' }, limit: 5 })
     expect(total).toBeGreaterThan(0)

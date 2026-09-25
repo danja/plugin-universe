@@ -1,6 +1,7 @@
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import templates from './Templates.js'
 import { layout, sidebar, searchShell, resultItem, pager } from './page-shell.js'
+import { RETRIEVAL_CONFIG } from '../../config/preferences.js'
 
 /**
  * The listings, and the prose pages.
@@ -52,9 +53,16 @@ export function renderLandingPage ({ corpus, results, facetValues, viewer = {} }
   })
 }
 
-/** Search results. Ranked and capped: relevance past the first screen is noise. */
+/**
+ * Search results, ranked, a page at a time.
+ *
+ * Capped at one page once, on the theory that relevance past the first screen
+ * is noise. That holds for a query and fails for a filter: "Reverb, in Audio
+ * Unit format" is a list somebody wants the whole of, and it stopped at
+ * twenty-five with no way on.
+ */
 export function renderSearchPage ({
-  query, facets, results, total, corpus, elapsedMs, facetValues, viewer = {}
+  query, facets, results, total, offset = 0, corpus, elapsedMs, facetValues, viewer = {}
 }) {
   const body = searchShell({
     query,
@@ -63,7 +71,11 @@ export function renderSearchPage ({
     summary: `${total} of ${corpus} plugins${elapsedMs !== undefined ? `, ${elapsedMs} ms` : ''}`,
     results,
     more: '',
-    pager: '',
+    // The size the route asked for: an HTML search is always this size, and
+    // a pager computed from any other number would page past what was served.
+    pager: pager({
+      total, offset, limit: RETRIEVAL_CONFIG.htmlPageSize, params: { q: query, ...facets }, base: '/search', ranked: true
+    }),
     total: corpus
   })
   return layout(query ? `${query} — Plugin Universe` : 'Search — Plugin Universe', body, {
@@ -231,8 +243,10 @@ export function renderCategoryPage (
 ) {
   const body = templates.render('category', {
     // A category page is most often reached *from* this panel. Losing it on
-    // arrival would strand somebody one click into browsing.
-    side: sidebar(facetValues, corpus),
+    // arrival would strand somebody one click into browsing. The category is
+    // the selection, so a format chosen from here narrows it rather than
+    // replacing it.
+    side: sidebar(facetValues, corpus, { query: null, facets: { category: slug } }),
     links: templates.render('site-links', {}),
     heading: templates.render('page-heading', { title: concept?.prefLabel ?? slug }),
     definition: templates.when(Boolean(concept?.definition), 'description', { description: concept?.definition }),

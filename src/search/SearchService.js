@@ -484,7 +484,7 @@ export class SearchService {
     return this.promoted.size
   }
 
-  async search (queryText, { facets = {}, limit = RETRIEVAL_CONFIG.defaultPageSize } = {}) {
+  async search (queryText, { facets = {}, limit = RETRIEVAL_CONFIG.defaultPageSize, offset = 0 } = {}) {
     if (typeof queryText !== 'string') {
       throw new SearchError('Search needs query text; use facets alone via browse()')
     }
@@ -518,15 +518,22 @@ export class SearchService {
 
     fused.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
 
+    // Paged with an offset, clamped to the last page exactly as `browse()` is:
+    // a search that stopped at its first page left everything past result
+    // twenty-five unreachable to a person, however narrow the facets.
+    //
     // Paid placement, after retrieval and after ranking — so it can reorder
-    // what the query found and can never add to it. Applied to the page rather
-    // than the whole list: the caps are per page, and a placement that ranked
-    // 400th was never going to be seen anyway.
-    const page = applyPromotion(fused.slice(0, pageSize), this.promoted)
+    // what the query found and can never add to it. Applied to the page being
+    // served rather than the whole list: the caps are per page, so a placement
+    // moves within the page its relevance put it on and never onto another.
+    const lastPage = Math.max(0, Math.floor(Math.max(0, fused.length - 1) / pageSize) * pageSize)
+    const from = Math.min(Math.max(0, offset), lastPage)
+    const page = applyPromotion(fused.slice(from, from + pageSize), this.promoted)
 
     return {
       results: page,
       total: fused.length,
+      offset: from,
       signals: {
         vectorCandidates: vectorScores.size,
         filtered: allowed ? allowed.size : null,
@@ -661,9 +668,48 @@ export class SearchService {
     return this.categories.get(slug) ?? null
   }
 
-  /** Facet values and their counts, driven by the data. */
-  async facets () {
-    const rows = await this.client.select(this.queries.get('plugin/facets', {}))
+  /**
+   * Facet values and their counts, driven by the data.
+   *
+   * Given the facets a listing has chosen, each facet is counted under every
+   * *other* chosen filter and not its own. With Audio Unit chosen, the category
+   * counts are Audio Unit plugins, and the format counts are still every format
+   * — so the sidebar says how many reverbs there are in the format being looked
+   * at, and still offers the other formats to switch to. Counting a facet under
+   * its own filter would leave it one value long. With nothing chosen, this is
+   * the whole catalogue, as it always was.
+   *
+   * A query narrows the results and not these counts: the query's matches come
+   * from the vector index and the lexical score, and neither is a graph pattern.
+   *
+   * A chosen value is always present, at a count of 0 if it has to be, so the
+   * page can still show it as chosen and offer to remove it.
+   */
+  async facets (chosen = {}) {
+    const active = Object.entries(chosen).filter(([, value]) => value)
+    if (active.length === 0) return this.#facetCounts({})
+
+    // Every facet nobody chose is counted under all of the filters at once, and
+    // each chosen one under the rest. Independent queries, so run together:
+    // one after another, two filters cost a reader well over a second a page.
+    const [result, ...own] = await Promise.all([
+      this.#facetCounts(Object.fromEntries(active)),
+      ...active.map(([name]) =>
+        this.#facetCounts(Object.fromEntries(active.filter(([other]) => other !== name))))
+    ])
+    active.forEach(([name, value], i) => {
+      const values = own[i][name] ?? []
+      result[name] = values.some(entry => entry.value === value)
+        ? values
+        : [...values, { value, count: 0 }]
+    })
+    return result
+  }
+
+  /** Every facet's counts over the plugins passing one filter. */
+  async #facetCounts (facets) {
+    const conditions = this.#filterConditions(facets)
+    const rows = await this.client.select(this.queries.get('plugin/facets', { conditions: conditions ?? '' }))
     const grouped = {}
     for (const row of rows) {
       grouped[row.facet] ??= []
@@ -675,8 +721,10 @@ export class SearchService {
     // and they are the only facet whose values live outside the plugin's own
     // graph. It appears only when something has actually been measured, so it
     // does not advertise an empty filter.
+    const allowed = conditions ? await this.#filterSet(facets) : null
     const verdicts = new Map()
-    for (const entry of this.measurements.values()) {
+    for (const [plugin, entry] of this.measurements) {
+      if (allowed && !allowed.has(plugin)) continue
       if (entry.verdict) verdicts.set(entry.verdict, (verdicts.get(entry.verdict) ?? 0) + 1)
     }
     if (verdicts.size > 0) {

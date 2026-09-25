@@ -32,14 +32,29 @@ import { iri, insertDataQuery } from '../store/SPARQLHelper.js'
 /** The paths this module answers. */
 const PATHS = new Set(['/contributions', '/moderation', '/admin'])
 
+/**
+ * Paths that only redirect, and where to.
+ *
+ * Exported so `tests/api/linked-routes.test.js` can refuse a form that posts to
+ * one: the review forms kept `action="/moderation"` after the queue moved, and
+ * every Accept was followed as a GET and silently did nothing.
+ */
+export const MOVED = Object.freeze({ '/moderation': '/admin' })
+
 export async function moderationRoutes (context) {
   const { response, path, auth, corrections } = context
   if (!PATHS.has(path)) return false
 
   // Moved. Every moderator's bookmark and the account bar's old link still
   // work, and there is one page rather than two that drift.
+  //
+  // 307 for a POST, not the default 302: a browser follows a 302 with a GET
+  // and drops the body, so a decision posted here — which both review forms
+  // did until they were pointed at /admin — reloaded the queue unchanged and
+  // reported nothing. 307 keeps the method and the form, so a page left open
+  // from before the move still decides what it says it decides.
   if (path === '/moderation') {
-    redirect(response, '/admin')
+    redirect(response, MOVED[path], context.request.method === 'POST' ? 307 : 302)
     return true
   }
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import { PAGES } from '../../src/api/pages.js'
 import { STATIC_FILES } from '../../src/api/server.js'
+import { MOVED } from '../../src/api/moderation-routes.js'
 
 /**
  * Every link the site renders must resolve to a route the server serves.
@@ -274,7 +275,8 @@ describe('the routes the site links to', () => {
     // as an absolute URL built at render time. The guard reads href, action and
     // src attributes; a meta content is a different kind of reference and
     // teaching it to read those would mean reading every page description too.
-    '/og-image.png': 'the social card, referenced by absolute URL in og:image on every page'
+    '/og-image.png': 'the social card, referenced by absolute URL in og:image on every page',
+    '/moderation': 'moved to /admin; kept as a redirect for old bookmarks, and linked from nothing'
   })
 
   it('gives every fixed route something that links to it', () => {
@@ -316,7 +318,18 @@ describe('the routes the site links to', () => {
   })
 
   it('links the moderation queue, which is otherwise reachable only by guessing', () => {
-    expect(linkedPaths()).toContain('/moderation')
+    expect(linkedPaths()).toContain('/admin')
+  })
+
+  it('never posts a form to a path that only redirects', () => {
+    // A browser follows a 302 after a POST with a GET and drops the body. The
+    // review forms posted to /moderation after it became a redirect to /admin,
+    // so Accept reloaded the queue unchanged — and the check above, which then
+    // asserted a link to /moderation, was satisfied by exactly that form.
+    const actions = [...RENDER.matchAll(/action="([^"]*)"/g)].map(match => match[1])
+    expect(actions.length).toBeGreaterThan(5)
+    const stale = actions.filter(action => MOVED[action.split(/[?#]/)[0]])
+    expect(stale, `forms posting to a redirect: ${stale.join(', ')}`).toEqual([])
   })
 })
 

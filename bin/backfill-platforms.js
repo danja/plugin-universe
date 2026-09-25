@@ -153,7 +153,7 @@ for (const change of changes) {
 
 // The question asked of the consumer, not of the artefact: read it back through
 // the query the facet is actually built from, rather than trusting the writes.
-const after = await client.select(queries.get('plugin/facets'))
+const after = await client.select(queries.get('plugin/facets', { conditions: '' }))
 const counts = after.filter(row => row.facet === 'platform')
 console.log(`\n${written} plugins rewritten. The platform facet now counts:`)
 for (const row of counts) console.log(`  ${String(row.count).padStart(4)}  ${row.value}`)

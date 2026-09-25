@@ -154,9 +154,10 @@ async function searchRoute ({ request, response, params, viewer, search, started
       Number(params.get('limit')) || RETRIEVAL_CONFIG.defaultPageSize,
       RETRIEVAL_CONFIG.maxPageSize
     )
+  const offset = pageOffset(params)
   const outcome = q
-    ? await search.search(q, { facets: facetFilter, limit })
-    : await search.browse({ facets: facetFilter, limit, order: 'recent' })
+    ? await search.search(q, { facets: facetFilter, limit, offset })
+    : await search.browse({ facets: facetFilter, limit, offset, order: 'recent' })
 
   if (wantsHtml) {
     sendText(response, 200, renderSearchPage({
@@ -164,9 +165,10 @@ async function searchRoute ({ request, response, params, viewer, search, started
       facets: facetFilter,
       results: outcome.results,
       total: outcome.total,
+      offset: outcome.offset,
       corpus: search.documents.size,
       elapsedMs: Date.now() - started,
-      facetValues: await search.facets(),
+      facetValues: await search.facets(facetFilter),
       viewer
     }), HTML)
     return true
@@ -176,6 +178,7 @@ async function searchRoute ({ request, response, params, viewer, search, started
     query: q ?? null,
     facets: Object.fromEntries(Object.entries(facetFilter).filter(([, v]) => v)),
     total: outcome.total,
+    offset: outcome.offset,
     count: outcome.results.length,
     elapsedMs: Date.now() - started,
     results: outcome.results,
@@ -220,7 +223,7 @@ async function browse ({ request, response, params, viewer, search }) {
       offset: outcome.offset,
       limit: RETRIEVAL_CONFIG.browsePageSize,
       facets: facetFilter,
-      facetValues: await search.facets(),
+      facetValues: await search.facets(facetFilter),
       corpus: search.documents.size,
       viewer
     }), HTML)
@@ -317,9 +320,11 @@ async function categoryPage ({ request, response, viewer, search }, slug, suffix
     })
     return true
   }
+  // Counted within the category, for the sidebar beside it. Not the list the
+  // 404 above is decided on: a chosen value is always present in this one.
   sendText(response, 200,
     renderCategoryPage(slug, outcome.results, outcome.total, viewer, concept,
-      { facetValues, corpus: search.documents.size }), HTML)
+      { facetValues: await search.facets({ category: slug }), corpus: search.documents.size }), HTML)
   return true
 }
 
