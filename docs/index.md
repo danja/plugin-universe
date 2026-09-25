@@ -19,6 +19,9 @@
 
 ## Worklog
 
+* [2026-09-25 — Splitting Submissions.js](entries/2026-09-25_claude_submissions-split.md)
+* [2026-09-25 — Download links where the artefacts are](entries/2026-09-25_claude_download-links.md)
+* [2026-09-25 — A sitemap, and the line that waited on it](entries/2026-09-25_claude_sitemap.md)
 * [2026-09-18 — Web plugins, two renamed lists, and a preflight nobody could see](entries/2026-09-18_claude_web-plugins-and-the-preflight.md)
 * [2026-09-10 — Prose from strangers, and getting the HTML out of the code](entries/2026-09-10_claude_the-wiki-and-html-in-files.md)
 * [2026-09-09 — Closing the correction loop, and putting the data on the page](entries/2026-09-09_claude_phase-three-and-the-front-page.md)

@@ -6,6 +6,8 @@
  * thing a test wants to call directly.
  */
 
+import { PLATFORMS, toPlatform } from '../harvest/Platforms.js'
+
 export function pickImage (images, origin = '') {
   if (!images) return null
   const candidates = String(images).split(' ').filter(Boolean)
@@ -66,4 +68,48 @@ export function vendorKey (name) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '')
+}
+
+/**
+ * Download rows grouped by plugin.
+ *
+ * From `plugin/downloads.sparql`: one row per package file, with the source's
+ * own operating-system tokens concatenated. Pure, so the grouping is testable
+ * without a store: the service only stamps the result onto its documents.
+ *
+ * @param {object[]} rows - each with plugin, url and systems ("win|mac" or "")
+ * @returns {Map<string, {url: string, systems: string[]}[]>}
+ */
+export function groupDownloads (rows) {
+  const grouped = new Map()
+  for (const row of rows ?? []) {
+    if (!row?.plugin || !row?.url) continue
+    const systems = String(row.systems ?? '').split('|').filter(Boolean)
+    if (!grouped.has(row.plugin)) grouped.set(row.plugin, [])
+    const files = grouped.get(row.plugin)
+    // One row per file, but a file repeated across packages would repeat its
+    // URL: the second copy is the same artefact, not a second download.
+    if (!files.some(file => file.url === row.url)) files.push({ url: row.url, systems })
+  }
+  return grouped
+}
+
+/**
+ * What a download link says on the page.
+ *
+ * The file's stated systems, mapped through the same table the harvesters
+ * derive platforms with — so "win" reads as Windows here exactly as it does a
+ * row above in the Platforms list. A file the source said nothing about is a
+ * plain Download rather than a guess: absent means nobody has said.
+ */
+export function downloadLabel (download) {
+  const names = []
+  for (const platform of PLATFORMS) {
+    const local = platform.slice(platform.lastIndexOf('/') + 1)
+    if ((download?.systems ?? []).some(system => toPlatform(system) === platform) &&
+      !names.includes(local)) {
+      names.push(local)
+    }
+  }
+  return names.length ? `Download for ${names.join(' / ')}` : 'Download'
 }

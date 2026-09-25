@@ -8,14 +8,15 @@ import buildRegistry from './registry.js'
 import { ImageError } from './ImageStore.js'
 import { parseTurtleFile } from '../harvest/TurtleReader.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import { buildSitemap } from './sitemap.js'
 
 /**
  * What the site says about itself, and the files it serves flat.
  *
- * Six routes with nothing in common except that none of them is a page about
- * a plugin: the health check a monitor polls, `robots.txt`, the Open Audio
- * Stack registry view, the vocabulary documents, the `pu:` term IRIs that
- * redirect to them, and the stored images.
+ * Seven routes with nothing in common except that none of them is a page about
+ * a plugin: the health check a monitor polls, `robots.txt`, the sitemap
+ * crawlers walk, the Open Audio Stack registry view, the vocabulary documents,
+ * the `pu:` term IRIs that redirect to them, and the stored images.
  *
  * The vocabulary documents were described here as "what every published IRI
  * resolves to", which was the intention and was not true: the documents
@@ -28,7 +29,7 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
  */
 
 const PATHS = new Set([
-  '/health', '/robots.txt', '/favicon.png', '/favicon.ico', '/og-image.png', '/site.js',
+  '/health', '/robots.txt', '/sitemap.xml', '/favicon.png', '/favicon.ico', '/og-image.png', '/site.js',
   '/registry/plugins/index.json', '/ns'
 ])
 const VOCAB_PATH = /^\/ns\/([a-z0-9-]+)\.ttl$/
@@ -38,6 +39,7 @@ export async function metaRoutes (context) {
   const { path } = context
 
   if (path === '/health') return health(context)
+  if (path === '/sitemap.xml') return sitemap(context)
   // Anything on the static whitelist, rather than one `if` per file. The
   // whitelist and the router were two lists for exactly as long as there was
   // one file on it, and the second file arrived declared but unserved.
@@ -251,6 +253,31 @@ function health ({ response, search, config, auth, authProblem, build }) {
     ...(authProblem ? { signInProblem: authProblem } : {}),
     licence: LICENCE
   })
+  return true
+}
+
+/**
+ * The sitemap: every address a crawler should walk.
+ *
+ * `/`, `/plugins` and its pages, the category pages and the plugin pages;
+ * `/search` stays out. The list is the decision recorded in TODO.md, and
+ * `robots.txt` points here with a `Sitemap:` line — pointing at a 404 would be
+ * the same defect as advertising a contact page that does not exist, which is
+ * why the line waited on this route. Linked from the footer like every other
+ * way in, so the linked-routes guard sees both directions.
+ */
+async function sitemap ({ response, search, config }) {
+  const origin = config.get('site.origin').replace(/\/$/, '')
+  const plugins = [...search.documents.values()].map(doc => ({
+    // The slug is the IRI's tail: /plugin/<slug> is the address that
+    // dereferences, and minting anything else here would be a second list of
+    // what a plugin page is called.
+    slug: doc.iri.split('/').pop(),
+    created: doc.created ?? null
+  }))
+  const categories = [...search.categories.keys()]
+  sendText(response, 200,
+    buildSitemap({ origin, plugins, categories }), 'application/xml; charset=utf-8')
   return true
 }
 

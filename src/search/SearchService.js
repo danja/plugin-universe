@@ -40,10 +40,10 @@ export class SearchError extends Error {
 // retrieval regression suite and a dozen other tests.
 import { FACET_PATTERNS } from './facets.js'
 import { fuse, applyPromotion, byName, byRecency } from './ranking.js'
-import { pickImage, isLocalImage, vendorSlug, vendorKey } from './documents.js'
+import { pickImage, isLocalImage, vendorSlug, vendorKey, groupDownloads, downloadLabel } from './documents.js'
 import { vendorNames } from '../catalogue/VendorIdentity.js'
 export { FACET_PATTERNS, fuse, applyPromotion, byName, byRecency }
-export { pickImage, isLocalImage, vendorSlug, vendorKey }
+export { pickImage, isLocalImage, vendorSlug, vendorKey, groupDownloads, downloadLabel }
 
 export class SearchService {
   /**
@@ -241,6 +241,16 @@ export class SearchService {
       parameters: row.parameters ? row.parameters.split(', ').filter(Boolean) : [],
       cautions: row.cautions || null
     }]))
+    // Direct downloads, loaded beside the measurements for the same reason:
+    // the harvesters have written `pu:downloadUrl` per package file since
+    // Phase 1 and only the registry index read it back. One row per file, so
+    // grouped here rather than joined into the text view — which would also
+    // feed URLs to the lexical index and the composed text, where a string
+    // every plugin shares a prefix with is noise, not signal.
+    this.downloads = groupDownloads(await this.client.select(this.queries.get('plugin/downloads', {})))
+    for (const doc of this.documents.values()) {
+      doc.downloads = this.downloads.get(doc.iri) ?? []
+    }
     // Vendors, grouped by key. Built from the documents that are already in
     // memory rather than asked of the store: it is a fold over 645 strings, and
     // a page listing one vendor's plugins should not be a query.

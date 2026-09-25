@@ -13,8 +13,8 @@ Danja's is in [HUMANS.md](HUMANS.md) instead.
 
 **Where things are.** The deployment, measured 2026-09-14 from `/health` and the
 public endpoint, not from memory: **756 plugins, 756 indexed, 376 vendors all
-minted, 50 measured.** The suites, measured 2026-09-18 by running them:
-**1373 core tests over 63 files and 283 store tests over 24.**
+minted, 50 measured.** The core suite, measured 2026-09-25 by running it:
+**1424 tests over 69 files** (store: 283 over 24, measured 2026-09-18).
 Phases 0, 1, 3 and 5 are complete and deployed. Phase 2 is running and is missing
 the measurement it exists for. Phase 4 is built and has never taken money.
 
@@ -84,15 +84,12 @@ than an hour.
   and the sort already asks for it, so this is an editorial decision rather than
   work.
 
-* **A sitemap.** `robots.txt` has no `Sitemap:` line, and pointing at a 404 would
-  be the same defect as advertising a contact page that does not exist — so the
-  line waits on the file. **The decision has already been taken**
-  ([HUMANS.md](HUMANS.md)): the list is `/`, `/plugins` and its
-  pages, the category pages and the plugin pages; `/search` stays out, and
-  `robots.txt` already says so. 756 plugin pages is the whole argument for
-  having one. Note the two-file trap while doing it: a new static route needs
-  `STATIC_FILES`, something linking to it, and the `Sitemap:` line — which is
-  what `tests/api/linked-routes.test.js` exists to catch.
+* **A sitemap.** `robots.txt` carries a `Sitemap:` line naming `/sitemap.xml`,
+  served by `metaRoutes` from the documents already in memory — `/`, `/plugins`
+  and its pages, the category pages and the plugin pages, with first-seen
+  dates as `lastmod` where known. **Done 2026-09-25**, with the footer link the
+  `linked-routes` guard's other direction requires and a `server-starts` test
+  proving a real request reaches it.
 
 ---
 
@@ -234,6 +231,17 @@ needs new foundations.
   the thing [sources.md](docs/sources.md) §4 rule 3 forbids. Any link-checking
   this page gets has to treat a 403 as **unknown**, not as dead.
 
+  *2026-09-25, from the inbox:* the standing ask is now a designed shape — a
+  source-checking routine that cautions about 404s where encountered and a
+  "source last checked" field on the profile. Notes for whoever builds it: the
+  check must treat 403 as unknown per the paragraph above; the timestamp wants
+  its own predicate with its own provenance (a re-harvest must not be able to
+  write it as a side effect of writing something else); a caution belongs in
+  `trn:caution`, which the page already shows, not in a second channel; and a
+  nightly harvest of the two local sources is probably the real answer for
+  drift, with the checker covering what a harvest cannot. Installing any
+  schedule is a HUMANS.md step when it exists.
+
 * **Stars** — one per signed-in account per plugin. Needs a vocabulary term, a
   graph decision (a user's own graph, like corrections), and a rate limit. Worth
   thinking about what it is *for* before building it: a popularity signal that
@@ -256,6 +264,7 @@ needs new foundations.
   by `sparql/queries/plugin/registry.sparql`, but only `/registry/plugins/index.json` shows it.
   The page wants the URL per platform, beside the platform list, and nothing for a plugin whose
   sources published no asset rather than a link to a repository dressed up as a download.
+  **Done 2026-09-25** — see Done. The inbox's "plugin profile" half went with it.
 
 * **A copy button for the plugin IRI.** The IRI is already on the page as text
   (`templates/plugin.html`, the IRI row); a JigDAW host is the first thing that wants to paste
@@ -306,13 +315,12 @@ stated in [docs/backups.md](docs/backups.md):
 
 ## 6. Smaller things, not blocking
 
-* **`src/contrib/Submissions.js` is 756 lines**, the longest file in `src/` and well past the
-  ~600 CLAUDE.md calls "almost always wants splitting". It is three things: the `SUBMITTABLE`
-  field table with its vocabulary composition, the `validate` / `valueTerm` pair, and the
-  `Submissions` class that queues and writes. The seam is between the table and the class — the
-  table changes when a field is added, the class when the moderation flow changes, and adding
-  the platform field touched only the first. `src/contrib/submittable.js` with
-  `Submissions.js` re-exporting, so no caller moves.
+* **`src/contrib/Submissions.js` was 760 lines.** Split 2026-09-25: the field
+  table, its vocabulary composition and the `validate` / `valueTerm` pair live
+  in `src/contrib/submittable.js`, with `Submissions.js` (348 lines, the
+  queueing/reviewing/writing flow) re-exporting so no caller moves. Full core
+  suite green unchanged, store submissions and contributions green against the
+  local Fuseki.
 * **`src/api/render-forms.js` is 613 lines and `src/contrib/routes.js` 592**, both past the
   point CLAUDE.md says to look. The seam in each is the same one: **the submission flow**.
   `renderSubmitPage` plus `renderProfilePastePage` and the field renderer are one subject;
@@ -425,6 +433,29 @@ under [docs/entries/](docs/entries/) and what went wrong is in
 
 In one line each, most recent first:
 
+* **2026-09-25** — **Split `Submissions.js`.** 760 lines with two reasons to
+  change, now the field table in `src/contrib/submittable.js` and the flow in
+  `Submissions.js`, re-exporting so no caller moves. The proof it is a refactor:
+  the whole suite passes unedited.
+* **2026-09-25** — **A sitemap.** `/sitemap.xml` from `src/api/sitemap.js`
+  (pure builder) mounted in `metaRoutes`: `/`, `/plugins` and its `?from=`
+  pages, every category and every plugin, first-seen `lastmod` where recorded,
+  `/search` out. `robots.txt` points at it, the footer links it, and the robots
+  assertion is bound to the route rather than merely present — so the line can
+  never again name a 404.
+* **2026-09-25** — **Download links where the artefacts are.** `pu:downloadUrl`
+  has been written per package file since Phase 1 and read back only by the
+  registry index; now `sparql/queries/plugin/downloads.sparql` (one row per
+  file, with the source's own system tokens) feeds `doc.downloads` via
+  `groupDownloads`, and the plugin page shows a Downloads row beside Platforms
+  — one link per file labelled with its stated systems, nothing where the
+  sources published no asset. The same URLs ride in the JSON-LD
+  (`schema.org/downloadUrl`), the negotiated Turtle (`schema:downloadUrl`),
+  the generated `profile.ttl` (reported as read-and-not-kept on paste-back,
+  since downloads are found facts, not SUBMITTABLE ones), the plugin JSON and
+  the MCP `get_plugin` record. Deliberately outside the text view, so URLs
+  never enter the lexical index or invalidate an embedding. Closes the TODO
+  page bullet and the inbox profile item together.
 * **2026-09-14** — **Every plugin page offers its own profile.**
   `/plugin/<slug>/profile.ttl` serves the same authored shape `/submit` hands back, built from
   what the catalogue holds — so an author who finds their plugin already here can take the file

@@ -1,0 +1,26 @@
+# Direct download URLs per plugin, with the operating systems the source stated.
+#
+# `pu:downloadUrl` is written per package file by the Open Audio Stack and
+# GitHub harvesters, and until now only `/registry/plugins/index.json` read it
+# back: 559 plugins carried checksummed artefacts no page showed and no profile
+# handed back. The plugin page and the generated profile read this instead.
+#
+# One row per file: a plugin with three platform builds has three rows. Systems
+# are the source's own tokens ("win", "mac", "linux") on the file, concatenated
+# because a file serves several of each; the caller maps them onto pu:Platform
+# individuals with the same table the harvesters derive them with. A file the
+# source said nothing about returns an empty string rather than no row, so an
+# artefact is never hidden because its platform is unknown. Nothing is inferred
+# here: a source tarball that says nothing about platforms is a download with
+# no systems, not a plugin with no platform.
+SELECT ?plugin ?url (GROUP_CONCAT(DISTINCT ?system; separator="|") AS ?systems)
+WHERE {
+  GRAPH ?graph {
+    ?plugin a trn:PluginProfile .
+    ?plugin pu:package/pu:packageFile ?file .
+    ?file pu:downloadUrl ?url .
+    OPTIONAL { ?file pu:operatingSystem ?system }
+  }
+}
+GROUP BY ?plugin ?url
+ORDER BY ?plugin ?url

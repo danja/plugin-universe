@@ -306,3 +306,56 @@ describe('a profile built from a catalogue document', () => {
     expect(() => profileTurtle(profileFieldsFor({}), { subject: DOC.iri })).toThrow(ProfileError)
   })
 })
+
+/**
+ * Harvested downloads, handed back in an authored file.
+ *
+ * The catalogue's download URLs are found facts, not told ones, so they are
+ * not SUBMITTABLE fields the form reads back. Writing them into the profile
+ * still helps an author hosting it — the file points at the same artefacts
+ * the page lists — and pasting the file back says they were read and not kept
+ * rather than silently dropping them.
+ */
+describe('downloads in a generated profile', () => {
+  const WITH_DOWNLOADS = {
+    ...{
+      iri: `${NAMESPACES.pu}plugin/tear-48b738e8`,
+      name: 'TeAr',
+      homepage: 'https://github.com/odoare/TeAr',
+      vendor: 'Olivier Doaré',
+      formats: ['VST3']
+    },
+    downloads: [
+      { url: 'https://example.invalid/tear-1.0-win.zip', systems: ['win'] },
+      { url: 'https://example.invalid/tear-1.0-src.tar.gz', systems: [] }
+    ]
+  }
+
+  it('carries the harvested URLs into the fields', () => {
+    expect(profileFieldsFor(WITH_DOWNLOADS).downloadUrls).toEqual([
+      'https://example.invalid/tear-1.0-win.zip',
+      'https://example.invalid/tear-1.0-src.tar.gz'
+    ])
+    expect(profileFieldsFor({ name: 'Bare' }).downloadUrls).toEqual([])
+  })
+
+  it('writes schema:downloadUrl lines that parse', async () => {
+    const turtle = profileTurtle(profileFieldsFor(WITH_DOWNLOADS))
+    expect(turtle).toContain('schema:downloadUrl <https://example.invalid/tear-1.0-win.zip>')
+    const dataset = await parseTurtle(turtle)
+    const found = [...dataset].filter(
+      quad => quad.predicate.value === `${NAMESPACES.schema}downloadUrl`)
+    expect(found).toHaveLength(2)
+  })
+
+  it('writes nothing where the catalogue holds no asset', () => {
+    expect(profileTurtle({ name: 'Bare', homepage: 'https://example.org/b/' }))
+      .not.toContain('downloadUrl')
+  })
+
+  it('says the lines were read and not kept when pasted back', async () => {
+    const back = await readProfile(
+      profileTurtle(profileFieldsFor(WITH_DOWNLOADS)), { submittable: FIELDS })
+    expect(back.notes.join(' ')).toContain('schema:downloadUrl')
+  })
+})

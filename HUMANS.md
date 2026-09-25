@@ -192,11 +192,6 @@ Nothing here needs server access. The profiler runs on this machine.
   and nothing else — a decision about personal data I should not take alone.
 
 
-* **A sitemap.** `robots.txt` has no `Sitemap:` line because there is no
-  sitemap, and pointing at a 404 is the same defect as advertising a contact
-  page that does not exist. Worth having for 750-odd plugin pages. **Easier to
-  answer now:** the list is `/`, `/plugins` and its pages, the category pages
-  and the plugin pages. `/search` stays out, and `robots.txt` already says so.
 * **When to get the contributor terms properly reviewed.** A second opinion
   judged them adequate and contributions are open on that basis. The trigger for
   a real review is **promotion** — advertising, or taking money for placement —
@@ -287,6 +282,10 @@ Nothing here needs server access. The profiler runs on this machine.
 A list of what has already happened is not a list of what to do, so this stays
 short. Anything here that is still *operationally* true — a path that matters, a
 habit — has moved up into Standing habits or down into Known, and not wrong.
+
+* **Sitemap** (2026-09-25). `/sitemap.xml` serves `/`, `/plugins` and its
+  pages, the category pages and the plugin pages; `/search` stays out.
+  `robots.txt` points at it and the footer links it.
 
 * **Deployment.** DNS, certificates, nginx, the PURL chain, `bin/deploy.sh` with
   a build stamp on `/health`, and `npm run test:live`.

@@ -89,6 +89,7 @@ describe('bin/serve.js', () => {
     ['/vendors', 200, 'catalogue'],
     ['/health', 200, 'meta'],
     ['/robots.txt', 200, 'meta'],
+    ['/sitemap.xml', 200, 'meta'],
     ['/ns', 200, 'meta'],
     ['/ns/trn-profile.ttl', 200, 'meta'],
     ['/registry/plugins/index.json', 200, 'meta'],
@@ -115,6 +116,20 @@ describe('bin/serve.js', () => {
     const second = await fetch(`${BASE}/search?q=effect&from=25`, { headers: { Accept: 'text/html' } })
     expect(second.status).toBe(200)
     expect(await second.text()).toMatch(/page 2 of \d+/)
+  })
+
+  it('serves a sitemap naming the plugins and not the search', async () => {
+    // A Sitemap: line in robots.txt naming a URL that 404s is the defect the
+    // line waited on this route for — so the route answers, as XML, naming a
+    // real plugin and none of the unbounded query space.
+    const response = await fetch(`${BASE}/sitemap.xml`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('application/xml')
+    const xml = await response.text()
+    const [first] = (await (await fetch(`${BASE}/plugins?limit=1`)).json()).results
+    expect(xml).toContain(`/plugin/${first.iri.split('/').pop()}<`)
+    expect(xml).toContain('/category/')
+    expect(xml).not.toContain('/search')
   })
 
   it('serves a profile for a real plugin, as a file to host', async () => {
@@ -227,7 +242,7 @@ describe('bin/serve.js', () => {
   it('still refuses a POST to a route that only reads', async () => {
     // The guard has to keep doing its job: the list is what may be written to,
     // not a switch that turns the check off.
-    for (const path of ['/plugins', '/search', '/facets', '/health']) {
+    for (const path of ['/plugins', '/search', '/facets', '/health', '/sitemap.xml']) {
       const response = await fetch(`${BASE}${path}`, { method: 'POST', body: 'probe=1' })
       expect(response.status, path).toBe(405)
     }

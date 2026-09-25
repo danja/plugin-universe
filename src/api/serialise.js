@@ -70,6 +70,10 @@ export function pluginJsonLd (doc) {
   // anywhere earlier. `vocabs/alignment.ttl` records the closeMatch.
   const platforms = (doc.platforms ?? []).map(name => SCHEMA_PLATFORM[name] ?? name)
   if (platforms.length) ld.operatingSystem = platforms.join(', ')
+  // The artefacts, where the sources published any. schema.org's own term, and
+  // the closeMatch `vocabs/alignment.ttl` records for `pu:downloadUrl`.
+  const urls = (doc.downloads ?? []).map(file => file.url).filter(Boolean)
+  if (urls.length) ld.downloadUrl = urls.length === 1 ? urls[0] : urls
   return ld
 }
 
@@ -82,6 +86,7 @@ export function pluginTurtle (doc) {
     `@prefix dcterms: <${NAMESPACES.dcterms}> .`,
     `@prefix foaf: <${NAMESPACES.foaf}> .`,
     `@prefix prov: <${NAMESPACES.prov}> .`,
+    `@prefix schema: <${NAMESPACES.schema}> .`,
     '',
     `${iri(doc.iri)}`,
     `    a trn:PluginProfile ;`,
@@ -92,6 +97,12 @@ export function pluginTurtle (doc) {
   if (doc.homepage) lines.push(`    foaf:homepage ${iri(doc.homepage)} ;`)
   if (doc.seeAlso) lines.push(`    rdfs:seeAlso ${iri(doc.seeAlso)} ;`)
   if (doc.image) lines.push(`    foaf:depiction ${iri(doc.image)} ;`)
+  // schema:, not pu:: `pu:downloadUrl` is a property of a package file, and
+  // this subject is the plugin — which is what schema:downloadUrl on a
+  // SoftwareApplication is for. One line per artefact the sources published.
+  for (const file of doc.downloads ?? []) {
+    if (file?.url) lines.push(`    schema:downloadUrl ${iri(file.url)} ;`)
+  }
   if (linkable(doc.provenance?.derivedFrom)) {
     lines.push(`    prov:wasDerivedFrom ${iri(doc.provenance.derivedFrom)} ;`)
   }

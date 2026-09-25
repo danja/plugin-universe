@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import { STATIC_FILES } from '../../src/api/server.js'
+import { isMetaPath } from '../../src/api/meta-routes.js'
 import { PAGES } from '../../src/api/pages.js'
 import { HARVEST_CONFIG } from '../../config/preferences.js'
 
@@ -160,10 +161,15 @@ describe('what it must not give away', () => {
     expect(ROBOTS, 'an email address in robots.txt is an invitation to spam').not.toMatch(/@/)
   })
 
-  it('promises no sitemap until there is one', () => {
-    // A Sitemap: line naming a URL that 404s is the same defect as a user agent
-    // advertising a contact page that does not exist. When a sitemap is built,
-    // this assertion is what to change.
-    expect(ROBOTS.toLowerCase()).not.toContain('sitemap:')
+  it('points at a sitemap that exists rather than a 404', () => {
+    // A Sitemap: line naming a URL nothing serves is the same defect as a user
+    // agent advertising a contact page that does not exist — which is why the
+    // line waited on the route. Bound rather than merely present: the path it
+    // names must be one the router answers.
+    const sitemaps = valuesOf('Sitemap')
+    expect(sitemaps).toHaveLength(1)
+    const url = new URL(sitemaps[0])
+    expect(url.protocol).toBe('https:')
+    expect(isMetaPath(url.pathname), `${sitemaps[0]} is named in robots.txt and served by nothing`).toBe(true)
   })
 })

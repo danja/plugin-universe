@@ -4,7 +4,7 @@ import { NAMESPACES } from '../rdf/NamespaceManager.js'
 // about HTML.
 import { linkable, pluginJsonLd } from './serialise.js'
 import templates, { escape } from './Templates.js'
-import { vendorSlug } from '../search/SearchService.js'
+import { vendorSlug, downloadLabel } from '../search/SearchService.js'
 import {
   layout, sidebar, pluginImage, licenceLabel, spdxUrl, linkedValues, scriptSafeJson,
   AVAILABILITY_LABEL, PRICING_LABEL
@@ -123,6 +123,13 @@ export function renderPluginPage (
     // table everything else here uses, so `MacOS` reads as "macOS" — the local
     // name stays the token in the URL.
     ['Platforms', linkedValues(doc.platforms, v => `/?platform=${encodeURIComponent(v)}`, named), true],
+    // The artefacts themselves, where the sources published any. One link per
+    // file the harvesters recorded a `pu:downloadUrl` for, labelled with the
+    // systems the source stated for that file — beside the Platforms row, which
+    // is the derived set across all of them. A plugin whose sources published
+    // no asset shows nothing here rather than a link to a repository dressed
+    // up as a download.
+    ['Downloads', linkedValues(doc.downloads, file => file.url, downloadLabel), true],
     ['Categories', linkedValues(doc.categories, v => `/category/${encodeURIComponent(v)}`), true],
     ['Tags', (doc.tags ?? []).join(', ')],
     ['Price', PRICING_LABEL[doc.pricing]],

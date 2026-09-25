@@ -39,6 +39,7 @@ const pu = NAMESPACES.pu
 const rdfNs = NAMESPACES.rdf
 const rdfs = NAMESPACES.rdfs
 const foaf = NAMESPACES.foaf
+const schema = NAMESPACES.schema
 
 export class ProfileError extends Error {
   constructor (message) {
@@ -135,6 +136,15 @@ export function profileTurtle (fields = {}, { subject = null } = {}) {
   for (const value of list(fields.platform)) say('pu:supportedPlatform', `pu:${value}`)
   for (const value of list(fields.licenceId)) say('pu:licenceId', literal(value))
   for (const value of list(fields.caution)) say('trn:caution', literal(value))
+  // Direct downloads the catalogue harvested, where it harvested any. Written
+  // as schema:downloadUrl rather than pu:downloadUrl: the latter is a property
+  // of a package file and this subject is the plugin, and the profile is an
+  // authored file whose terms a reader's own tooling should recognise — which
+  // is also why this is deliberately not a SUBMITTABLE field the form reads
+  // back. Harvested facts travel with the file; authored ones are what the
+  // form holds, and pasting this back reports these lines as read and not
+  // kept rather than silently dropping them.
+  for (const value of list(fields.downloadUrls)) say('schema:downloadUrl', `<${value}>`)
 
   return `# A plugin profile — machine-readable facts about ${name}.
 #
@@ -152,6 +162,7 @@ export function profileTurtle (fields = {}, { subject = null } = {}) {
 @prefix pu:   <${pu}> .
 @prefix rdfs: <${rdfs}> .
 @prefix foaf: <${foaf}> .
+@prefix schema: <${schema}> .
 
 <${about}>
 ${lines.join(' ;\n')} .
@@ -197,7 +208,12 @@ export function profileFieldsFor (doc = {}) {
     // it also runs on Linux would be worse than one saying neither.
     platform: doc.platforms ?? [],
     licenceId: doc.licenceId ?? '',
-    caution: doc.cautions ?? ''
+    caution: doc.cautions ?? '',
+    // Harvested artefacts, handed back so an author hosting this file points
+    // readers at the same downloads the catalogue lists. URLs only: the
+    // per-file systems stay on the plugin page, where the Platforms row gives
+    // them context.
+    downloadUrls: (doc.downloads ?? []).map(file => file.url).filter(Boolean)
   }
 }
 
@@ -336,7 +352,7 @@ function chooseSubject (dataset) {
 
 /** `trn:accepts` from the full predicate IRI, for a message a person reads. */
 function shortPredicate (value) {
-  for (const [prefix, namespace] of Object.entries({ trn, pu, rdfs, foaf })) {
+  for (const [prefix, namespace] of Object.entries({ trn, pu, rdfs, foaf, schema })) {
     if (value.startsWith(namespace)) return `${prefix}:${value.slice(namespace.length)}`
   }
   return value

@@ -32,6 +32,7 @@ const PLUGIN = {
   homepage: 'https://example.invalid/wet',
   created: '2026-09-09T14:45:19.997Z',
   cautions: null,
+  downloads: [{ url: 'https://example.invalid/wet-1.0-win.zip', systems: ['win'] }],
   provenance: { source: 'open-audio-stack', licence: 'CC0-1.0', derivedFrom: 'https://example.invalid/registry' }
 }
 
@@ -204,6 +205,13 @@ describe('get_plugin', () => {
     const result = await call('get_plugin', { plugin: 'no-such-thing' })
     expect(result.isError).toBe(true)
     expect(result.text).toMatch(/search_plugins/)
+  })
+
+  it('hands over the direct downloads where the sources published any', async () => {
+    const { downloads } = await parse('get_plugin', { plugin: 'wet-reverb-693085a0' })
+    expect(downloads).toEqual([
+      { url: 'https://example.invalid/wet-1.0-win.zip', systems: ['win'] }
+    ])
   })
 })
 

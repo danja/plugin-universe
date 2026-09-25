@@ -45,3 +45,7 @@ Crawl-delay: 1
 # rather than an oversight. The point of publishing a CC0 catalogue with
 # content-negotiated RDF and an agent-facing API is to be read by machines. If
 # that judgement should change, it is one User-agent block in this file.
+
+# Where a crawler finds every plugin page, every category page, and the paged
+# browse list. /search stays out, and the Disallow lines above already say so.
+Sitemap: https://plugin-universe.com/sitemap.xml

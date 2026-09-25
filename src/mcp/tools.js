@@ -130,7 +130,8 @@ export function registerTools (server, { search, publication = null }) {
     title: 'Get one plugin',
     description:
       'Everything the catalogue holds about one plugin: description, vendor, ' +
-      'formats, parameters, licence, where the facts came from, and any ' +
+      'formats, parameters, licence, direct downloads where the sources ' +
+      'published any, where the facts came from, and any ' +
       'measurements a profiler has taken of the built binary. Takes the slug ' +
       'from a search result, or the full catalogue IRI.',
     inputSchema: {
@@ -154,6 +155,11 @@ export function registerTools (server, { search, publication = null }) {
       parameters: doc.parameters ?? [],
       cautions: doc.cautions ?? null,
       firstSeen: doc.created ?? null,
+      // Direct downloads the sources published, with the systems each file
+      // states. Absent means nobody published an asset, not that the plugin
+      // cannot be fetched — a repository link dressed up as a download would
+      // be worse than none.
+      downloads: (doc.downloads ?? []).map(file => ({ url: file.url, systems: file.systems ?? [] })),
       // Where each fact came from and under what terms. An agent repeating a
       // claim from here should be able to say where it got it.
       provenance: doc.provenance
