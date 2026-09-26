@@ -19,7 +19,7 @@ const lv2 = NAMESPACES.lv2
  *
  * JigDAW plugins run in a browser — an AudioWorklet processor over a
  * WebAssembly module, fetched from the plugin's own IRI — which is why
- * `trn:WebAudio` exists (see vocabs/trn-extensions.ttl). Nothing else about
+ * `trn:WebAudio` and `trn:Jig` exist (see vocabs/trn-extensions.ttl). Nothing else about
  * them is new: the profiles extend the format published at /about/profiles, so
  * this reads `trn:` and `lv2:` exactly as the other sources do and the ports go
  * through `readPort`, the same interpretation an LV2 bundle gets.
@@ -72,11 +72,16 @@ export class JigDawHarvester extends Harvester {
       )
     }
 
-    // Declared in the profile, and `trn:WebAudio` regardless: a jig:WebPlugin
-    // is one by definition, and the type is the evidence rather than a default
-    // standing in for a missing value.
+    // Declared in the profile, and `trn:WebAudio` and `trn:Jig` regardless: a
+    // jig:WebPlugin is one by definition, and the type is the evidence rather
+    // than a default standing in for a missing value. The two say different
+    // things: WebAudio names the generic technology, Jig the format — the way
+    // a profile says trn:Jig and the catalogue reads it back.
     const formats = new Set(view.values(subject, `${trn}format`))
-    if (view.hasType(subject, `${jig}WebPlugin`)) formats.add(`${trn}WebAudio`)
+    if (view.hasType(subject, `${jig}WebPlugin`)) {
+      formats.add(`${trn}WebAudio`)
+      formats.add(`${trn}Jig`)
+    }
 
     return {
       // JigDAW plugins are identified by a dereferenceable IRI of their own —

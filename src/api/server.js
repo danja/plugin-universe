@@ -12,6 +12,7 @@ import loadPage, { PAGES } from './pages.js'
 import { send, sendText, JSON_HEADERS, HTML } from './respond.js'
 import { SUBMITTABLE, profileLabels } from '../contrib/Submissions.js'
 import PageReader from '../contrib/PageReader.js'
+import JigReader from '../contrib/JigReader.js'
 import { handleMcp, MCP_PATH } from '../mcp/server.js'
 // The route modules, in the order they are tried. Each answers or declines.
 import accountRoutes from './account-routes.js'
@@ -213,7 +214,8 @@ export const STATIC_FILES = Object.freeze({
 
 export function createServer ({
   search, config, projectRoot = process.cwd(), auth = null, corrections = null,
-  submissions = null, images = null, pageReader = new PageReader(), promotions = null,
+  submissions = null, images = null, pageReader = new PageReader(), jigReader = new JigReader(),
+  promotions = null,
   feedback = null, bundleReader = null,
   billing = null,
   // The field table with its choices filled from the profile vocabulary. The
@@ -348,7 +350,7 @@ export function createServer ({
       // one — the only routes that write catalogue data for a person.
       if (await contributionRoutes({
         request, response, path, viewer, auth, search,
-        submissions, submittable, pageReader, images, corrections, navigationFor, feedback
+        submissions, submittable, pageReader, jigReader, images, corrections, navigationFor, feedback
       })) return
 
       // What the site says about itself, and the files it serves flat: the

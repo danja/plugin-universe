@@ -249,3 +249,99 @@ describe('telling a page from a profile', () => {
     expect(calls).toBe(1)
   })
 })
+
+/**
+ * "Fetch a Jig plugin or collection" on the same form, for anybody signed in.
+ *
+ * A different box from the moderator's above it, for a different reason: this
+ * one reads no prose, so there is no judgement to exercise — a plugin's own
+ * address serves its profile and a collection names its members. The moderate
+ * gate stays exactly where it was; this box has none beyond being signed in,
+ * which the route already requires before any branch runs.
+ */
+describe('who is offered the Jig box', () => {
+  it('offers Jig as a format on the ordinary form', () => {
+    // The binding a reader sees: a JigDAW author told to pick their format
+    // must find one to pick.
+    expect(page({})).toContain('value="Jig"')
+  })
+
+  it('shows the fetch box when asked, and hides it by default', () => {
+    expect(page({ mayFetchJig: true })).toContain('Fetch a Jig plugin or collection instead')
+    expect(page({})).not.toContain('Fetch a Jig plugin or collection instead')
+  })
+
+  it('shows both boxes to a moderator without merging them', () => {
+    const html = page({ mayRead: true, mayFetchJig: true })
+    expect(html).toContain('Read a page or profile instead')
+    expect(html).toContain('Fetch a Jig plugin or collection instead')
+  })
+
+  it('keeps the pasted address in the box after a refusal', () => {
+    const html = page({
+      mayFetchJig: true,
+      jigUrl: 'https://93.184.216.34/collections/two.ttl',
+      error: 'That does not parse as Turtle: boom'
+    })
+    expect(html).toContain('https://93.184.216.34/collections/two.ttl')
+  })
+})
+
+describe('what a fetched collection looks like on the page', () => {
+  const result = jigResult => page({ mayFetchJig: true, jigResult })
+
+  it('lists members, drafting the new ones and linking the rest', () => {
+    const html = result({
+      collection: { label: 'Two plugins', url: 'https://93.184.216.34/c.ttl', comment: '' },
+      members: [
+        { state: 'new', url: 'https://93.184.216.34/plugins/a/', name: 'Alpha' },
+        { state: 'catalogued', url: 'https://93.184.216.34/plugins/b/', name: 'Beta', href: '/plugin/beta-12345678' },
+        { state: 'pending', url: 'https://93.184.216.34/plugins/c/', name: 'Gamma' },
+        { state: 'failed', url: 'https://93.184.216.34/plugins/d/', name: 'Delta', error: 'Could not read it: gone.' }
+      ]
+    })
+    expect(html).toContain('Two plugins')
+    expect(html).toContain('Draft this one')
+    expect(html).toContain('/plugin/beta-12345678')
+    expect(html).toContain('waiting for review')
+    expect(html).toContain('Could not read it: gone.')
+  })
+
+  it('shows nothing at all when no collection was fetched', () => {
+    expect(page({ mayFetchJig: true })).not.toContain('Draft this one')
+  })
+})
+
+describe('the bounds around fetching by URL', () => {
+  const server = (() => {
+    const files = []
+    const walk = dir => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = `${dir}/${entry.name}`
+        if (entry.isDirectory()) walk(full)
+        else if (entry.name.endsWith('.js')) files.push(full)
+      }
+    }
+    walk('src')
+    return files.map(file => fs.readFileSync(file, 'utf8')).join('\n')
+  })()
+
+  it('still reads exactly one page per moderator request', () => {
+    // Unchanged by the Jig box beside it: the page reader's bound is one
+    // fetch, and the route calls it once.
+    const reader = fs.readFileSync('src/contrib/PageReader.js', 'utf8')
+    expect(reader.match(/fetchText\(/g) ?? []).toHaveLength(1)
+    expect(server.match(/pageReader\.read\(/g) ?? []).toHaveLength(1)
+  })
+
+  it('reads one Jig address per request, members bounded and counted', async () => {
+    // A collection is one plus N fetches rather than one, so "one request"
+    // cannot be the bound — the member cap is. It lives in the contribution
+    // config beside every other bound, and the reader honours it by default.
+    expect(server.match(/jigReader\.read\(/g) ?? []).toHaveLength(1)
+    const { JigReader } = await import('../../src/contrib/JigReader.js')
+    const { CONTRIBUTION_CONFIG } = await import('../../config/preferences.js')
+    expect(new JigReader({ http: { fetchText: async () => '' } }).maxMembers)
+      .toBe(CONTRIBUTION_CONFIG.jigCollectionMembers)
+  })
+})

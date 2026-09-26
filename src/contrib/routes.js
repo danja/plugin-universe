@@ -10,6 +10,7 @@ import { TRUST } from '../auth/Accounts.js'
 import { CORRECTABLE, CorrectionError } from './Corrections.js'
 import { SUBMITTABLE, SubmissionError } from './Submissions.js'
 import { profileTurtle, readProfile, ProfileError } from './ProfileDocument.js'
+import { JigReader, JigReadError } from './JigReader.js'
 import { PageReadError } from './PageReader.js'
 import { FeedbackError } from './Feedback.js'
 
@@ -115,7 +116,7 @@ async function profilePasteRoute ({ request, response, viewer, auth, search, sub
  * Submitting a plugin, and — for a moderator — drafting one from a URL.
  */
 async function submitRoute ({
-  request, response, viewer, auth, search, submissions, submittable, pageReader, images
+  request, response, viewer, auth, search, submissions, submittable, pageReader, jigReader = new JigReader(), images
 }) {
   if (!submissions) {
     send(response, 404, { error: 'Submissions are not enabled on this instance' })
@@ -147,6 +148,7 @@ async function submitRoute ({
       facetValues,
       corpus: search.documents.size,
       mayRead,
+      mayFetchJig: true,
       mayUpload,
       ...extra
     }), HTML)
@@ -321,6 +323,67 @@ async function submitRoute ({
     } catch (error) {
       if (!(error instanceof PageReadError)) throw error
       render({ error: error.message, values, pageUrl, status: 400 })
+    }
+    return true
+  }
+
+  // "Fetch a Jig plugin or collection" — one address, at anybody's request,
+  // drafted into the form they then check. Unlike the box above this one reads
+  // no prose: a plugin's own address serves its profile and a collection names
+  // its members, so the moderator-only judgement the page reader needs does not
+  // apply. See src/contrib/JigReader.js for the bounds that keep a collection
+  // from becoming a crawl. Nothing is written here either way.
+  if (form.get('readJig')) {
+    const jigUrl = String(form.get('jigUrl') ?? '').trim()
+    if (!jigUrl) {
+      render({ error: 'Paste the address of the plugin or collection to fetch.', values, status: 400, jigUrl: '' })
+      return true
+    }
+    try {
+      const result = await jigReader.read(jigUrl, { submittable })
+      if (result.kind === 'plugin') {
+        render({
+          // The draft fills the form; anything already typed that the profile
+          // did not mention is kept, as with the other two draft routes.
+          values: { ...values, ...result.draft.fields },
+          draft: result.draft,
+          jigUrl
+        })
+        return true
+      }
+      // A collection: judge each member against the catalogue now, so the list
+      // says which are worth drafting. Minting is hash-based, so a member
+      // already here — harvested or submitted — collides with it by
+      // construction rather than by matching strings.
+      const members = []
+      for (const member of result.members) {
+        if (!member.draft) {
+          members.push({ ...member, state: 'failed' })
+          continue
+        }
+        let pluginIri = null
+        try {
+          pluginIri = submissions.pluginIriFor(member.draft.fields)
+        } catch {
+          members.push({
+            ...member,
+            state: 'failed',
+            error: 'That profile has no usable name, vendor or homepage, so it cannot be identified.'
+          })
+          continue
+        }
+        if (await submissions.exists(pluginIri)) {
+          members.push({ ...member, state: 'catalogued', href: pluginIri.replace(NAMESPACES.pu, '/') })
+        } else if (await submissions.pendingFor(pluginIri)) {
+          members.push({ ...member, state: 'pending' })
+        } else {
+          members.push({ ...member, state: 'new' })
+        }
+      }
+      render({ values, jigUrl, jigResult: { collection: result.collection, members } })
+    } catch (error) {
+      if (!(error instanceof JigReadError)) throw error
+      render({ error: error.message, values, jigUrl, status: 400 })
     }
     return true
   }

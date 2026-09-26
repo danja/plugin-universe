@@ -214,7 +214,11 @@ const FORMAT_PATTERNS = Object.freeze([
   [/\bLADSPA\b/i, 'LADSPA'],
   [/\bAAX\b/, 'AAX'],
   [/\bAudio\s*Unit\s*(?:v?3|3)\b/i, 'AudioUnitV3'],
-  [/\bAudio\s*Units?\b/i, 'AudioUnit']
+  [/\bAudio\s*Units?\b/i, 'AudioUnit'],
+  // A page saying "JigDAW" or "Jig" names the web-native plugin format, not a
+  // word that occurs by accident: the string is distinctive enough to match
+  // bare, unlike "AU" or "standalone" above.
+  [/\bJig(?:DAW)?\b/, 'Jig']
 ])
 
 function formatsIn (text) {

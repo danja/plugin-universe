@@ -73,9 +73,10 @@ export function imageForm (slug, { csrfToken, error = null, done = null } = {}) 
 /**
  * Where each drafted field came from, as a list.
  *
- * One function rather than two copies, because a draft now arrives by two
- * routes — a page a moderator fetched, and a profile somebody pasted — and the
- * only thing that differs between them is the sentence above the list.
+ * One function rather than three copies, because a draft now arrives by three
+ * routes — a page a moderator fetched, a profile somebody pasted, and a JigDAW
+ * address anybody fetched — and the only thing that differs between them is
+ * the sentence above the list.
  */
 function draftSources (draft, submittable) {
   if (!draft || !Object.keys(draft.sources ?? {}).length) return ''
@@ -90,6 +91,59 @@ function draftNotes (draft) {
   if (!draft?.notes?.length) return ''
   return `<ul class="draft-notes">${templates.each('submit-draft-note',
     draft.notes, text => ({ text }))}</ul>`
+}
+
+/**
+ * What a fetched JigDAW collection holds, as a list of members.
+ *
+ * Each member arrives from the route already judged — new, already in the
+ * catalogue, already proposed, or unreadable — so this only renders. A new one
+ * carries its own small form posting back to `/submit`, which re-fetches that
+ * single address into the draft above; the others link to where they already
+ * are rather than offering a button that would go nowhere.
+ */
+function jigCollectionPanel (result, csrfToken) {
+  if (!result) return ''
+  const rows = (result.members ?? []).map(member => {
+    if (member.state === 'new') {
+      return templates.render('submit-jig-member-new', {
+        csrf: csrfToken ?? '',
+        url: member.url,
+        name: member.name,
+        detail: 'Not in the catalogue yet.'
+      })
+    }
+    if (member.state === 'catalogued') {
+      return templates.render('submit-jig-member-known', {
+        name: member.name,
+        detail: 'Already in the catalogue.',
+        href: member.href,
+        linkText: 'See it'
+      })
+    }
+    if (member.state === 'pending') {
+      return templates.render('submit-jig-member-known', {
+        name: member.name,
+        detail: 'Already proposed and waiting for review.',
+        href: '/contributions',
+        linkText: 'Contributions'
+      })
+    }
+    return templates.render('submit-jig-member-known', {
+      name: member.name ?? member.url,
+      detail: member.error ?? 'Could not be read.',
+      href: member.url,
+      linkText: 'the address'
+    })
+  }).join('')
+  return templates.render('submit-jig-collection', {
+    label: result.collection?.label ?? 'Untitled collection',
+    url: result.collection?.url ?? '',
+    comment: result.collection?.comment
+      ? templates.render('tags-line', { text: result.collection.comment })
+      : '',
+    members: rows
+  })
 }
 
 /**
@@ -125,7 +179,7 @@ export function renderProfilePastePage ({
 export function renderSubmitPage (submittable, {
   csrfToken, error = null, submitted = null, values = {}, viewer = {},
   facetValues = {}, corpus = 0, mayRead = false, mayUpload = false,
-  draft = null, pageUrl = ''
+  draft = null, pageUrl = '', mayFetchJig = false, jigUrl = '', jigResult = null
 }) {
   /** One field: a row of checkboxes where it takes several values, a box where it does not. */
   const field = ([name, spec]) => {
@@ -245,6 +299,15 @@ export function renderSubmitPage (submittable, {
       value: pageUrl,
       maxLength: String(CONTRIBUTION_CONFIG.maxValueLength)
     }),
+    // Anybody signed in. Unlike the box above this one reads no prose: a
+    // plugin's own address serves its profile and a collection names its
+    // members, so there is no judgement to exercise — only a moderator could
+    // weigh what a page says about itself, but a profile says it for machines.
+    jigFetch: templates.when(Boolean(mayFetchJig), 'submit-jig-fetch', {
+      csrf: csrfToken ?? '',
+      value: jigUrl,
+      maxLength: String(CONTRIBUTION_CONFIG.maxValueLength)
+    }),
     // Where each drafted field came from, shown rather than summarised: a page
     // that named itself in JSON-LD and one that had a <title> and nothing else
     // do not deserve the same trust, and only the moderator can weigh that.
@@ -260,6 +323,10 @@ export function renderSubmitPage (submittable, {
       sources: draftSources(draft, submittable),
       notes: draftNotes(draft)
     }),
+    // What a fetched collection holds: one row per member, each either drafted
+    // at a press or already accounted for. Built here rather than in the route
+    // so the route decides the state and this decides the markup.
+    jigCollection: jigCollectionPanel(jigResult, csrfToken),
     // The same two columns the search pages carry. Somebody who has just
     // submitted a plugin, or been told theirs is already here, wants a way
     // back into the catalogue rather than a dead end.

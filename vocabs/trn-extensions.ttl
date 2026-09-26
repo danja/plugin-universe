@@ -49,6 +49,14 @@ trn:Standalone a trn:PluginFormat ; rdfs:label "Standalone" .
 ## and this format term carries what the platform list was carrying.
 trn:WebAudio   a trn:PluginFormat ; rdfs:label "Web Audio" .
 
+## A JigDAW plugin: a profile typed `jig:WebPlugin`, fetched from the plugin's
+## own IRI and verified by digest before anything runs. A specific format
+## rather than the generic technology it is built on, so the catalogue can say
+## "Jig" the way it says "VST3" — which is what a JigDAW profile declares with
+## `trn:format trn:Jig`. Proposed upstream first, per the header above; the
+## copy in transmission/vocabs/formats.ttl is the one that is served.
+trn:Jig        a trn:PluginFormat ; rdfs:label "Jig" .
+
 trn:format a owl:ObjectProperty ; rdfs:range trn:PluginFormat ;
     rdfs:label "format" ;
     rdfs:comment "A plugin format this plugin is built for." .

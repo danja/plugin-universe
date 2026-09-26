@@ -227,7 +227,7 @@ export function profileFieldsFor (doc = {}) {
  * @returns {{fields: object, sources: object, notes: string[], format: string}}
  *   shaped as `PageReader.read` returns, so the draft renders the same way.
  */
-export async function readProfile (text, { submittable = SUBMITTABLE } = {}) {
+export async function readProfile (text, { submittable = SUBMITTABLE, baseIRI = `${pu}profile/pasted` } = {}) {
   const body = String(text ?? '').trim()
   if (!body) throw new ProfileError('Paste a profile first.')
   if (body.length > CONTRIBUTION_CONFIG.maxProfileLength) {
@@ -249,7 +249,11 @@ export async function readProfile (text, { submittable = SUBMITTABLE } = {}) {
         // Relative IRIs in a pasted file have nothing to resolve against. This
         // gives them something rather than failing, and the values that matter
         // — a homepage — are absolute in any profile worth submitting.
-        baseIRI: `${pu}profile/pasted`
+        //
+        // A caller that fetched the profile from a URL passes that URL instead,
+        // so `<>` and a relative foaf:homepage resolve to the plugin's own IRI
+        // — which is exactly how a JigDAW profile names its subject.
+        baseIRI
       })
         .on('data', quad => quads.push(quad))
         .on('error', reject)

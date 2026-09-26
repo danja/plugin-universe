@@ -66,9 +66,10 @@ disqualifies a plugin before anybody reads what it does. It is a link on your
 plugin's page and a filter: `/?platform=Windows`.
 
 A plugin that runs **in a browser** is the one case where leaving them all clear
-is the complete answer. Pick *Web Audio* as its format — an AudioWorklet
-processor over a WebAssembly module, fetched from the plugin's own IRI — and the
-format says what a list of operating systems would have been asked to say.
+is the complete answer. Pick *Jig* as its format — a JigDAW plugin, an
+AudioWorklet processor over a WebAssembly module fetched from the plugin's own
+IRI — and the format says what a list of operating systems would have been
+asked to say.
 [JigDAW](https://github.com/danja/jigdaw) plugins are harvested this way, and
 their profiles are the same shape as the one below with a little more in it.
 
@@ -168,6 +169,13 @@ of a plugin's page, and decides which it has by what comes back rather than by
 the extension — so a `.ttl` served as `text/plain`, which is what most static
 hosts and GitHub's raw view do, still reads as a profile. Send it through
 [contact](/about/contact) or the [feedback form](/feedback).
+
+**If it is a JigDAW plugin, fetch it yourself.** The *Fetch a Jig plugin or
+collection* box on the same form takes the plugin's own address — which serves
+its profile — or the address of a collection file, copies the profile here for
+you to check, and lists a collection's members so you can draft them one at a
+time. No moderator needed: a profile says what it says for machines, so there
+is no prose to weigh.
 
 Nothing is written until somebody presses Submit, and a profile goes through
 exactly the same validation as a typed submission. There is one way into this

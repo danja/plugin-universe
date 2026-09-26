@@ -56,7 +56,11 @@ export const PLUGIN_FORMATS = Object.freeze([
   // A plugin that runs in a browser: JavaScript on an AudioWorklet over
   // WebAssembly, fetched from its own IRI. Bound to the sh:in list in
   // vocabs/shapes.ttl by the test below, which is what stops the two drifting.
-  'WebAudio'
+  'WebAudio',
+  // A JigDAW plugin: a jig:WebPlugin profile fetched from the plugin's own
+  // IRI. The specific format rather than the generic technology, so the
+  // catalogue says "Jig" the way it says "VST3". JigDAW plugins carry both.
+  'Jig'
 ])
 
 export const SUBMITTABLE = Object.freeze({

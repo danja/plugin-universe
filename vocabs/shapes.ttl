@@ -198,7 +198,7 @@ pu:PluginShape a sh:NodeShape ;
         sh:path trn:format ;
         sh:nodeKind sh:IRI ;
         sh:in ( trn:VST3 trn:VST2 trn:CLAP trn:AudioUnit trn:AudioUnitV3
-                trn:LV2 trn:LADSPA trn:AAX trn:Standalone trn:WebAudio ) ;
+                trn:LV2 trn:LADSPA trn:AAX trn:Standalone trn:WebAudio trn:Jig ) ;
         sh:message "Formats are the trn:PluginFormat individuals. An unlisted IRI is a typo, and a typo here creates a facet that silently matches nothing." ;
     ] ;
     sh:property [
@@ -538,7 +538,7 @@ pu:PackageFileShape a sh:NodeShape ;
         sh:path pu:containsFormat ;
         sh:nodeKind sh:IRI ;
         sh:in ( trn:VST3 trn:VST2 trn:CLAP trn:AudioUnit trn:AudioUnitV3
-                trn:LV2 trn:LADSPA trn:AAX trn:Standalone trn:WebAudio ) ;
+                trn:LV2 trn:LADSPA trn:AAX trn:Standalone trn:WebAudio trn:Jig ) ;
     ] .
 
 ## ── Measurements ────────────────────────────────────────────────────────────

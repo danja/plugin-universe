@@ -1,0 +1,7 @@
+<form method="post" action="/submit" class="submit-form submit-fetch">
+  <input type="hidden" name="csrf" value="{{csrf}}">
+  <label for="jig-url">Fetch a Jig plugin or collection instead</label>
+  <p class="tags">Paste the plugin's own address, or the address of a collection file — its profile is copied here for you to check. One address per press, and nothing is saved until you press Submit.</p>
+  <input type="url" id="jig-url" name="jigUrl" value="{{value}}" placeholder="https://example.org/plugins/mine/ or .../collection.ttl" maxlength="{{maxLength}}">
+  <button type="submit" name="readJig" value="1">Fetch it</button>
+</form>

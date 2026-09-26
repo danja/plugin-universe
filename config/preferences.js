@@ -382,7 +382,14 @@ export const CONTRIBUTION_CONFIG = {
   // Messages one account may send in an hour. Much lower than the correction
   // limit: a correction is machine-checkable and a message is a demand on
   // somebody's attention, so the cost of a flood is a person's time.
-  feedbackPerHour: 6
+  feedbackPerHour: 6,
+
+  // Members of a JigDAW collection fetched when somebody submits its URL. One
+  // fetch per member plus one for the collection itself, each vetted and
+  // bounded like the moderator's single-page read — so this is the cap that
+  // keeps a collection from becoming a crawl. The repository's own collection
+  // holds 18; forty is the figure the collection spec reasons about.
+  jigCollectionMembers: 40
 }
 
 /**
