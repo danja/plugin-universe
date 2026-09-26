@@ -223,9 +223,10 @@ describe.skipIf(!haveJigdaw)('JigDawHarvester', () => {
     // plugin is not a VST3, not an LV2 and not a native binary of any kind, so
     // a native format here would be a false claim rather than extra
     // information. The two it carries say different things: Jig names the
-    // format, WebAudio the generic technology it is built on.
+    // format, WebAudio the generic technology it is built on. Declared in that
+    // order by the profiles themselves.
     for (const plugin of result.plugins) {
-      expect(plugin.formats, plugin.name).toEqual([`${trn}WebAudio`, `${trn}Jig`])
+      expect(plugin.formats, plugin.name).toEqual([`${trn}Jig`, `${trn}WebAudio`])
     }
   })
 
