@@ -114,7 +114,8 @@ describe('where the image appears', () => {
 
   it('leaves no gap for a plugin that has no image', () => {
     const page = renderPluginPage({ ...DOC, image: null })
-    expect(page).not.toContain('<img')
+    // Not `<img` alone: the header carries the site mark on every page.
+    expect(page).not.toMatch(/<img(?![^>]*class="mark")/)
     expect(page).toContain('Example Reverb')
   })
 })

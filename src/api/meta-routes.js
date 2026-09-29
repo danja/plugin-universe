@@ -30,6 +30,7 @@ import { buildSitemap } from './sitemap.js'
 
 const PATHS = new Set([
   '/health', '/robots.txt', '/sitemap.xml', '/favicon.png', '/favicon.ico', '/og-image.png', '/site.js',
+  '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/site.webmanifest',
   '/registry/plugins/index.json', '/ns'
 ])
 const VOCAB_PATH = /^\/ns\/([a-z0-9-]+)\.ttl$/

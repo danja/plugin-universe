@@ -1,0 +1,13 @@
+{
+  "name": "Plugin Universe",
+  "short_name": "Plugin Universe",
+  "description": "An open, machine-readable database of DAW plugins.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#020925",
+  "theme_color": "#020925",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -6,6 +6,7 @@ import {
 } from '../../src/api/render.js'
 import { PAGES } from '../../src/api/pages.js'
 import { readFileSync } from 'fs'
+import { STATIC_FILES } from '../../src/api/server.js'
 import Config from '../../src/Config.js'
 
 /**
@@ -170,5 +171,45 @@ describe('the prose pages describe themselves', () => {
     expect(PAGES['/leggere-prima'].lang).toBe('it')
     const html = renderDocPage({ ...PAGES['/leggere-prima'], html: '<p>Ciao.</p>' })
     expect(html).toContain('<html lang="it">')
+  })
+})
+
+describe('the brand images', () => {
+  const size = file => {
+    const bytes = readFileSync(file)
+    return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) }
+  }
+
+  it('serves every icon the manifest and the layout name', () => {
+    const manifest = JSON.parse(readFileSync('site.webmanifest', 'utf8'))
+    const html = PAGE_TYPES.landing()
+    const named = [
+      ...manifest.icons.map(icon => icon.src),
+      ...[...html.matchAll(/<link rel="(?:icon|apple-touch-icon|manifest)"[^>]*href="([^"]+)"/g)].map(m => m[1])
+    ]
+    expect(named.length).toBeGreaterThanOrEqual(5)
+    for (const path of named) {
+      expect(STATIC_FILES[path], `${path} is named but not served`).toBeTruthy()
+    }
+    // The header mark is an <img>, which linked-routes reads; it must also exist.
+    expect(html).toContain('src="/icon-192.png"')
+  })
+
+  it('declares each manifest icon at the size the file really is', () => {
+    const manifest = JSON.parse(readFileSync('site.webmanifest', 'utf8'))
+    for (const icon of manifest.icons) {
+      const { width, height } = size(STATIC_FILES[icon.src].file)
+      expect(`${width}x${height}`, icon.src).toBe(icon.sizes)
+    }
+  })
+
+  it('keeps the apple-touch-icon at 180px', () => {
+    expect(size('apple-touch-icon.png')).toEqual({ width: 180, height: 180 })
+  })
+
+  it('gives the Twitter card an image and its description', () => {
+    const html = PAGE_TYPES.landing()
+    expect(tag(html, 'twitter:image')).toBe(`${ORIGIN}/og-image.png`)
+    expect(tag(html, 'twitter:image:alt')).toBeTruthy()
   })
 })

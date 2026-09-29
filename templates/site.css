@@ -75,9 +75,11 @@ header { border-bottom:0; padding-bottom:.8rem; margin-bottom:1.25rem; position:
 /* A band of accent across the very top. Full width, above everything, and it
    is most of what makes the page look composed rather than defaulted. */
 body { border-top:4px solid var(--accent); }
-h1 a::before { content:""; display:inline-block; width:.55rem; height:.55rem;
-               margin-right:.5rem; background:var(--accent); border-radius:1px;
-               vertical-align:baseline; }
+/* The brand mark in front of the title, replacing the accent square that stood
+   in for one. Explicit width and height on the image reserve its space, so the
+   header does not shift as it loads. */
+h1 a { display:inline-flex; align-items:center; gap:.6rem; }
+h1 .mark { width:2.1rem; height:2.1rem; border-radius:.45rem; }
 /* The bar wraps rather than overflowing. It has collided with the title twice:
    once when it grew from one link to two and a button, and again when a third
    link was added — an absolutely positioned corner has no way to say "I have

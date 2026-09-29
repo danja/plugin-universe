@@ -275,6 +275,9 @@ describe('the routes the site links to', () => {
     // as an absolute URL built at render time. The guard reads href, action and
     // src attributes; a meta content is a different kind of reference and
     // teaching it to read those would mean reading every page description too.
+    '/apple-touch-icon.png': 'iOS asks for it by convention; <link rel="apple-touch-icon"> points at it too, but as a link element the guard does not read',
+    '/site.webmanifest': 'linked from <link rel="manifest">, which the guard does not read',
+    '/icon-512.png': 'named in site.webmanifest, which is JSON and not markup',
     '/og-image.png': 'the social card, referenced by absolute URL in og:image on every page',
     '/moderation': 'moved to /admin; kept as a redirect for old bookmarks, and linked from nothing'
   })

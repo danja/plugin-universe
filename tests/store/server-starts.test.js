@@ -93,6 +93,11 @@ describe('bin/serve.js', () => {
     ['/ns', 200, 'meta'],
     ['/ns/trn-profile.ttl', 200, 'meta'],
     ['/registry/plugins/index.json', 200, 'meta'],
+    ['/favicon.ico', 200, 'meta'],
+    ['/apple-touch-icon.png', 200, 'meta'],
+    ['/icon-192.png', 200, 'meta'],
+    ['/icon-512.png', 200, 'meta'],
+    ['/site.webmanifest', 200, 'meta'],
     ['/about/profiles', 200, 'prose'],
     ['/terms', 200, 'prose'],
     ['/nonsense', 404, 'the fall-through']

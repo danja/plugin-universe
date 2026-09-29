@@ -177,13 +177,14 @@ export const BUILD = Object.freeze({
  */
 export const STATIC_FILES = Object.freeze({
   '/robots.txt': { file: 'robots.txt', type: 'text/plain; charset=utf-8' },
-  // The site mark. A placeholder: it is the hyperdata.it favicon, which is the
-  // owner's own design, standing in until this project has one of its own.
+  // The site mark, cut from docs/images/logo.jpeg by deploy/build-brand-assets.sh.
   //
-  // Both forms, because browsers ask for them differently. `<link rel="icon">`
+  // Several forms, because clients ask for them differently. `<link rel="icon">`
   // in the layout points at the PNG; a browser that has not read the markup yet
   // — or a feed reader, or a bookmarking tool — asks for `/favicon.ico` at the
-  // root by convention, and answering 404 to that is a needless miss.
+  // root by convention, and answering 404 to that is a needless miss. iOS wants
+  // the apple-touch-icon, and the manifest's two sizes are what Android and
+  // installed-app surfaces use (the header mark reuses the 192).
   // The site's one script: a spinner on a submit button and nothing else.
   // Served as a file rather than inlined so a Content-Security-Policy can be
   // added later without an exception, and so a browser caches it.
@@ -209,6 +210,26 @@ export const STATIC_FILES = Object.freeze({
     file: 'favicon.ico',
     type: 'image/x-icon',
     cache: 'public, max-age=604800'
+  },
+  '/apple-touch-icon.png': {
+    file: 'apple-touch-icon.png',
+    type: 'image/png',
+    cache: 'public, max-age=604800'
+  },
+  '/icon-192.png': {
+    file: 'icon-192.png',
+    type: 'image/png',
+    cache: 'public, max-age=604800'
+  },
+  '/icon-512.png': {
+    file: 'icon-512.png',
+    type: 'image/png',
+    cache: 'public, max-age=604800'
+  },
+  '/site.webmanifest': {
+    file: 'site.webmanifest',
+    type: 'application/manifest+json; charset=utf-8',
+    cache: 'public, max-age=86400'
   }
 })
 
