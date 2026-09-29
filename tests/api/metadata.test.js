@@ -211,5 +211,6 @@ describe('the brand images', () => {
     const html = PAGE_TYPES.landing()
     expect(tag(html, 'twitter:image')).toBe(`${ORIGIN}/og-image.png`)
     expect(tag(html, 'twitter:image:alt')).toBeTruthy()
+    expect(tag(html, 'twitter:site')).toBe('@danja')
   })
 })

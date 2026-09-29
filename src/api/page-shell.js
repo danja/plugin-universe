@@ -22,6 +22,10 @@ import Config from '../Config.js'
 const CONFIG = Config.load()
 const ORIGIN = CONFIG.get('site.origin').replace(/\/$/, '')
 
+// The X/Twitter account a card is attributed to. Required, not optional: it is
+// one value, and an absent one is a configuration error to fix.
+const TWITTER_SITE = CONFIG.get('site.twitterSite')
+
 /**
  * The site card's own dimensions, read from the file rather than written here.
  *
@@ -120,6 +124,7 @@ export function layout (title, body, {
     lang,
     social: templates.render('social-meta', {
       type,
+      twitterSite: TWITTER_SITE,
       // The bare page title, not the one with the site name appended: a card
       // that reads "Shifty — Plugin Universe" under a heading that already says
       // Plugin Universe says it twice.

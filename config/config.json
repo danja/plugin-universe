@@ -3,7 +3,8 @@
   "site": {
     "domain": "plugin-universe.com",
     "origin": "https://plugin-universe.com",
-    "facebookAppId": ""
+    "facebookAppId": "",
+    "twitterSite": "@danja"
   },
   "storage": {
     "type": "sparql",

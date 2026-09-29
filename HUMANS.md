@@ -232,8 +232,7 @@ Nothing here needs server access. The profiler runs on this machine.
   Facebook and LinkedIn cache `og-image.png` for days; the old placeholder will
   keep showing until you re-scrape — the Facebook Sharing Debugger and LinkedIn
   Post Inspector have a button, and X refreshes on its own within about a week.
-  The card carries no `twitter:site` because the project's handle is not
-  recorded anywhere; if there is one, say so and it is one more meta tag.
+  The card is attributed to `@danja` (`site.twitterSite` in `config/config.json`).
   Also reload a browser tab with a hard refresh to see the new favicon — they
   are cached hard.
 * **A new `GITHUB_TOKEN`** whenever you next sweep. Settings → Developer
