@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   normalisePlugin, normaliseParameter, normaliseUnit, correctTerm,
-  NormaliseError, LV2_CLASS_MAP, TERM_CORRECTIONS
+  NormaliseError, LV2_CLASS_MAP, TERM_CORRECTIONS, FORMAT_ALIASES
 } from '../../src/harvest/Normaliser.js'
 import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 
@@ -77,6 +77,20 @@ describe('term corrections', () => {
   it('applies corrections to signal lists', () => {
     const p = normalisePlugin({ name: 'X', produces: [`${trn}MIDI`] })
     expect(p.produces).toEqual([`${trn}Midi`])
+  })
+
+  it('maps the retired WebAudio format to Jig rather than dropping it', () => {
+    // Profiles in the wild declare trn:WebAudio for JigDAW plugins. Dropping
+    // it would leave the plugin with no format at all; keeping it would fail
+    // the shapes, which no longer accept it.
+    const p = normalisePlugin({ name: 'X', formats: [`${trn}Jig`, `${trn}WebAudio`] })
+    expect(p.formats).toEqual([`${trn}Jig`])
+    expect(FORMAT_ALIASES[`${trn}WebAudio`]).toBe(`${trn}Jig`)
+  })
+
+  it('leaves current formats alone', () => {
+    const p = normalisePlugin({ name: 'X', formats: [`${trn}VST3`, `${trn}WAM`] })
+    expect(p.formats).toEqual([`${trn}VST3`, `${trn}WAM`])
   })
 })
 

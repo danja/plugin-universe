@@ -224,6 +224,13 @@ export function licenceLabel (licenceId) {
  *
  * `alt` is the plugin name rather than "image of X": a screen reader announces
  * the role already, and the name is the useful part.
+ *
+ * A thumbnail is a link to the image it shows. Without script it opens the
+ * picture in a new tab — `noreferrer` so the image host is not told which
+ * plugin was being read, like `referrerpolicy` on the image itself — and with
+ * `site.js` the click is intercepted and the picture opens in an overlay
+ * instead. The full-size rendering on a plugin page stays a bare image: it is
+ * already full size, so there is nothing to open.
  */
 export function pluginImage (doc, { size = 'thumb' } = {}) {
   if (!doc?.image) return ''

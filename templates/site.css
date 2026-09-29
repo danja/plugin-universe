@@ -517,3 +517,28 @@ button[aria-busy="true"]::before {
 @media (prefers-reduced-motion: reduce) {
   button[aria-busy="true"]::before { animation: none; opacity: .6; }
 }
+
+/* A search result thumbnail is a link to the full-size image. The anchor keeps
+   the thumbnail's own box so the row does not reflow: the sized child moves
+   from the image to the link that wraps it. Without script the link opens the
+   image in a new tab; with script the click is intercepted and the image opens
+   in the overlay below instead. */
+a.shot-link { display:inline-block; line-height:0; border-radius:4px; cursor:zoom-in; }
+.result.has-shot a.shot-link { flex:0 0 72px; width:72px; height:72px; }
+
+/* The full-size popup over a thumbnail. Fixed to the viewport with the page
+   dimmed behind it; the picture is capped by the viewport rather than by the
+   profile's 15rem, because this is the one place the whole screenshot is the
+   point. Plain colours, not color-mix, so the scrim reads the same where the
+   function is unsupported. */
+.pu-lightbox { position:fixed; inset:0; z-index:50; display:flex;
+               align-items:center; justify-content:center; padding:2rem;
+               background:rgba(8, 12, 15, .82); cursor:zoom-out; }
+.pu-lightbox img { max-width:min(90vw, 64rem); max-height:88vh; width:auto; height:auto;
+                   border-radius:6px; background:#fff; cursor:default; }
+.pu-lightbox-close { position:absolute; top:1rem; right:1rem; width:2.5rem; height:2.5rem;
+                     padding:0; font-size:1.4rem; line-height:1; border-radius:50%;
+                     background:var(--bg); color:var(--fg); border:1px solid var(--control); }
+@media (max-width: 48rem) {
+  .result.has-shot a.shot-link { flex-basis:56px; width:56px; height:56px; }
+}

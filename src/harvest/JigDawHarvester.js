@@ -19,7 +19,7 @@ const lv2 = NAMESPACES.lv2
  *
  * JigDAW plugins run in a browser — an AudioWorklet processor over a
  * WebAssembly module, fetched from the plugin's own IRI — which is why
- * `trn:WebAudio` and `trn:Jig` exist (see vocabs/trn-extensions.ttl). Nothing else about
+ * `trn:Jig` exists (see vocabs/trn-extensions.ttl). Nothing else about
  * them is new: the profiles extend the format published at /about/profiles, so
  * this reads `trn:` and `lv2:` exactly as the other sources do and the ports go
  * through `readPort`, the same interpretation an LV2 bundle gets.
@@ -72,14 +72,13 @@ export class JigDawHarvester extends Harvester {
       )
     }
 
-    // Declared in the profile, and `trn:WebAudio` and `trn:Jig` regardless: a
-    // jig:WebPlugin is one by definition, and the type is the evidence rather
-    // than a default standing in for a missing value. The two say different
-    // things: WebAudio names the generic technology, Jig the format — the way
-    // a profile says trn:Jig and the catalogue reads it back.
+    // Declared in the profile, and `trn:Jig` regardless: a jig:WebPlugin is
+    // one by definition, and the type is the evidence rather than a default
+    // standing in for a missing value. Profiles in the wild also declare the
+    // retired `trn:WebAudio`; the normaliser maps that to Jig on the way in,
+    // so it is kept here rather than stripped.
     const formats = new Set(view.values(subject, `${trn}format`))
     if (view.hasType(subject, `${jig}WebPlugin`)) {
-      formats.add(`${trn}WebAudio`)
       formats.add(`${trn}Jig`)
     }
 
@@ -106,7 +105,7 @@ export class JigDawHarvester extends Harvester {
       genres: view.values(subject, `${trn}genre`),
       // No pu:supportedPlatform, and not an omission: the platform is the
       // browser, which is not one of the three operating systems that predicate
-      // enumerates. trn:WebAudio carries what a platform list would have said.
+      // enumerates. trn:Jig carries what a platform list would have said.
       platforms: [],
       ccMappings: [],
       parameters: view.objects(subject, `${lv2}port`)

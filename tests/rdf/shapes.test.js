@@ -67,13 +67,15 @@ describe('the validation shapes', () => {
   })
 
   it('accepts a web plugin, which is a format like any other', async () => {
-    // JigDAW's plugins are all of this kind and none of the others. Without
-    // trn:WebAudio every profile it publishes was a violation here, so the
-    // catalogue could hold a plugin it had no way to describe.
+    // JigDAW's plugins are all Jig and none of the others. Without trn:Jig
+    // every profile it publishes was a violation here, so the catalogue could
+    // hold a plugin it had no way to describe. trn:WAM is the format for
+    // browser plugins built on the Web Audio Modules standard.
     const report = await validate([
       `<${IRI}> <${rdf}type> <${trn}PluginProfile> .`,
       `<${IRI}> <${rdfs}label> "Pulse" .`,
-      `<${IRI}> <${trn}format> <${trn}WebAudio> .`
+      `<${IRI}> <${trn}format> <${trn}Jig> .`,
+      `<${IRI}> <${trn}format> <${trn}WAM> .`
     ])
     expect(summarise(report)).toBe('conforms')
   })
@@ -103,6 +105,19 @@ describe('the validation shapes', () => {
     ])
     expect(report.conforms).toBe(false)
     expect(report.results.some(r => r.path === `${trn}requires`)).toBe(true)
+  })
+
+  it('rejects the retired WebAudio format, which the normaliser maps away', async () => {
+    // trn:WebAudio is retired in favour of trn:Jig. A triple carrying it is a
+    // typo-shaped facet that silently matches nothing, so the shapes refuse it
+    // and the normaliser is what keeps old profiles harvestable.
+    const report = await validate([
+      `<${IRI}> <${rdf}type> <${trn}PluginProfile> .`,
+      `<${IRI}> <${rdfs}label> "Old" .`,
+      `<${IRI}> <${trn}format> <${trn}WebAudio> .`
+    ])
+    expect(report.conforms).toBe(false)
+    expect(report.results.some(r => r.value === `${trn}WebAudio`)).toBe(true)
   })
 
   it('rejects a format IRI that is not one of the known individuals', async () => {

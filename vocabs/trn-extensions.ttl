@@ -38,16 +38,13 @@ trn:LADSPA     a trn:PluginFormat ; rdfs:label "LADSPA" .
 trn:AAX        a trn:PluginFormat ; rdfs:label "AAX" .
 trn:Standalone a trn:PluginFormat ; rdfs:label "Standalone" .
 
-## A plugin that runs in a browser. Not a native binary and not a wrapper around
-## one: the processor is JavaScript on an AudioWorklet and the signal processing
-## is WebAssembly, fetched from the plugin's own IRI. Added for JigDAW, whose
-## plugins are all of this kind and none of the others, and which could not
-## publish a conformant profile without it.
-##
-## pu:supportedPlatform does not apply to one of these. The platform is the
-## browser, which is not one of the operating systems that predicate enumerates,
-## and this format term carries what the platform list was carrying.
-trn:WebAudio   a trn:PluginFormat ; rdfs:label "Web Audio" .
+## A browser plugin built on the Web Audio Modules standard: the processor is
+## JavaScript on an AudioWorklet and the signal processing is WebAssembly,
+## loaded as a WAM rather than fetched from the plugin's own IRI. A specific
+## format rather than a generic technology, so the catalogue can say "WAM" the
+## way it says "VST3" — and distinct from "Jig", which is the JigDAW format.
+## Proposed upstream first, per the header above.
+trn:WAM        a trn:PluginFormat ; rdfs:label "WAM" .
 
 ## A JigDAW plugin: a profile typed `jig:WebPlugin`, fetched from the plugin's
 ## own IRI and verified by digest before anything runs. A specific format
@@ -72,3 +69,4 @@ trn:minimum owl:deprecated true ; rdfs:comment "Use lv2:minimum." .
 trn:maximum owl:deprecated true ; rdfs:comment "Use lv2:maximum." .
 trn:hasParameter owl:deprecated true ; rdfs:comment "Typo for trn:parameter; parameters now use lv2:port." .
 trn:MIDI    owl:deprecated true ; rdfs:comment "Typo for trn:Midi." .
+trn:WebAudio owl:deprecated true ; rdfs:comment "Use trn:Jig. Profiles in the wild declare trn:WebAudio for JigDAW plugins; the normaliser maps it on the way in." .

@@ -57,6 +57,20 @@ export const TERM_CORRECTIONS = Object.freeze({
 })
 
 /**
+ * Retired format terms and what they become on the way in.
+ *
+ * Profiles in the wild declare `trn:WebAudio` for JigDAW plugins — the generic
+ * technology rather than the format. The catalogue's format for them is
+ * `trn:Jig`, and the shapes no longer accept `trn:WebAudio` at all, so this
+ * mapping is what keeps those profiles harvestable rather than rejected. The
+ * retired term stays recorded in vocabs/trn-extensions.ttl so nobody
+ * reintroduces it by copying an existing profile.
+ */
+export const FORMAT_ALIASES = Object.freeze({
+  [`${trn}WebAudio`]: `${trn}Jig`
+})
+
+/**
  * Unit strings seen in downspout profiles, mapped to the LV2 units vocabulary.
  * An unrecognised unit is preserved verbatim rather than dropped — losing it
  * would be worse than failing to type it.
@@ -271,7 +285,10 @@ export function normalisePlugin (raw) {
       ? [...new Set(raw.platforms)].filter(platform => PLATFORMS.includes(platform))
       : platformsFromPackages(raw.packages ?? []),
     maintainer: raw.maintainer ?? null,
-    formats: [...new Set(raw.formats ?? [])],
+    // Retired format terms are mapped, not dropped: a JigDAW profile declaring
+    // trn:WebAudio means trn:Jig, and dropping it would leave the plugin with
+    // no format at all.
+    formats: [...new Set((raw.formats ?? []).map(format => FORMAT_ALIASES[format] ?? format))],
     roles: [...new Set(roles)],
     accepts: [...new Set((raw.accepts ?? []).map(correctTerm))],
     produces: [...new Set((raw.produces ?? []).map(correctTerm))],

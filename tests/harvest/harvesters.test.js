@@ -219,14 +219,13 @@ describe.skipIf(!haveJigdaw)('JigDawHarvester', () => {
   })
 
   it('marks every plugin as a Jig web plugin, and as nothing else', () => {
-    // The format is the whole reason trn:Jig and trn:WebAudio exist. A JigDAW
-    // plugin is not a VST3, not an LV2 and not a native binary of any kind, so
-    // a native format here would be a false claim rather than extra
-    // information. The two it carries say different things: Jig names the
-    // format, WebAudio the generic technology it is built on. Declared in that
-    // order by the profiles themselves.
+    // The format is the whole reason trn:Jig exists. A JigDAW plugin is not a
+    // VST3, not an LV2 and not a native binary of any kind, so a native format
+    // here would be a false claim rather than extra information. The retired
+    // trn:WebAudio the profiles also declare is mapped to Jig by the
+    // normaliser, so only Jig reaches the catalogue.
     for (const plugin of result.plugins) {
-      expect(plugin.formats, plugin.name).toEqual([`${trn}Jig`, `${trn}WebAudio`])
+      expect(plugin.formats, plugin.name).toEqual([`${trn}Jig`])
     }
   })
 

@@ -157,7 +157,7 @@ describe('hybrid search over the real catalogue', () => {
   }, 30000)
 
   it('keeps a chosen value in its facet even when nothing else matches it', async () => {
-    const counts = await search.facets({ format: 'WebAudio', category: 'no-such-category' })
+    const counts = await search.facets({ format: 'Jig', category: 'no-such-category' })
     expect(counts.category).toContainEqual({ value: 'no-such-category', count: 0 })
   }, 30000)
 

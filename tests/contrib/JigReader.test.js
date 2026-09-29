@@ -79,11 +79,11 @@ describe('a single plugin address', () => {
     expect(result.draft.url).toBe('https://93.184.216.34/plugins/pulse/')
   })
 
-  it('labels a web plugin as Jig and keeps what it declared', async () => {
+  it('labels a web plugin as Jig, mapping its retired WebAudio away', async () => {
     const reader = readerFor({ 'https://93.184.216.34/plugins/pulse/': PROFILE })
     const { draft } = await reader.read('https://93.184.216.34/plugins/pulse/')
     expect(draft.fields.format).toContain('Jig')
-    expect(draft.fields.format).toContain('WebAudio')
+    expect(draft.fields.format).not.toContain('WebAudio')
     expect(draft.sources.format).toMatch(/jig:WebPlugin/)
   })
 
@@ -117,6 +117,7 @@ describe('a collection address', () => {
     expect(result.members[1].draft.fields.name).toBe('Beta')
     for (const member of result.members) {
       expect(member.draft.fields.format).toContain('Jig')
+      expect(member.draft.fields.format).not.toContain('WebAudio')
     }
   })
 

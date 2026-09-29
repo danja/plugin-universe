@@ -1,5 +1,5 @@
 /**
- * The only JavaScript this site serves, and it does one thing.
+ * The only JavaScript this site serves, and it does two things.
  *
  * Submitting a plugin takes a few seconds — the store is written, the shapes are
  * checked, and an accepted submission is embedded and indexed before the page
@@ -79,3 +79,101 @@ window.addEventListener('pageshow', function (event) {
     for (var j = 0; j < busy.length; j++) busy[j].removeAttribute('aria-busy')
   }
 })
+
+/**
+ * A full-size popup for a search result thumbnail.
+ *
+ * Progressive enhancement, strictly, like the spinner above. Without this file
+ * the thumbnail is a plain link to the image — `target="_blank"` so the results
+ * are still where the reader left them — and with it the same click opens the
+ * image in an overlay instead of leaving the page. Nothing requires JavaScript
+ * to function; this only keeps the reader where they are.
+ *
+ * Delegated from the document: a page holds up to 25 thumbnails and one
+ * listener is cheaper than 25. The overlay is built on demand so the results
+ * carry no hidden copy of every full-size image. Escape, the close button, or
+ * a click on the backdrop dismisses it, and focus returns to the thumbnail
+ * that opened it.
+ */
+document.addEventListener('click', function (event) {
+  var target = event.target
+  if (!target || typeof target.closest !== 'function') return
+
+  var overlay = target.closest('.pu-lightbox')
+  if (overlay) {
+    var dismiss = target.closest('.pu-lightbox-close')
+    if (dismiss || target === overlay) {
+      if (event.preventDefault) event.preventDefault()
+      closeLightbox()
+    }
+    return
+  }
+
+  var link = target.closest('a.shot-link')
+  if (!link) return
+  if (typeof document.createElement !== 'function') return
+  if (!document.body || typeof document.body.appendChild !== 'function') return
+  if (typeof document.querySelector === 'function' && document.querySelector('.pu-lightbox')) return
+  if (event.preventDefault) event.preventDefault()
+
+  var src = link.getAttribute('href')
+  if (!src) return
+  var thumb = link.querySelector ? link.querySelector('img') : null
+  var alt = (thumb && thumb.getAttribute('alt')) || link.getAttribute('title') || 'Plugin image'
+
+  var box = document.createElement('div')
+  box.setAttribute('class', 'pu-lightbox')
+  box.setAttribute('role', 'dialog')
+  box.setAttribute('aria-modal', 'true')
+  box.setAttribute('aria-label', alt)
+
+  var full = document.createElement('img')
+  full.setAttribute('src', src)
+  full.setAttribute('alt', alt)
+  full.setAttribute('referrerpolicy', 'no-referrer')
+  box.appendChild(full)
+
+  var close = document.createElement('button')
+  close.setAttribute('type', 'button')
+  close.setAttribute('class', 'pu-lightbox-close')
+  close.setAttribute('aria-label', 'Close image')
+  close.textContent = '\u00d7'
+  box.appendChild(close)
+
+  document.body.appendChild(box)
+  lastLightboxFocus = (document.activeElement && typeof document.activeElement.focus === 'function')
+    ? document.activeElement
+    : link
+  if (close && typeof close.focus === 'function') close.focus()
+  if (document.body.style) {
+    document.body.setAttribute('data-pu-scroll', document.body.style.overflow || '')
+    document.body.style.overflow = 'hidden'
+  }
+}, false)
+
+var lastLightboxFocus = null
+
+function closeLightbox () {
+  if (typeof document.querySelector !== 'function') return
+  var overlay = document.querySelector('.pu-lightbox')
+  if (!overlay) return
+  if (overlay.parentNode && typeof overlay.parentNode.removeChild === 'function') {
+    overlay.parentNode.removeChild(overlay)
+  } else if (typeof overlay.remove === 'function') {
+    overlay.remove()
+  }
+  if (document.body && document.body.style && document.body.hasAttribute &&
+    document.body.hasAttribute('data-pu-scroll')) {
+    document.body.style.overflow = document.body.getAttribute('data-pu-scroll')
+    document.body.removeAttribute('data-pu-scroll')
+  }
+  if (lastLightboxFocus && typeof lastLightboxFocus.focus === 'function') {
+    lastLightboxFocus.focus()
+  }
+  lastLightboxFocus = null
+}
+
+document.addEventListener('keydown', function (event) {
+  if (!event || event.key !== 'Escape') return
+  closeLightbox()
+}, false)

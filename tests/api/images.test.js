@@ -36,7 +36,17 @@ describe('the image element', () => {
 
   it('renders the depiction the source published', () => {
     expect(html).toContain(DOC.image)
-    expect(html).toMatch(/^<img /)
+    expect(html).toMatch(/^<a[^>]*class="shot-link"[^>]*><img /)
+  })
+
+  it('links the thumbnail to the full-size image, opening elsewhere without script', () => {
+    // Progressive enhancement: site.js intercepts the click and opens an
+    // overlay, but without it the link still reaches the picture.
+    expect(html).toContain(`href="${DOC.image}"`)
+    expect(html).toContain('target="_blank"')
+    // The navigation must not tell the image host which plugin was read,
+    // any more than the image load itself does.
+    expect(html).toContain('rel="noreferrer noopener"')
   })
 
   it('refuses a plain-http image, which a browser blocks as mixed content', () => {

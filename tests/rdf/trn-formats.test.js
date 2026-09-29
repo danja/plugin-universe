@@ -90,7 +90,11 @@ describe('the copy upstream in transmission', () => {
   it.skipIf(!present)('declares nothing this repository has not caught up with', async () => {
     const ours = await formatsIn(LOCAL)
     const theirs = await formatsIn(UPSTREAM)
-    const behind = [...theirs].filter(name => !ours.has(name)).sort()
+    // Deliberate divergences: terms retired here that upstream still declares.
+    // trn:WebAudio is retired in favour of trn:Jig — the normaliser maps it on
+    // the way in and the shapes refuse it — so "behind" must not count it.
+    const retired = new Set(['WebAudio'])
+    const behind = [...theirs].filter(name => !ours.has(name) && !retired.has(name)).sort()
     expect(behind,
       `${UPSTREAM} declares these and ${LOCAL} does not, so vocabs/shapes.ttl ` +
       'will refuse a profile written against the published vocabulary').toEqual([])

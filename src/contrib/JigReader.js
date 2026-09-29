@@ -115,12 +115,14 @@ function isWebPlugin (dataset, subject) {
  * Profiles in the wild declare `trn:format trn:WebAudio` — the generic
  * technology — while the catalogue's format for them is `trn:Jig`. The type
  * statement is the evidence, so a `jig:WebPlugin` gains Jig the way
- * `JigDawHarvester` adds it at ingest. Anything already declared is kept.
+ * `JigDawHarvester` adds it at ingest, and a declared `trn:WebAudio` becomes
+ * Jig rather than travelling alongside it. Anything else declared is kept.
  */
 function withJigFormat (draft, dataset, subject) {
   if (!isWebPlugin(dataset, subject)) return draft
   const formats = new Set([draft.fields.format ?? []].flat())
-  if (formats.has('Jig')) return draft
+  formats.delete('WebAudio')
+  if (formats.has('Jig')) return { ...draft, fields: { ...draft.fields, format: [...formats] } }
   formats.add('Jig')
   return {
     ...draft,

@@ -7,6 +7,15 @@ that are yours. [TODO.md](TODO.md) is what the *project* needs; this is what
 
 ## One-off
 
+- [ ] **After the format rename deploys: re-harvest the JigDAW source and reload the vocabularies.**
+  `trn:WebAudio` is retired in favour of `trn:Jig`, and `trn:WAM` is new — so the
+  jigdaw graph still carries WebAudio triples the shapes now refuse, and the
+  store's copy of the vocabularies predates both changes. `docker compose run
+  --rm app node bin/ingest.js --only-new`, then `node bin/ingest.js
+  --vocabs-only`, then `docker compose restart app`. Propose `trn:WAM` upstream
+  too (`transmission/vocabs/formats.ttl`) — this repo's copy is the interval
+  copy, per the header in `vocabs/trn-extensions.ttl`.
+
 - [ ] **The Downspout README says the macOS and Windows builds are untested.** You have stated all three
   platforms and that is your call — but if it is still true, it belongs in `trn:caution` on the
   affected plugins, which is a field the profiles already carry and the plugin page already
