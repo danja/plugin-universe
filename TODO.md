@@ -251,14 +251,6 @@ needs new foundations.
   sets it; nothing reads it. Account list, trust and suspension, the graph
   registry.
 
-* **A logo, a favicon and a social card of this project's own.** What is served
-  now is the hyperdata.it mark, plus a 1200×630 card generated from it against
-  the site's dark palette. Replacing them is three files at the repository
-  root — `favicon.png`, `favicon.ico`, `og-image.png` — and nothing else: the
-  routes, the `<link>`, the `og:image` and the cache headers are already there.
-  The card is the one most worth a designer's attention: it is what somebody sees
-  before they decide whether to click.
-
 * **A download link on the plugin page.** Less work than it sounds: `pu:downloadUrl` is already
   written per package file by the Open Audio Stack and GitHub harvesters and already read back
   by `sparql/queries/plugin/registry.sparql`, but only `/registry/plugins/index.json` shows it.
@@ -433,6 +425,14 @@ under [docs/entries/](docs/entries/) and what went wrong is in
 
 In one line each, most recent first:
 
+* **2026-09-29** — **Branding from the logo.** The hyperdata.it placeholder is
+  gone: `deploy/build-brand-assets.sh` cuts the favicon set (`.ico`, 48px PNG,
+  apple-touch, the two manifest icons), the header mark and the 1200×630 social
+  card from `docs/images/logo.jpeg`. `site.webmanifest` and `theme-color` added,
+  `twitter:site` is `site.twitterSite` in config, and `metadata.test.js` binds
+  every named icon to a served route and a real size. Still open, and only
+  worth doing if wanted: an SVG favicon, and moving the site's accent colours
+  to the logo's cyan (contrast has to be re-measured).
 * **2026-09-25** — **Split `Submissions.js`.** 760 lines with two reasons to
   change, now the field table in `src/contrib/submittable.js` and the flow in
   `Submissions.js`, re-exporting so no caller moves. The proof it is a refactor:
