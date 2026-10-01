@@ -1,6 +1,8 @@
 import fs from 'fs'
+import os from 'os'
 import path from 'path'
 import { spawnSync } from 'child_process'
+import { pathToFileURL } from 'url'
 
 /**
  * Screenshots of JigDAW plugins' control panels.
@@ -37,6 +39,16 @@ export class ScreenshotError extends Error {
     this.name = 'ScreenshotError'
   }
 }
+
+/**
+ * The stylesheet the panel is drawn with, inside the jigdaw checkout.
+ *
+ * Named once and used twice — once to check it exists and once to link it —
+ * because the failure it guards is a stylesheet that 404s: the page still
+ * renders, the screenshot is still a valid PNG, and the panel comes out
+ * unstyled with nothing anywhere reporting a problem.
+ */
+const PANEL_STYLESHEET = 'panel.css'
 
 export class JigDawScreenshots {
   /**
@@ -95,6 +107,61 @@ export class JigDawScreenshots {
   }
 
   /**
+   * Panel HTML with the stylesheet `bin/jig.js` forgot, rendered to a file.
+   *
+   * **A workaround for an upstream bug, and the reason it is here rather than
+   * patched into jigdaw.** `bin/jig.js` photographs a panel by inlining the
+   * `<style>` block out of `web/index.html`. That block no longer holds the
+   * panel's styles: they were moved into `web/panel.css`, which `index.html`
+   * *links* and `jig.js` never reads. So `jig.js shot` photographs an unstyled
+   * page — labels and bare `<select>`s down the left, every dial invisible, a
+   * fraction of the panel drawn. It exits 0 and writes a valid PNG, so nothing
+   * reports a problem and the failure is only visible by looking at the picture.
+   *
+   * It is fixed by adding a `<link>` to the generated document. The page is
+   * written into the checkout's own `web/` directory so that link is the same
+   * relative href `index.html` uses — the panel is drawn by the stylesheet the
+   * host itself loads, not by a copy of it kept here, which would be a second
+   * thing to keep correct. Worth reporting upstream: `panelStyle()` should
+   * concatenate `panel.css`, or the generated page should link it. Once it
+   * does, this can go back to calling `jig.js shot` and nothing else.
+   *
+   * @returns {Promise<{page: string, dir: string, profile: object}>}
+   */
+  async #panelPage (name) {
+    const { resolveProfile, renderPanelHTML } = await import(
+      pathToFileURL(this.jigCommand()).href
+    )
+    const { profile } = await resolveProfile(name)
+    const html = await renderPanelHTML(profile)
+    // The page is written beside panel.css, so this is the same href
+    // web/index.html uses. The file's existence is checked in render(), before
+    // this; a stylesheet that 404s renders as no stylesheet at all, silently.
+    const linked = html.replace(
+      '</head>',
+      `<link rel="stylesheet" href="${PANEL_STYLESHEET}">\n</head>`
+    )
+    if (linked === html) {
+      throw new ScreenshotError(
+        `${name}: could not attach panel.css — renderPanelHTML produced no </head> to add it to`
+      )
+    }
+
+    const dir = path.join(this.repoPath, 'web')
+    const page = path.join(dir, `.panel-${process.pid}-${name}.html`)
+    try {
+      await fs.promises.writeFile(page, linked)
+    } catch (error) {
+      throw new ScreenshotError(
+        `${name}: could not write ${page} — ${error.message}. ` +
+        'The panel page is written into the jigdaw checkout so its relative ' +
+        'stylesheet link resolves; a read-only checkout means no screenshot.'
+      )
+    }
+    return { page, profile }
+  }
+
+  /**
    * Render one plugin's panel and photograph it.
    *
    * The viewport height is derived from the port count the way
@@ -104,29 +171,59 @@ export class JigDawScreenshots {
    *
    * @param {string} name - the plugin directory name under plugins/
    * @param {object} [options]
-   * @param {number} [options.ports] - how many ports the panel has
+   * @param {number} [options.ports] - how many ports the panel has. Only a
+   *   fallback: the profile read here is authoritative, and a caller passing a
+   *   stale count gets the right height anyway.
    */
   async render (name, { ports = 0, width = 1100 } = {}) {
     if (!this.canRender) {
       throw new ScreenshotError(`no Chrome at ${this.chrome}; set CHROME_BIN to render panels`)
     }
+    // Before anything is rendered, and before jigdaw's own module is loaded:
+    // an unstyled panel is a valid PNG of nothing, so the cheapest honest
+    // answer to "the stylesheet is missing" is to refuse rather than to write
+    // a picture that looks like a broken plugin.
+    if (!fs.existsSync(path.join(this.repoPath, 'web', PANEL_STYLESHEET))) {
+      throw new ScreenshotError(
+        `no web/${PANEL_STYLESHEET} in the jigdaw checkout at ${this.repoPath}; ` +
+        'the panel cannot be styled, and a screenshot of an unstyled panel is a ' +
+        'valid PNG of a page with no dials in it'
+      )
+    }
     await fs.promises.mkdir(this.cacheDir, { recursive: true })
     const out = path.join(this.cacheDir, `${name}.png`)
+    const { page, profile } = await this.#panelPage(name)
 
-    const height = Math.min(2600, Math.max(800, 520 + ports * 22))
-    const result = spawnSync(process.execPath, [
-      this.jigCommand(),
-      'shot', name, '--out', out, '--width', String(width), '--height', String(height)
-    ], { encoding: 'utf8', cwd: this.repoPath })
+    try {
+      const height = Math.min(2600, Math.max(800, 520 + (profile.ports?.length || ports) * 22))
+      // The same flags bin/jig.js shot uses, and no more: this is the same
+      // photograph of the same page, with the stylesheet it forgot.
+      const result = spawnSync(this.chrome, [
+        '--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars',
+        `--window-size=${width},${height}`,
+        `--screenshot=${out}`,
+        pathToFileURL(page).href
+      ], { encoding: 'utf8' })
 
-    if (result.status !== 0) {
-      const detail = (result.stderr || result.stdout || '').trim().slice(0, 400)
-      throw new ScreenshotError(`could not render ${name}: ${detail || `jig.js exited ${result.status}`}`)
+      if (result.status !== 0) {
+        const detail = (result.stderr || result.stdout || '').trim().slice(0, 400)
+        throw new ScreenshotError(
+          `could not render ${name}: ${detail || `Chrome exited ${result.status}`}`
+        )
+      }
+      // Checked rather than trusted. Chrome exits 0 and writes nothing under
+      // enough conditions to be worth naming, and an empty file here would be
+      // stored as a picture that renders as a broken image on a plugin page.
+      if (!fs.existsSync(out) || fs.statSync(out).size === 0) {
+        throw new ScreenshotError(`Chrome reported success for ${name} but wrote no image at ${out}`)
+      }
+      return { buffer: await fs.promises.readFile(out), source: 'rendered' }
+    } finally {
+      // The generated page lives in the checkout's web/ only for as long as
+      // the photograph takes; leaving one per plugin per run behind is how a
+      // working tree fills with files nobody meant to create.
+      await fs.promises.rm(page, { force: true })
     }
-    if (!fs.existsSync(out)) {
-      throw new ScreenshotError(`jig.js reported success for ${name} but wrote no file at ${out}`)
-    }
-    return { buffer: await fs.promises.readFile(out), source: 'rendered' }
   }
 
   /**
