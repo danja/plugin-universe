@@ -157,6 +157,12 @@ data/cache/
 # reviewed candidate file records choices a person made and belongs in history.
 data/dumps/
 data/backups/
+# Uploaded and harvested pictures. Runtime state on a volume, not source: they
+# are content-addressed, so bin/backup.js carries them (BackupBuilder copies the
+# directory and counts it), and the catalogue's own screenshots are regenerated
+# by bin/harvest-jigdaw.js. Committing binaries that are all reproducible is how
+# a repository grows a hundred megabytes of nothing.
+data/images/
 # TLS material, mounted into nginx at runtime.
 deploy/nginx/certs/*
 !deploy/nginx/certs/.gitkeep

@@ -71,17 +71,28 @@ let feedback = null
 let promotions = null
 let billing = null
 let submissions = null
-let images = null
 let wiki = null
+
+// Built unconditionally, and this moved out of the sign-in block for a reason.
+// Images used to arrive only as uploads, so an instance without OAuth had no
+// pictures and no reason to serve any. That stopped being true when
+// bin/harvest-jigdaw.js began writing panel screenshots into the same store:
+// depictions harvested from a source are in the graph whether or not anybody
+// can sign in, so a read-only deployment holding them answered /image/<hash>
+// with "Images are not enabled on this instance" — 25 broken pictures on the
+// plugin pages, and the count of stored images printed nowhere so nobody could
+// see they were there. Serving what is in the store is not a privileged act.
+const images = new ImageStore({ origin })
+console.log(`Image store ready, ${(await images.list()).length} stored`)
+
 if (auth) {
   // Registered at startup, not at first sign-in: a graph holding personal data
   // that is not flagged as such is the one failure this design exists to
   // prevent, and it must not wait on somebody signing in.
   await accounts.ensureGraph()
-  // Built before Corrections, which needs it: a contributed picture is a
-  // correction naming foaf:depiction, and the store is what says whether a
-  // value is an image this site actually holds.
-  images = new ImageStore({ origin })
+  // Corrections needs the image store: a contributed picture is a correction
+  // naming foaf:depiction, and the store is what says whether a value is an
+  // image this site actually holds. Built above, outside this block.
   corrections = new Corrections(client, { images })
   await corrections.ensureGraph()
   promotions = new Promotions(client)
@@ -106,7 +117,7 @@ if (auth) {
   // that knows a format IRI from a typo.
   submissions = new Submissions(client, { validator: await ShapeValidator.load(), submittable })
   await submissions.ensureGraph()
-  console.log(`Image uploads enabled, ${(await images.list()).length} stored`)
+  console.log('Image uploads enabled')
   console.log(`Sign-in enabled, callback ${origin}/auth/callback`)
   wiki = new Wiki(client)
   // Messages to the moderators. Registered eagerly so the graph and its

@@ -5,6 +5,7 @@ import { parseTurtleFile, GraphView } from './TurtleReader.js'
 import { readPort } from './Lv2Bundle.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
 import { FREE } from './Licensing.js'
+import JigDawScreenshots from './JigDawScreenshots.js'
 
 const trn = NAMESPACES.trn
 const pu = NAMESPACES.pu
@@ -38,7 +39,20 @@ const lv2 = NAMESPACES.lv2
  * is the work. It is in INBOX.md so it is not lost.
  */
 export class JigDawHarvester extends Harvester {
-  constructor ({ repoPath, id = 'jigdaw' } = {}) {
+  /**
+   * @param {object} options
+   * @param {string} options.repoPath - the jigdaw checkout
+   * @param {string} [options.id]
+   * @param {object} [options.screenshots] - a `JigDawScreenshots`, when the
+   *   caller wants pictures. A harvester is otherwise a reader of files, and a
+   *   browser on the harvest path would be a surprise; so pictures are opt-in
+   *   and `bin/harvest-jigdaw.js` is what asks for them.
+   * @param {object} [options.imageStore] - where a rendered panel is kept, and
+   *   what URL it is served at. An `ImageStore`. Needed whenever screenshots
+   *   are, because `foaf:depiction` takes an IRI and a picture on this
+   *   machine's disk has none until it is given one.
+   */
+  constructor ({ repoPath, id = 'jigdaw', screenshots = null, imageStore = null } = {}) {
     super({
       id,
       kind: 'source',
@@ -51,6 +65,18 @@ export class JigDawHarvester extends Harvester {
     })
     this.repoPath = repoPath
     if (!repoPath) throw new HarvestError('JigDawHarvester needs repoPath')
+    if (screenshots && !imageStore) {
+      throw new HarvestError(
+        'JigDawHarvester: screenshots were asked for without an imageStore. ' +
+        'A panel rendered here has no URL of its own, and foaf:depiction needs one.'
+      )
+    }
+    this.screenshots = screenshots
+    this.imageStore = imageStore
+    // Read at run time, not declared at construction: bin/ingest.js prints
+    // these after a harvest, and a harvester that cannot report why five
+    // plugins have no picture is the silent-gap failure CLAUDE.md is about.
+    this.notes = []
   }
 
   /**
@@ -126,6 +152,31 @@ export class JigDawHarvester extends Harvester {
     return { ...record, licence: record.licence ?? 'Apache-2.0', pricing: FREE }
   }
 
+  /**
+   * Store a panel screenshot and return the IRI to depict the plugin with.
+   *
+   * Through `ImageStore` rather than a path assembled here, because the name is
+   * the SHA-256 of the bytes and the URL is the site's own — and because
+   * `documents.js` decides a depiction is "ours" by exactly that prefix. A URL
+   * written by hand would look right in a page and be captioned as somebody
+   * else's picture.
+   *
+   * A failure is a note, not a rejection: the plugin is real, its panel could
+   * not be photographed, and dropping the plugin would be a far worse answer
+   * than publishing it without a picture. Reported so the gap is visible.
+   */
+  async #depiction (name, record) {
+    try {
+      const { buffer, source } = await this.screenshots.forPlugin(name, {
+        ports: record.parameters.length
+      })
+      const stored = await this.imageStore.store(buffer)
+      return { image: stored.url, note: `${name}: ${source} panel, ${stored.name}` }
+    } catch (error) {
+      return { image: null, note: `${name}: no screenshot — ${error.message}` }
+    }
+  }
+
   async collect () {
     const pluginsDir = path.join(this.repoPath, 'plugins')
     if (!fs.existsSync(pluginsDir)) {
@@ -133,14 +184,27 @@ export class JigDawHarvester extends Harvester {
     }
 
     const records = []
+    // Reset rather than appended to: one harvester, one run, and a second
+    // collect() must not report the first run's notes again.
+    this.notes = []
     for (const entry of await fs.promises.readdir(pluginsDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue
       const file = path.join(pluginsDir, entry.name, 'profile.ttl')
       if (!fs.existsSync(file)) continue
-      records.push(this.#repositoryTerms(await this.readProfile(file)))
+      const record = this.#repositoryTerms(await this.readProfile(file))
+
+      if (this.screenshots) {
+        const { image, note } = await this.#depiction(entry.name, record)
+        record.image = image
+        this.notes.push(note)
+      }
+      records.push(record)
     }
     return records
   }
 }
+
+/** Re-exported so a caller can build one without a second import line. */
+export { JigDawScreenshots }
 
 export default JigDawHarvester
