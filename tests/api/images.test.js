@@ -216,10 +216,34 @@ describe('the caption under a picture', () => {
 
   it('says where a hosted image came from instead', () => {
     const html = renderPluginPage(local)
-    expect(html).toContain('served from here')
+    expect(html).toContain('served from')
     // And still does not claim the picture: the contributor terms cover facts
     // and prose, and an image is neither.
     expect(html).toMatch(/its author's/)
+  })
+
+  it('does not name a mechanism, because there is more than one', () => {
+    // "Uploaded to the catalogue" was true of every image until
+    // bin/harvest-jigdaw.js began writing generated panel screenshots into the
+    // same store — and then it was false of 25 pictures on a page each, with
+    // nothing anywhere reporting it. A caption that names *how* an image got
+    // here is a claim about the store's history; a caption that says where it
+    // is served from is a claim about the picture, and only the second survives
+    // the next source to write here.
+    // Scoped to the caption. A bare /uploaded/i over the whole page also
+    // matches a comment in site.css that was inlined onto it, which says
+    // something true about backgrounds and nothing about where a picture came
+    // from — a guard that fails for the wrong reason is a guard that gets
+    // weakened until it passes for the right one.
+    const caption = renderPluginPage(local).match(/<figcaption>([^<]*)</)?.[1] ?? ''
+    expect(caption, 'no caption at all').not.toMatch(/upload/i)
+    expect(caption).toMatch(/^Copied here/)
+  })
+
+  it('names the host it is actually served from', () => {
+    // Read back off the URL, so it cannot drift from where the bytes live.
+    const caption = renderPluginPage(local).match(/<figcaption>([^<]*)</)?.[1] ?? ''
+    expect(caption).toContain('plugin-universe.com')
   })
 
   it('keeps the source note, and the host, for one served elsewhere', () => {

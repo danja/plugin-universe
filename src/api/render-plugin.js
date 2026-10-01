@@ -69,13 +69,19 @@ function pluginFigure (doc) {
   // false the moment uploads started working. `imageIsLocal` is settled by
   // SearchService, which is the only part that knows this site's own origin.
   if (doc.imageIsLocal) {
-    // The origin is passed in rather than left out of the sentence. This
-    // template used to say "uploaded to the catalogue", which was true of
-    // every image when uploads were the only way one arrived — and became
-    // false the moment bin/harvest-jigdaw.js started writing generated panel
-    // screenshots into the same store. Nothing uploads 25 of them; something
-    // rendered them, and a caption naming the wrong mechanism is a caption
-    // about nothing. "Copied here and served from here" is true of both.
+    // The host named in the sentence is read back off the URL rather than
+    // threaded through from the router, because `isLocalImage` has already
+    // established that this URL is `<origin>/image/…` and the prefix is right
+    // there. One source for the origin rather than two that can disagree.
+    //
+    // This template used to say "uploaded to the catalogue", which was true of
+    // every image when uploads were the only way one arrived — and became false
+    // the moment bin/harvest-jigdaw.js began writing generated panel screenshots
+    // into the same store. Nothing uploads 25 of them; something rendered them,
+    // and a caption naming the wrong mechanism is a caption about nothing.
+    // "Copied here and served from here" is true of both, and stays true of
+    // whatever the next source to write into this store turns out to be.
+    const origin = image.split('/image/')[0]
     return templates.render('plugin-figure-local', { image, origin })
   }
   let host = ''
