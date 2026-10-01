@@ -72,6 +72,9 @@ IRI — and the format says what a list of operating systems would have been
 asked to say.
 [JigDAW](https://github.com/danja/jigdaw) plugins are harvested this way, and
 their profiles are the same shape as the one below with a little more in it.
+The [JigDAW specification](https://danja.github.io/jigdaw/) says what the
+extra terms mean, and [Jiggy](https://strandz.it/jigdaw/) is a browser host
+that loads these plugins from their IRIs and searches this catalogue.
 
 **Caution.** Anything that surprises people. Heavy CPU at high settings, output
 that can jump in level, a parameter best left alone while the tape is rolling.

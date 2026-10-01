@@ -65,6 +65,11 @@
   - the newest format, permissively licensed, and designed in the open.
 - [VST 3](https://steinbergmedia.github.io/vst3_dev_portal/) - the developer
   portal, and [the SDK](https://github.com/steinbergmedia/vst3sdk).
+- [JigDAW](https://danja.github.io/jigdaw/) - a plugin format for the browser,
+  where a plugin is an IRI and its profile is the same RDF this catalogue
+  holds. Its plugins are harvested here, and
+  [Jiggy](https://strandz.it/jigdaw/), the browser host, searches this
+  catalogue to find them.
 
 **Testing and measurement**
 
