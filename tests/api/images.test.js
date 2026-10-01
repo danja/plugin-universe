@@ -246,6 +246,20 @@ describe('the caption under a picture', () => {
     expect(caption).toContain('plugin-universe.com')
   })
 
+  it('does not put markup in the sentence', () => {
+    // The bug this pins, and it was written here first and caught second:
+    // deriving the host from `pluginImage(doc)` — which returns an `<img>`
+    // fragment, not a URL — split the *markup* on '/image/' and escaped the
+    // opening tag into the caption, so a reader saw
+    // "served from <img class="shot shot-full" src="https://…".
+    //
+    // Asserted on the absence of the escaped forms rather than on an exact
+    // string, so it keeps working if the wording is ever reworded.
+    const caption = renderPluginPage(local).match(/<figcaption>([\s\S]*?)<\/figcaption>/)?.[1] ?? ''
+    expect(caption).not.toMatch(/&lt;|&quot;|&amp;/)
+    expect(caption).not.toContain('<img')
+  })
+
   it('keeps the source note, and the host, for one served elsewhere', () => {
     const html = renderPluginPage(remote)
     expect(html).toContain('not copied here')

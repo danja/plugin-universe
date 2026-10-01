@@ -62,6 +62,23 @@ function promoteBlock (doc, contribution, slug) {
  * nothing saying whose it was. Here the caption cannot render without the
  * image or the image without the caption.
  */
+/**
+ * The origin a stored image is served from, read off its own URL.
+ *
+ * `isLocalImage` has already established that the URL is `<origin>/image/…`,
+ * so the prefix is the answer — and deriving it here means the sentence cannot
+ * name a different host from the one the bytes are fetched from.
+ *
+ * Returns null rather than a partial answer: a URL with no `/image/` in it is
+ * not a stored image, and rendering the caption without a host is better than
+ * rendering one that says `https://`.
+ */
+function originOf (imageUrl) {
+  const marker = '/image/'
+  const at = String(imageUrl ?? '').indexOf(marker)
+  return at > 0 ? String(imageUrl).slice(0, at) : null
+}
+
 function pluginFigure (doc) {
   const image = pluginImage(doc, { size: 'full' })
   if (!image) return ''
@@ -74,14 +91,21 @@ function pluginFigure (doc) {
     // established that this URL is `<origin>/image/…` and the prefix is right
     // there. One source for the origin rather than two that can disagree.
     //
-    // This template used to say "uploaded to the catalogue", which was true of
+    // **Off `doc.image`, not off `image`.** `pluginImage` returns an `<img>`
+    // fragment, so splitting *that* on '/image/' yields the opening tag and its
+    // attributes — which escape into the sentence as visible markup. The
+    // branch below reads `doc.image` for the same reason, and the two agreeing
+    // is not a coincidence.
+    //
+    // This caption used to say "uploaded to the catalogue", which was true of
     // every image when uploads were the only way one arrived — and became false
     // the moment bin/harvest-jigdaw.js began writing generated panel screenshots
     // into the same store. Nothing uploads 25 of them; something rendered them,
     // and a caption naming the wrong mechanism is a caption about nothing.
     // "Copied here and served from here" is true of both, and stays true of
     // whatever the next source to write into this store turns out to be.
-    const origin = image.split('/image/')[0]
+    const origin = originOf(doc.image)
+    if (!origin) return ''
     return templates.render('plugin-figure-local', { image, origin })
   }
   let host = ''

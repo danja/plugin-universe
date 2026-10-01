@@ -90,6 +90,62 @@ moved the wrong way, and only reporting both caught it.
 
 ---
 
+## 2026-10-01 — A screenshot of nothing, and a caption about the wrong thing
+
+Four failures in one feature, all of which reported success. They are written
+together because the common cause is the point: **nothing in the system could
+tell that a correct-looking artefact was a picture of an empty page, or that a
+true sentence had stopped being true.**
+
+**1. `bin/jig.js shot` rendered unstyled pages.** It inlines a panel's styles
+out of the `<style>` block in `web/index.html`. Those styles moved to
+`web/panel.css`, which `index.html` *links* and `jig.js` never reads. So it
+photographed a page with every SVG dial invisible and the layout collapsed into
+one left-hand column — exiting 0, writing a valid PNG, and reporting no problem
+at all. The twenty screenshots jigdaw ships were taken before the refactor,
+which is why this survived in a repository whose gallery looks fine.
+
+*Root cause:* the tool's own idea of "styled" had drifted from the app's, and
+nothing compared them. *Fixed here* by linking `panel.css` into the generated
+page, so the panel is drawn by the stylesheet the host itself loads rather than
+by a copy of them kept in this repository; `JigDawScreenshots` refuses to
+render at all if that file is absent. **Worth fixing upstream** — `panelStyle()`
+should concatenate `panel.css`, or the generated page should link it the way
+`index.html` does.
+
+**2. A plugin silently rendered no picture.** `/home/danny/github/jigdaw` is a
+symlink to `/chalet/github/jigdaw`, and `jig.js` decides it was invoked by
+comparing `process.argv[1]` with its own resolved `import.meta.url`. Through the
+symlink those differ, `main()` never runs, and it exits 0 having written
+nothing. Every one of the five rendered screenshots was an error message that
+had learned to sound like a result.
+
+*Root cause:* an exit status of 0 from a tool doing two things (decide, then
+act) reports only the first. *Fixed* by realpathing the command and — the part
+that matters — by checking the file was written rather than trusting the status.
+A screenshot is the output; the exit code is a comment about it.
+
+**3. A caption said "uploaded to the catalogue" of 25 generated screenshots.**
+The sentence was true of every image while uploads were the only way one
+arrived, and stopped being true the moment a harvester began writing into the
+same store. Naming the *mechanism* is a claim about the store's history;
+naming the *location* is a claim about the picture. Now: "Copied here and
+served from `{{origin}}`."
+
+**4. I then put the `<img>` tag in the caption myself.** Deriving the origin
+from `pluginImage(doc)` — which returns an `<img>` fragment, not a URL — split
+the markup on `/image/` and escaped the opening tag into the sentence. Caught
+by reading the rendered page, not by a test, and *then* written down as one.
+Asserted now on the absence of escaped markup.
+
+**Prevention.** For anything generated, the check is on the artefact, not the
+exit code: is the file there, is it non-empty, is it big enough to contain what
+it claims. For anything captioned or described, a sentence that survives the next
+thing to write into the store is one about where a thing *is*, not how it got
+here.
+
+---
+
 ## 2026-09-25 — Accept did nothing, because the form posted to a redirect
 
 **What happened.** Accepting a submission or a correction in `/admin` left it in

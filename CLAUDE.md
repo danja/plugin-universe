@@ -23,7 +23,8 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
   `GitHubHarvester` + `GitHubClient` + `GitHubDiscovery`,
   `Lv2Bundle` (bundle reading, shared by the disk and API paths), `HttpSource` (polite
   fetching), `Normaliser` (where vocabulary defects are fixed), `PluginSerialiser`,
-  `IngestPipeline`
+  `IngestPipeline`, `JigDawScreenshots` (the panel screenshots `bin/harvest-jigdaw.js`
+  publishes — the one place a browser is on the harvest path)
 - `src/search/` — `SearchService` (hybrid retrieval), `LexicalIndex` (IDF-weighted lexical
   signal), `ranking.js` (fusion, the promotion re-rank, the sort orders), `facets.js`
   (`FACET_PATTERNS`: facet name to graph pattern), `documents.js` (image and vendor fields)
@@ -46,7 +47,9 @@ Node.js, ES modules, Vitest for tests. Phase 0 (foundations) is complete; see
 - `templates/` — every page's HTML, plus `site.css`. Nothing else contains markup.
 - `src/wiki/` — `Wiki.js` (revisions), `markdown.js` (untrusted Markdown), `render.js`
 - `src/mcp/` — `server.js` (stateless Streamable HTTP), `tools.js` (the catalogue as tools)
-- `bin/` — `ingest.js`, `discover.js`, `search.js`, `serve.js`, `validate.js`
+- `bin/` — `ingest.js`, `discover.js`, `search.js`, `serve.js`, `validate.js`, and
+  `harvest-jigdaw.js` — the one source whose screenshots have to be *generated*, which is
+  why it is its own script rather than a flag on `ingest.js`
 - `src/rdf/` — `NamespaceManager` (the single prefix registry), `URIMinter`
 - `src/store/` — `SPARQLClient`, `SPARQLHelper` (term formatting), `QueryService`
   (file-based query loading), `GraphRegistry` (named graphs, provenance, licence flags),
@@ -348,6 +351,21 @@ change, and a long one rarely does.
   order in front of it — all of which are untested by construction. A new write route means a
   new line in `POST_PATHS` *and* a new line in `server-starts.test.js`, or it answers 405 with
   every one of its own tests passing. This is how the entire billing feature shipped unreachable.
+- **A tool that exits 0 has told you it got that far, not that it did the thing.**
+  Every failure in MISTAKES.md's newest entry is a command that reported success and
+  produced nothing usable: `jig.js shot` through a symlink wrote no image, and the same
+  command rendered an *unstyled* page — a valid PNG of an empty one, because the styles
+  had moved to a stylesheet it never read. When code shells out to produce an artefact,
+  assert on **the artefact**: that the file exists, is non-empty, and is plausibly the
+  thing claimed. An exit status is a comment about the output. And where the artefact is
+  visual, nothing above will catch a page that rendered empty — at some point somebody has
+  to look at it.
+- **Prose that names a mechanism goes stale when a second mechanism arrives.** "Uploaded
+  to the catalogue" was true of every image until a harvester began generating them, and
+  then it was false on 25 pages with nothing reporting it. Say where a thing *is*, not how
+  it got here — that survives whatever writes next. And bind it: the caption tests assert
+  what the sentence must not say, which is how the escaped-`<img>`-into-a-prose bug below
+  was caught the second time.
 - **Read what a bulk edit removed, not just how much.** A scripted replacement over a *region*
   (`s.index(marker)` to `s.index(other)`) will find a marker in the wrong place and delete
   everything between. Forty lines of `server.js` comments were spliced into nonsense this way
