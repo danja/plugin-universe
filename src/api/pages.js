@@ -104,6 +104,42 @@ export const PAGES = Object.freeze({
     title: 'Contact',
     description: 'How to reach the person behind Plugin Universe, and what to say.'
   },
+  '/about/how-it-works': {
+    file: 'docs/how-it-works.md',
+    // What somebody deciding whether to trust a page, or build on the data,
+    // wants answered first. /about says what the project is; this says what
+    // happens to a fact between a source publishing it and it appearing here.
+    title: 'How it works',
+    description: 'Where a fact about a plugin comes from, how it is checked, how search works, and what this catalogue will not claim to do.'
+  },
+  '/about/formats': {
+    file: 'docs/formats.md',
+    // Reached from a format facet and from a plugin page, so it has to answer
+    // "what is this format and what loads it" for all eight, not only the one
+    // the reader arrived by. Jig gets the most room because it is the format
+    // with no host and no install step, which is the part a reader cannot
+    // work out from a list.
+    title: 'Plugin formats',
+    description: 'The eight plugin formats in this catalogue: what each is, which hosts load it, and what makes Jig, the web plugin format, different.'
+  },
+  '/about/glossary': {
+    file: 'docs/glossary.md',
+    // The site has three audiences with three vocabularies: a producer, a
+    // plugin author, and a program. A word that stops a reader is not jargon,
+    // it is a gap, and the gap is cheapest to close in one place rather than by
+    // hedging in every page.
+    title: 'Glossary',
+    description: 'The words Plugin Universe uses, defined: the catalogue, plugin formats, what a plugin does, how the data is stored, and how to find things.'
+  },
+  '/about/documentation': {
+    file: 'docs/documentation.md',
+    // The index of every published page, linked from the front page. It exists
+    // because the site grew past one page that could hold them all, and a page
+    // nobody can reach from anywhere is indistinguishable from a page that was
+    // never written.
+    title: 'Documentation',
+    description: 'Every page Plugin Universe publishes, in the order worth reading it, with what each one answers.'
+  },
   '/about/profiles': {
     file: 'docs/profiles.md',
     // Linked from the submission form, where somebody is deciding whether the

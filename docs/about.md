@@ -20,8 +20,14 @@ SPARQL endpoint rather than a database behind a search box.
 
 ## Navigation
 
+- [Documentation](/about/documentation) - every page this site publishes, in the
+  order worth reading it.
 - [Read me first](/read-me-first) - what this is, how far along it is, and what
   it is for. Start here if you have just arrived.
+- [How it works](/about/how-it-works) - where a fact about a plugin comes from,
+  how it is checked, and what this catalogue will not claim to do.
+- [Plugin formats](/about/formats) - the eight formats here, what each is, and
+  an introduction to Jig, the web plugin format you fetch rather than install.
 - [Services](/services) - every way this catalogue can be read: web pages, JSON,
   RDF, a public SPARQL endpoint, a package registry view and an MCP face.
 - [Resources](/resources) - forums, news, frameworks, specifications and DSP

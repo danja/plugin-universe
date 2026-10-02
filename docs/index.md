@@ -29,6 +29,10 @@
 
 ## Working documents
 
+* [Documentation](documentation.md) — served at `/about/documentation`; the index of every published page, linked from the front page's site nav
+* [How it works](how-it-works.md) — served at `/about/how-it-works`; where a fact comes from, how it is checked, and what the catalogue will not claim
+* [Plugin formats](formats.md) — served at `/about/formats`; the eight formats here, with Jig given the most room
+* [Glossary](glossary.md) — served at `/about/glossary`; the words the site uses, defined for three audiences
 * [Services](services.md) — served at `/services`; every way the catalogue can be read
 * [The MCP endpoint](mcp.md) — served at `/about/mcp`; the catalogue as tools an agent can call
 * [The public SPARQL endpoint](sparql.md) — served at `/about/sparql`; why it is a separate dataset
@@ -54,8 +58,8 @@
 * Ingest: permissive sources only; KVR excluded ([source terms review](sources.md))
 * Domain: plugin-universe.com (serving only — IRIs are on purl.org and survive a move)
 
-**Where the project is**, measured 2026-09-13 from `/health` rather than from
-memory: **756 plugins, 756 indexed, 50 measured.** Phases 0, 1, 3 and 5 are
+**Where the project is**, measured 2026-10-02 from `/health` rather than from
+memory: **791 plugins, 791 indexed, 50 measured.** Phases 0, 1, 3 and 5 are
 complete and deployed — see [what the plan delivered](plan-done.md). Phase 2, the
 profiler, is running and still missing CPU load, the measurement it exists for.
 Phase 4 is built and has never taken money.
