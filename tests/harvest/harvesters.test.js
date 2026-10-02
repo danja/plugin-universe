@@ -273,10 +273,21 @@ describe.skipIf(!haveJigdaw)('JigDawHarvester', () => {
   })
 
   it('records the licence the profile states, and that the plugin is free', () => {
+    // The licence is whatever the profile says, not the repository's. Every
+    // jigdaw plugin except Mop states Apache-2.0 and Mop states Zlib, so a
+    // test asserting one value across the source was a test that could only
+    // pass until someone added a plugin with a different licence. It did, and
+    // the failure said `Mop: expected 'Zlib' to be 'Apache-2.0'`, which is the
+    // harvester being right and this assertion being wrong.
+    const licences = {}
     for (const plugin of result.plugins) {
-      expect(plugin.licenceId, plugin.name).toBe('Apache-2.0')
+      expect(plugin.licenceId, `${plugin.name} states no licence`).toBeTruthy()
+      licences[plugin.licenceId] = (licences[plugin.licenceId] ?? 0) + 1
       expect(plugin.pricing, plugin.name).toBe(`${pu}Free`)
     }
+    expect(Object.keys(licences).sort(), 'every licence a profile states is carried through')
+      .toEqual(['Apache-2.0', 'Zlib'])
+    expect(licences.Zlib, 'Zlib belongs to Mop alone').toBe(1)
   })
 
   it('lands in a category, so the plugin is findable by more than its name', () => {

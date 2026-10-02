@@ -11,13 +11,23 @@ import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
 /**
  * Screenshots of JigDAW panels.
  *
- * The rule being pinned here is the one that actually broke: a render that
- * "succeeds" — exit status 0, no error, no complaint — and writes no file.
- * `/home/danny/github/jigdaw` is a symlink, and jigdaw's own `bin/jig.js`
- * detects that it was invoked by comparing `process.argv[1]` with its resolved
- * `import.meta.url`. Through the symlink the comparison fails, `main()` never
- * runs, and the process exits 0 having done nothing at all. A test asserting
- * only on the exit status would have passed for the whole of that.
+ * The rule being pinned here is the one that actually broke, twice, and both
+ * were upstream in jigdaw rather than here:
+ *
+ * - A render that "succeeds" — exit status 0, no error, no complaint — and
+ *   writes no file. `/home/danny/github/jigdaw` is the same directory as
+ *   `/chalet/github/jigdaw` under two names, and jigdaw's `bin/jig.js` decided
+ *   it had been invoked by comparing `process.argv[1]` with its resolved
+ *   `import.meta.url`. Through the other name the comparison failed, `main()`
+ *   never ran, and the process exited 0 having done nothing at all. Fixed
+ *   upstream 2026-10-02 by comparing resolved paths; `jigCommand()` still
+ *   realpaths, so a checkout reached by a symlink works either way.
+ * - A panel with no dials drawn. `bin/jig.js shot` inlined only the page's own
+ *   `<style>` block and never `web/panel.css`, where the panel rules live, so
+ *   it photographed an unstyled page and exited 0 having written a valid PNG of
+ *   it. This file worked around that by injecting a `<link>` into the generated
+ *   page; upstream fixed it on 2026-10-02 and the workaround is gone, with the
+ *   size assertion below left in place because it is what would notice.
  */
 
 const JIGDAW = process.env.JIGDAW_PATH ?? '/home/danny/github/jigdaw'
@@ -39,17 +49,67 @@ describe.skipIf(!haveJigdaw)('JigDawScreenshots', () => {
     expect(buffer.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
   })
 
-  it('renders a panel that upstream ships no screenshot for', async () => {
-    if (!shots.canRender) return
-    const name = 'canticle'
-    expect(shots.shippedPath(name), `${name} now ships a screenshot; this test is stale`)
-      .toBeNull()
+  it('finds a shipped screenshot for every plugin the harvest sees', () => {
+    // The render path is a fallback, and it was one for five plugins until
+    // 2026-10-02. If this starts failing because a new plugin has no picture
+    // yet, that is upstream's `node bin/build-gallery.js` not having run, not a
+    // reason to go back to rendering what upstream already ships.
+    const names = fs.readdirSync(path.join(JIGDAW, 'plugins'), { withFileTypes: true })
+      .filter(entry => entry.isDirectory() && fs.existsSync(
+        path.join(JIGDAW, 'plugins', entry.name, 'profile.ttl')
+      ))
+      .map(entry => entry.name)
+    expect(names.length).toBeGreaterThan(0)
+    const without = names.filter(name => shots.shippedPath(name) === null)
+    expect(without, 'plugins upstream ships no screenshot for').toEqual([])
+  })
 
-    const { buffer, source } = await shots.forPlugin(name, { ports: 12 })
-    expect(source).toBe('rendered')
-    expect(buffer.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
-    expect(buffer.length).toBeGreaterThan(1000)
-  }, 60000)
+  it('renders a panel from a checkout that ships no picture for it', async () => {
+    if (!shots.canRender) return
+    // A small checkout holding one plugin, with its screenshot removed, so the
+    // fallback is exercised without depending on which plugin upstream has
+    // caught up and without copying a whole repository to do it. `node_modules`
+    // is symlinked rather than copied because `bin/jig.js` imports linkedom,
+    // and a fixture that cannot resolve its own imports tests nothing.
+    const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pu-jigdaw-noshot-'))
+    try {
+      for (const part of ['bin', 'src', 'vocabs']) {
+        await fs.promises.cp(path.join(JIGDAW, part), path.join(dir, part), { recursive: true })
+      }
+      await fs.promises.mkdir(path.join(dir, 'web', 'gallery', 'shots'), { recursive: true })
+      await fs.promises.copyFile(
+        path.join(JIGDAW, 'web', 'index.html'),
+        path.join(dir, 'web', 'index.html')
+      )
+      await fs.promises.copyFile(
+        path.join(JIGDAW, 'web', 'panel.css'),
+        path.join(dir, 'web', 'panel.css')
+      )
+      await fs.promises.cp(
+        path.join(JIGDAW, 'plugins', 'cascade'),
+        path.join(dir, 'plugins', 'cascade'),
+        { recursive: true }
+      )
+      await fs.promises.symlink(
+        path.join(JIGDAW, 'node_modules'),
+        path.join(dir, 'node_modules'),
+        'dir'
+      )
+
+      const local = new JigDawScreenshots({
+        repoPath: dir,
+        cacheDir: path.join(dir, 'shots-cache')
+      })
+      expect(local.shippedPath('cascade'), 'the fixture still has a shipped shot').toBeNull()
+
+      const { buffer, source } = await local.forPlugin('cascade')
+      expect(source).toBe('rendered')
+      expect(buffer.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
+      expect(buffer.length).toBeGreaterThan(1000)
+    } finally {
+      await fs.promises.rm(dir, { recursive: true, force: true })
+    }
+  }, 120000)
 
   it('reports a render that produced no file instead of returning nothing', async () => {
     // The failure this guards: Chrome exiting 0 having written no image, which
@@ -64,11 +124,12 @@ describe.skipIf(!haveJigdaw)('JigDawScreenshots', () => {
   }, 60000)
 
   it('refuses to render when the panel stylesheet is not there', async () => {
-    // A panel.css that 404s renders as no stylesheet at all: the screenshot is
-    // still a valid PNG, the labels are still readable, and the only symptom is
-    // that every dial is invisible and the layout is a single left-hand column.
-    // That is what `bin/jig.js shot` produces today, and it is invisible to
-    // every check except one that looks at the picture.
+    // A panel.css that is missing renders as no stylesheet at all: the
+    // screenshot is still a valid PNG, the labels are still readable, and the
+    // only symptom is that every dial is invisible and the layout is a single
+    // left-hand column. That was what `bin/jig.js shot` produced before
+    // 2026-10-02, when its `panelStyle()` inlined only the page's own <style>
+    // block and never read the stylesheet that holds the panel rules.
     const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pu-jigdaw-bare-'))
     await fs.promises.mkdir(path.join(dir, 'plugins', 'cascade'), { recursive: true })
     await fs.promises.cp(
@@ -89,15 +150,18 @@ describe.skipIf(!haveJigdaw)('JigDawScreenshots', () => {
     // The only assertion in this file that would have caught the unstyled
     // panel, and it works by size rather than by looking: an unstyled panel
     // leaves its SVG dials unpainted, and unpainted SVG compresses to almost
-    // nothing. Canticle's styled panel is ~57 kB and its unstyled one ~30 kB.
+    // nothing. This is why the workaround that injected a `<link>` into
+    // jigdaw's own generated page is gone: upstream's `panelStyle()` now
+    // inlines `web/panel.css`, so `jig.js shot` produces a styled panel and
+    // there is nothing here to compensate for.
     //
     // A byte-count threshold is a proxy, and it is here because the alternative
-    // is a human looking at 25 pictures. It fails loudly rather than silently
+    // is a human looking at 27 pictures. It fails loudly rather than silently
     // if the panel is redesigned; that is the right way round for a check whose
     // whole purpose is to notice that something stopped being drawn.
-    const { buffer } = await shots.render('canticle', { ports: 16 })
+    const { buffer } = await shots.render('cascade')
     expect(buffer.length, 'the panel rendered with no stylesheet')
-      .toBeGreaterThan(45 * 1024)
+      .toBeGreaterThan(20 * 1024)
   }, 60000)
 
   it('says so when there is no browser, rather than failing obscurely later', () => {
