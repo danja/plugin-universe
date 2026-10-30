@@ -3,6 +3,7 @@ import path from 'path'
 import { Harvester, HarvestError } from './Harvester.js'
 import { parseTurtleFile, GraphView } from './TurtleReader.js'
 import { NAMESPACES } from '../rdf/NamespaceManager.js'
+import { IMAGE_CONFIG } from '../../config/preferences.js'
 import { FREE } from './Licensing.js'
 
 const trn = NAMESPACES.trn
@@ -184,7 +185,11 @@ export class DownspoutHarvester extends Harvester {
     const file = this.screenshotPath(name)
     if (!file) return { image: null, note: `${name}: no screenshot in docs/pages/assets/plugins` }
     try {
-      const stored = await this.imageStore.store(await fs.promises.readFile(file))
+      const buffer = await fs.promises.readFile(file)
+      if (buffer.length < IMAGE_CONFIG.minHarvestedBytes) {
+        return { image: null, note: `${name}: no screenshot — ${buffer.length} bytes is a blank, not a picture` }
+      }
+      const stored = await this.imageStore.store(buffer)
       return { image: stored.url, note: `${name}: shipped screenshot, ${stored.name}` }
     } catch (error) {
       return { image: null, note: `${name}: no screenshot — ${error.message}` }

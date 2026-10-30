@@ -16,6 +16,19 @@ that are yours. [TODO.md](TODO.md) is what the *project* needs; this is what
   too (`transmission/vocabs/formats.ttl`) — this repo's copy is the interval
   copy, per the header in `vocabs/trn-extensions.ttl`.
 
+- [ ] **Regenerate `gater.png` in downspout.** `docs/pages/assets/plugins/gater.png` is a
+  90-byte blank canvas (dated 2026-08-23), so the harvest now refuses it with a note and Gater
+  has no picture on the site. `scripts/capture-plugin-screenshots.sh gater`, commit, push, then
+  `git pull` on the server and `ingest.js --source downspout` there.
+
+- [ ] **Glue has no `pu:supportedPlatform`** in `downspout/plugins/glue/profile.ttl`; the
+  other plugins state all three. It was the only profile without it, so its platform facet
+  is empty. Add the line if it is meant to be there.
+
+- [ ] **Ollama on this machine is a separate install** from `dim-ollama` (which holds pid
+  2985 and port 11435). Local ingests embed through `ollama serve` on 11434 with
+  `nomic-embed-text:v1.5` pulled; the server has its own in the compose `ollama` service.
+
 - [ ] **The Downspout README says the macOS and Windows builds are untested.** You have stated all three
   platforms and that is your call — but if it is still true, it belongs in `trn:caution` on the
   affected plugins, which is a field the profiles already carry and the plugin page already
@@ -294,6 +307,13 @@ Nothing here needs server access. The profiler runs on this machine.
 * **Ask me to prune this file** when it drifts. It is meant to be short.
 
 ## Confirmed done
+
+* **Screenshots on the live site** (2026-10-30). downspout (87 of 87) and jigdaw
+  (36 of 36) plugins are depicted. They are ingested **on the server**, not here: this
+  machine and plugin-universe.com have separate stores and `data/images`. A change to
+  screenshots or harvesters reaches the site by commit, push, `git pull` of this repo
+  *and* of `/home/github/downspout` and `/home/github/jigdaw`, `./bin/deploy.sh`, then
+  `docker compose run --rm app node bin/ingest.js --source <id>` and a restart.
 
 A list of what has already happened is not a list of what to do, so this stays
 short. Anything here that is still *operationally* true — a path that matters, a

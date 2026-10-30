@@ -2,6 +2,8 @@
 
 Getting Plugin Universe onto a server, and harvesting once it is there.
 
+ docker compose restart app
+ 
 > ```sh
 > git pull && docker compose build app && docker compose up -d app
 > ```

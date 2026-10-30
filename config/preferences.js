@@ -335,7 +335,13 @@ export const IMAGE_CONFIG = {
 
   // Where the files live, relative to the project root. Outside the image, on
   // a volume, or an upload does not survive a redeploy.
-  directory: 'data/images'
+  directory: 'data/images',
+
+  // A harvested screenshot smaller than this is a blank, not a picture. The
+  // smallest real panel is tens of kilobytes; downspout's gater.png was a
+  // 90-byte empty 400x200 canvas, and publishing it would put a white box on
+  // the plugin's page. Refused with a note rather than stored.
+  minHarvestedBytes: 1000
 }
 
 /**
