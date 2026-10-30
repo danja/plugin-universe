@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { seedPath } from '../../src/harvest/seedPaths.js'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -30,7 +31,7 @@ import { NAMESPACES } from '../../src/rdf/NamespaceManager.js'
  *   size assertion below left in place because it is what would notice.
  */
 
-const JIGDAW = process.env.JIGDAW_PATH ?? '/home/danny/github/jigdaw'
+const JIGDAW = seedPath('jigdaw')
 const ORIGIN = 'https://plugin-universe.com'
 const haveJigdaw = fs.existsSync(JIGDAW)
 const directory = path.join(os.tmpdir(), 'pu-jigdaw-screenshots-test')

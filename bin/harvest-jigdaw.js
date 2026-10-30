@@ -5,6 +5,7 @@ import SPARQLClient from '../src/store/SPARQLClient.js'
 import ShapeValidator from '../src/store/ShapeValidator.js'
 import IngestPipeline from '../src/harvest/IngestPipeline.js'
 import JigDawHarvester, { JigDawScreenshots } from '../src/harvest/JigDawHarvester.js'
+import { seedPathOrFirst } from '../src/harvest/seedPaths.js'
 import ImageStore from '../src/api/ImageStore.js'
 import EmbeddingService from '../src/embeddings/EmbeddingService.js'
 import VectorIndex from '../src/vectors/VectorIndex.js'
@@ -50,7 +51,7 @@ const skipValidation = args.includes('--skip-validation')
 
 // `||` rather than `??`: compose passes an unset variable as an empty string,
 // which `??` accepts as a value. See the note in bin/ingest.js.
-const repoPath = flag('path') || process.env.JIGDAW_PATH || '/home/danny/github/jigdaw'
+const repoPath = flag('path') || seedPathOrFirst('jigdaw')
 
 if (!fs.existsSync(repoPath)) {
   console.error(

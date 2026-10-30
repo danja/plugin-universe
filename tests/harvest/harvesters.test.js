@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import { seedPath } from '../../src/harvest/seedPaths.js'
 import fs from 'fs'
 import DownspoutHarvester from '../../src/harvest/DownspoutHarvester.js'
 import JigDawHarvester from '../../src/harvest/JigDawHarvester.js'
@@ -10,9 +11,9 @@ import { LINUX } from '../../src/harvest/Platforms.js'
 // Harvesters are tested against the real seed repositories. They exist to read
 // one specific corpus correctly, so a synthetic fixture would test nothing.
 
-const DOWNSPOUT = process.env.DOWNSPOUT_PATH ?? '/home/danny/github/downspout'
-const FLUES = process.env.FLUES_PATH ?? '/home/danny/github/flues'
-const JIGDAW = process.env.JIGDAW_PATH ?? '/home/danny/github/jigdaw'
+const DOWNSPOUT = seedPath('downspout')
+const FLUES = seedPath('flues')
+const JIGDAW = seedPath('jigdaw')
 const trn = NAMESPACES.trn
 const pu = NAMESPACES.pu
 

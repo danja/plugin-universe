@@ -8,6 +8,7 @@ import QueryService from '../src/store/QueryService.js'
 import IngestPipeline from '../src/harvest/IngestPipeline.js'
 import DownspoutHarvester from '../src/harvest/DownspoutHarvester.js'
 import JigDawHarvester, { JigDawScreenshots } from '../src/harvest/JigDawHarvester.js'
+import { seedPathOrFirst } from '../src/harvest/seedPaths.js'
 import ImageStore from '../src/api/ImageStore.js'
 import Lv2Harvester from '../src/harvest/Lv2Harvester.js'
 import OpenAudioStackHarvester from '../src/harvest/OpenAudioStackHarvester.js'
@@ -159,9 +160,9 @@ function localHarvesters () {
 
   // `||` rather than `??`: compose passes an unset variable as an empty
   // string, which `??` accepts as a value. See the note in bin/serve.js.
-  const downspoutPath = process.env.DOWNSPOUT_PATH || '/home/danny/github/downspout'
-  const fluesPath = process.env.FLUES_PATH || '/home/danny/github/flues'
-  const jigdawPath = process.env.JIGDAW_PATH || '/home/danny/github/jigdaw'
+  const downspoutPath = seedPathOrFirst('downspout')
+  const fluesPath = seedPathOrFirst('flues')
+  const jigdawPath = seedPathOrFirst('jigdaw')
 
   const candidates = [
     {
