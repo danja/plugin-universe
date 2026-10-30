@@ -139,7 +139,10 @@ describe.skipIf(!haveJigdaw)('JigDawScreenshots', () => {
       { recursive: true }
     )
     try {
-      const bare = new JigDawScreenshots({ repoPath: dir })
+      // Any file that exists will do as the "browser": the stylesheet check
+      // runs after the browser check, and this test is about the stylesheet.
+      // Without it the test passes only on a machine with Chrome installed.
+      const bare = new JigDawScreenshots({ repoPath: dir, chrome: process.execPath })
       await expect(bare.render('cascade')).rejects.toThrow(/panel\.css/)
     } finally {
       await fs.promises.rm(dir, { recursive: true, force: true })

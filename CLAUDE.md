@@ -329,6 +329,14 @@ change, and a long one rarely does.
   a list of what to do. It is also the right place to record something the deployment cannot
   tell us, and anything I asserted about the server that I have not actually verified.
 - Do not run any `git` operations unless the user explicitly approves them.
+- **Say where each command runs: this machine, or the server.** This machine (`office-mint`) and
+  the live server (`/home/github/plugin-universe`, plugin-universe.com) have separate code, a
+  separate Fuseki, separate `data/images` and separate checkouts of downspout, flues and jigdaw.
+  A harvest, an ingest or a test run here changes nothing on the live site, and "I ran the
+  ingest" has already been mistaken for "the site is updated". Every instruction handed over
+  names its place — **LOCAL** or **SERVER** — and gives the steps in order, one command per
+  line. A change is not live until it has been committed, pushed, pulled on the server,
+  deployed and (for data) ingested there.
 - **Never hand over an nginx configuration without running `./deploy/nginx/check.sh`.** It
   validates the real files in a throwaway container, with self-signed certificates generated at
   whatever paths they name. Six configurations have failed `nginx -t` on the server, every one
