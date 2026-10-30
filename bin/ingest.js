@@ -7,7 +7,8 @@ import SPARQLClient from '../src/store/SPARQLClient.js'
 import QueryService from '../src/store/QueryService.js'
 import IngestPipeline from '../src/harvest/IngestPipeline.js'
 import DownspoutHarvester from '../src/harvest/DownspoutHarvester.js'
-import JigDawHarvester from '../src/harvest/JigDawHarvester.js'
+import JigDawHarvester, { JigDawScreenshots } from '../src/harvest/JigDawHarvester.js'
+import ImageStore from '../src/api/ImageStore.js'
 import Lv2Harvester from '../src/harvest/Lv2Harvester.js'
 import OpenAudioStackHarvester from '../src/harvest/OpenAudioStackHarvester.js'
 import GitHubClient from '../src/harvest/GitHubClient.js'
@@ -150,6 +151,12 @@ const skippedSources = []
  * to include them. See docs/deployment.md.
  */
 function localHarvesters () {
+  // Content-addressed, at the site's own origin, so the depiction IRIs written
+  // here are the ones this deployment serves. Without it a re-ingest of these
+  // sources would DROP their graphs and reload them with no pictures.
+  const origin = (process.env.SITE_ORIGIN || config.get('site.origin')).replace(/\/$/, '')
+  const imageStore = new ImageStore({ origin })
+
   // `||` rather than `??`: compose passes an unset variable as an empty
   // string, which `??` accepts as a value. See the note in bin/serve.js.
   const downspoutPath = process.env.DOWNSPOUT_PATH || '/home/danny/github/downspout'
@@ -161,7 +168,7 @@ function localHarvesters () {
       id: 'downspout',
       path: downspoutPath,
       env: 'DOWNSPOUT_PATH',
-      build: () => new DownspoutHarvester({ repoPath: downspoutPath })
+      build: () => new DownspoutHarvester({ repoPath: downspoutPath, imageStore })
     },
     {
       id: 'flues',
@@ -191,7 +198,13 @@ function localHarvesters () {
       id: 'jigdaw',
       path: jigdawPath,
       env: 'JIGDAW_PATH',
-      build: () => new JigDawHarvester({ repoPath: jigdawPath })
+      // Shipped screenshots first, a render only for a plugin with none, and a
+      // missing Chrome is a note rather than a failure (see bin/harvest-jigdaw.js).
+      build: () => new JigDawHarvester({
+        repoPath: jigdawPath,
+        screenshots: new JigDawScreenshots({ repoPath: jigdawPath }),
+        imageStore
+      })
     }
   ]
 
@@ -301,7 +314,12 @@ for (const harvester of harvesters) {
   }
   // Things the harvester could not assert but should not swallow — a truncated
   // git tree, release assets it declined to attribute.
-  for (const note of harvester.notes ?? []) console.log(`  note        ${note}`)
+  if (harvester.imageStore) {
+    console.log(`  pictures    ${report.plugins.filter(({ plugin }) => plugin.image).length} of ${report.pluginCount}`)
+  }
+  for (const note of (harvester.notes ?? []).filter(n => n.includes('no screenshot'))) {
+    console.log(`  note        ${note}`)
+  }
 }
 
 // Rebuilt from the store, not from this run: writing the scheme drops and

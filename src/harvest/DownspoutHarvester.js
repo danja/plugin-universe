@@ -27,7 +27,14 @@ const doap = NAMESPACES.doap
  * these rather than writing them.
  */
 export class DownspoutHarvester extends Harvester {
-  constructor ({ repoPath, id = 'downspout' } = {}) {
+  /**
+   * @param {object} [options.imageStore] - an `ImageStore`. When given, each
+   *   plugin's screenshot is stored and depicted. Unlike JigDAW's, these are
+   *   never rendered here: downspout generates them from the real DPF UI
+   *   (`scripts/capture-plugin-screenshots.sh`) into `docs/pages/assets/plugins/`,
+   *   and this reads what that wrote.
+   */
+  constructor ({ repoPath, id = 'downspout', imageStore = null } = {}) {
     super({
       id,
       kind: 'source',
@@ -42,6 +49,10 @@ export class DownspoutHarvester extends Harvester {
     })
     this.repoPath = repoPath
     if (!repoPath) throw new HarvestError('DownspoutHarvester needs repoPath')
+    this.imageStore = imageStore
+    // Why a plugin has no picture, reported by bin/ingest.js: a gap that
+    // nothing names is the silent kind.
+    this.notes = []
   }
 
   /**
@@ -163,6 +174,23 @@ export class DownspoutHarvester extends Harvester {
     return { ...record, licence: record.licence ?? 'MIT', pricing: FREE }
   }
 
+  /** The screenshot downspout publishes for this plugin directory, or null. */
+  screenshotPath (name) {
+    const file = path.join(this.repoPath, 'docs', 'pages', 'assets', 'plugins', `${name}.png`)
+    return fs.existsSync(file) ? file : null
+  }
+
+  async #depiction (name) {
+    const file = this.screenshotPath(name)
+    if (!file) return { image: null, note: `${name}: no screenshot in docs/pages/assets/plugins` }
+    try {
+      const stored = await this.imageStore.store(await fs.promises.readFile(file))
+      return { image: stored.url, note: `${name}: shipped screenshot, ${stored.name}` }
+    } catch (error) {
+      return { image: null, note: `${name}: no screenshot — ${error.message}` }
+    }
+  }
+
   async collect () {
     const pluginsDir = path.join(this.repoPath, 'plugins')
     if (!fs.existsSync(pluginsDir)) {
@@ -170,11 +198,18 @@ export class DownspoutHarvester extends Harvester {
     }
 
     const records = []
+    this.notes = []
     for (const entry of await fs.promises.readdir(pluginsDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue
       const file = path.join(pluginsDir, entry.name, 'profile.ttl')
       if (!fs.existsSync(file)) continue
-      records.push(this.#repositoryTerms(await this.readProfile(file)))
+      const record = this.#repositoryTerms(await this.readProfile(file))
+      if (this.imageStore) {
+        const { image, note } = await this.#depiction(entry.name)
+        record.image = image
+        this.notes.push(note)
+      }
+      records.push(record)
     }
     return records
   }
