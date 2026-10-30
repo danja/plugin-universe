@@ -2,6 +2,10 @@
 
 Getting Plugin Universe onto a server, and harvesting once it is there.
 
+> ```sh
+> git pull && docker compose build app && docker compose up -d app
+> ```
+
 The design is in [architecture.md §11](architecture.md). This is the runbook.
 
 ## The live server
